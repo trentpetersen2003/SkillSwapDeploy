@@ -92,3 +92,5 @@ Ben Wolpers: bwolpers
 Nicolas Rossetti: NicolasRossetti
 
 Brionna Swinton: brionnas
+
+# Test merge example
