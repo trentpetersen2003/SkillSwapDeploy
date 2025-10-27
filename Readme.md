@@ -85,10 +85,10 @@ Testing commands will be documented once implemented.
 
 ## Authors
 
-Trent Petersen: trentpetersen2003
+Trent Petersen: @trentpetersen2003
 
-Ben Wolpers: bwolpers
+Ben Wolpers: @bwolpers
 
-Nicolas Rossetti: NicolasRossetti
+Nicolas Rossetti: @NicolasRossetti
 
-Brionna Swinton: brionnas
+Brionna Swinton: @brionnas
