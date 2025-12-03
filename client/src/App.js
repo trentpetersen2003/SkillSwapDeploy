@@ -1,25 +1,87 @@
-import logo from './logo.svg';
-import './App.css';
-import Message from './components/Message';
+// client/src/App.js
+import React, { useEffect, useState } from "react";
+import "./App.css";
 
 function App() {
+  const [users, setUsers] = useState([]);
+  const [nameInput, setNameInput] = useState("");
+  const [emailInput, setEmailInput] = useState("");
+
+  // Load existing users when the page first loads
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        const res = await fetch("/api/users");
+        const data = await res.json();
+        setUsers(data);
+      } catch (err) {
+        console.error("Failed to load users:", err);
+      }
+    }
+
+    fetchUsers();
+  }, []);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    if (!nameInput.trim() || !emailInput.trim()) return;
+
+    const newUser = {
+      name: nameInput.trim(),
+      email: emailInput.trim(),
+    };
+
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUser),
+      });
+
+      const savedUser = await res.json();
+      setUsers((prev) => [...prev, savedUser]);
+
+      // reset form
+      setNameInput("");
+      setEmailInput("");
+    } catch (err) {
+      console.error("Failed to save user:", err);
+    }
+  }
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-        <Message />
-      </header>
+      <h1>SkillSwap</h1>
+
+      <form onSubmit={handleSubmit} className="form">
+        <input
+          placeholder="Name"
+          value={nameInput}
+          onChange={(e) => setNameInput(e.target.value)}
+        />
+        <input
+          placeholder="Email"
+          type="email"
+          value={emailInput}
+          onChange={(e) => setEmailInput(e.target.value)}
+        />
+        <button type="submit">Add</button>
+      </form>
+
+      <h2>Users from backend</h2>
+      {users.length === 0 ? (
+        <p>No users yet. Add one above.</p>
+      ) : (
+        <ul className="users">
+          {users.map((user) => (
+            <li key={user._id}>
+              {user.name} – {user.email}
+           </li>
+          ))}
+        </ul>
+      )}
+
     </div>
   );
 }
