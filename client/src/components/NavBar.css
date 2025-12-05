@@ -1,0 +1,36 @@
+.navbar {
+  background-color: #2563eb;
+  padding: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.navbar-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 16px 24px;
+  font-size: 16px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  border-bottom: 3px solid transparent;
+}
+
+.nav-link:hover {
+  background-color: #1d4ed8;
+}
+
+.nav-link.active {
+  background-color: #1e40af;
+  border-bottom-color: white;
+}
