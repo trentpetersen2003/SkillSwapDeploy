@@ -2,94 +2,146 @@
 import React, { useEffect, useState } from "react";
 import "./App.css";
 
+const initialForm = { name: "", email: "", password: "" };
+
 function App() {
-  const [users, setUsers] = useState([]);
-  const [nameInput, setNameInput] = useState("");
-  const [emailInput, setEmailInput] = useState("");
-  const [passwordInput, setPasswordInput] = useState("");
+  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [form, setForm] = useState(initialForm);
+  const [message, setMessage] = useState("");
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState("");
 
   useEffect(() => {
-    async function fetchUsers() {
-      try {
-        const res = await fetch("/api/users");
-        const data = await res.json();
-        setUsers(data);
-      } catch (err) {
-        console.error("Failed to load users:", err);
-      }
+    const savedToken = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
+    if (savedToken && savedUser) {
+      setToken(savedToken);
+      setUser(JSON.parse(savedUser));
     }
-    fetchUsers();
   }, []);
 
-  async function handleSubmit(event) {
-    event.preventDefault();
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  }
 
-    if (!nameInput.trim() || !emailInput.trim() || !passwordInput.trim()) return;
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setMessage("");
 
-    const newUser = {
-      name: nameInput.trim(),
-      email: emailInput.trim(),
-      password: passwordInput.trim(),
-    };
+    if (!form.email.trim() || !form.password.trim()) {
+      setMessage("Email and password are required.");
+      return;
+    }
+    if (mode === "register" && !form.name.trim()) {
+      setMessage("Name is required to register.");
+      return;
+    }
+
+    const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+    const body =
+      mode === "login"
+        ? { email: form.email.trim(), password: form.password }
+        : { name: form.name.trim(), email: form.email.trim(), password: form.password };
 
     try {
-      const res = await fetch("/api/users", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newUser),
+        body: JSON.stringify(body),
       });
+      const data = await res.json();
 
-      const savedUser = await res.json();
-      if (res.ok) {
-        setUsers((prev) => [...prev, savedUser]);
-        setNameInput("");
-        setEmailInput("");
-        setPasswordInput("");
-      } else {
-        console.error("Failed to save user:", savedUser);
+      if (!res.ok) {
+        setMessage(data.message || "Request failed");
+        return;
       }
+
+      if (mode === "login") {
+        setUser(data.user);
+        setToken(data.token);
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        setMessage("Logged in!");
+      } else {
+        setMessage("Account created. You can log in now.");
+        setMode("login");
+      }
+
+      setForm(initialForm);
     } catch (err) {
-      console.error("Failed to save user:", err);
+      console.error(err);
+      setMessage("Something went wrong. Try again.");
     }
+  }
+
+  function handleLogout() {
+    setUser(null);
+    setToken("");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setMessage("Logged out.");
   }
 
   return (
     <div className="App">
-      <h1>SkillSwap</h1>
+      <div className="card">
+        <h1>SkillSwap</h1>
+        <p className="subtitle">
+          {mode === "login" ? "Welcome back" : "Create your account"}
+        </p>
 
-      <form onSubmit={handleSubmit} className="form">
-        <input
-          placeholder="Name"
-          value={nameInput}
-          onChange={(e) => setNameInput(e.target.value)}
-        />
-        <input
-          placeholder="Email"
-          type="email"
-          value={emailInput}
-          onChange={(e) => setEmailInput(e.target.value)}
-        />
-        <input
-          placeholder="Password"
-          type="password"
-          value={passwordInput}
-          onChange={(e) => setPasswordInput(e.target.value)}
-        />
-        <button type="submit">Add</button>
-      </form>
+        <form onSubmit={handleSubmit} className="form">
+          {mode === "register" && (
+            <input
+              name="name"
+              placeholder="Name"
+              value={form.name}
+              onChange={handleChange}
+            />
+          )}
+          <input
+            name="email"
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={handleChange}
+          />
+          <input
+            name="password"
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={handleChange}
+          />
+          <button type="submit">
+            {mode === "login" ? "Log in" : "Sign up"}
+          </button>
+        </form>
 
-      <h2>Users from backend</h2>
-      {users.length === 0 ? (
-        <p>No users yet. Add one above.</p>
-      ) : (
-        <ul className="users">
-          {users.map((user) => (
-            <li key={user._id || user.id}>
-              {user.name} — {user.email}
-            </li>
-          ))}
-        </ul>
-      )}
+        <div className="switcher">
+          {mode === "login" ? (
+            <button type="button" onClick={() => setMode("register")}>
+              Need an account? Sign up
+            </button>
+          ) : (
+            <button type="button" onClick={() => setMode("login")}>
+              Have an account? Log in
+            </button>
+          )}
+        </div>
+
+        {user && (
+          <div className="status">
+            <p>Signed in as {user.name || user.email}</p>
+            <button type="button" onClick={handleLogout}>
+              Log out
+            </button>
+          </div>
+        )}
+
+        {message && <div className="message">{message}</div>}
+      </div>
     </div>
   );
 }

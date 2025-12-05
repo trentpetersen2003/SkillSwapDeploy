@@ -1,5 +1,6 @@
 // server/routes/users.js
 const express = require("express");
+const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
@@ -44,6 +45,26 @@ router.post("/", async (req, res) => {
   } catch (err) {
     console.error("Error creating user:", err);
     res.status(500).json({ message: "Error creating user" });
+  }
+});
+
+// DELETE /api/users/:id - remove a user by id
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid user id" });
+  }
+
+  try {
+    const deleted = await User.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({ message: "User deleted", id: deleted._id });
+  } catch (err) {
+    console.error("Error deleting user:", err);
+    res.status(500).json({ message: "Error deleting user" });
   }
 });
 
