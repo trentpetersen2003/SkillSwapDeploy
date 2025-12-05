@@ -1,5 +1,11 @@
 // client/src/App.js
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import NavBar from "./components/NavBar";
+import ForYou from "./components/ForYou";
+import Browse from "./components/Browse";
+import Calendar from "./components/Calendar";
+import Profile from "./components/Profile";
 import "./App.css";
 
 const initialForm = { name: "", email: "", password: "" };
