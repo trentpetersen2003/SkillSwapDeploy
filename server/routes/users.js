@@ -20,26 +20,32 @@ router.get("/", async (req, res) => {
 // POST /api/users - create a new user
 router.post("/", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, username, email, password } = req.body;
 
-    if (!name || !email || !password) {
+    if (!name || !username || !email || !password) {
       return res
         .status(400)
-        .json({ message: "Name, email, and password are required" });
+        .json({ message: "Name, username, email, and password are required" });
     }
 
-    const existing = await User.findOne({ email });
-    if (existing) {
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
       return res.status(409).json({ message: "Email is already in use" });
     }
 
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(409).json({ message: "Username is already taken" });
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, passwordHash });
+    const user = await User.create({ name, username, email, passwordHash });
 
     console.log("Created user:", user._id);
     res.status(201).json({
       id: user._id,
       name: user.name,
+      username: user.username,
       email: user.email,
     });
   } catch (err) {
@@ -66,6 +72,67 @@ router.delete("/:id", async (req, res) => {
     console.error("Error deleting user:", err);
     res.status(500).json({ message: "Error deleting user" });
   }
+});
+
+// GET /api/users/profile - get current user profile
+router.get("/profile", async (req, res) => {
+  const auth = require("../middleware/auth");
+  await auth(req, res, async () => {
+    try {
+      const user = await User.findById(req.userId).select("-passwordHash");
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Migrate old firstName/lastName to name if needed
+      const userData = user.toObject();
+      if (!userData.name && (userData.firstName || userData.lastName)) {
+        userData.name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+        delete userData.firstName;
+        delete userData.lastName;
+      }
+      
+      res.json(userData);
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+      res.status(500).json({ message: "Error fetching profile" });
+    }
+  });
+});
+
+// PUT /api/users/profile - update current user profile
+router.put("/profile", async (req, res) => {
+  const auth = require("../middleware/auth");
+  await auth(req, res, async () => {
+    try {
+      const { name, city, timeZone, bio, availability, skills } = req.body;
+
+      if (!name || !city || !timeZone) {
+        return res.status(400).json({ message: "Name, city, and time zone are required" });
+      }
+
+      const updateData = { name, city, timeZone, bio, availability, skills };
+      
+      // Remove old firstName/lastName if they exist
+      const user = await User.findByIdAndUpdate(
+        req.userId,
+        { 
+          $set: updateData,
+          $unset: { firstName: "", lastName: "" }
+        },
+        { new: true, runValidators: true }
+      ).select("-passwordHash");
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(user);
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      res.status(500).json({ message: "Error updating profile" });
+    }
+  });
 });
 
 module.exports = router;
