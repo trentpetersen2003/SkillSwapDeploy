@@ -1,6 +1,6 @@
 // client/src/App.js
-import React, { useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import NavBar from "./components/NavBar";
 import ForYou from "./components/ForYou";
 import Browse from "./components/Browse";
@@ -10,21 +10,11 @@ import "./App.css";
 
 const initialForm = { name: "", email: "", password: "" };
 
-function App() {
-  const [mode, setMode] = useState("login"); // "login" | "register"
+function LoginPage({ onLogin }) {
+  const [mode, setMode] = useState("login");
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState("");
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState("");
-
-  useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-    }
-  }, []);
+  const navigate = useNavigate();
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -64,11 +54,8 @@ function App() {
       }
 
       if (mode === "login") {
-        setUser(data.user);
-        setToken(data.token);
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        setMessage("Logged in!");
+        onLogin(data.user, data.token);
+        navigate("/foryou");
       } else {
         setMessage("Account created. You can log in now.");
         setMode("login");
@@ -79,14 +66,6 @@ function App() {
       console.error(err);
       setMessage("Something went wrong. Try again.");
     }
-  }
-
-  function handleLogout() {
-    setUser(null);
-    setToken("");
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setMessage("Logged out.");
   }
 
   return (
@@ -137,18 +116,102 @@ function App() {
           )}
         </div>
 
-        {user && (
-          <div className="status">
-            <p>Signed in as {user.name || user.email}</p>
-            <button type="button" onClick={handleLogout}>
-              Log out
-            </button>
-          </div>
-        )}
-
         {message && <div className="message">{message}</div>}
       </div>
     </div>
+  );
+}
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState("");
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
+    if (savedToken && savedUser) {
+      setToken(savedToken);
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
+
+  function handleLogin(userData, userToken) {
+    setUser(userData);
+    setToken(userToken);
+    localStorage.setItem("token", userToken);
+    localStorage.setItem("user", JSON.stringify(userData));
+  }
+
+  function handleLogout() {
+    setUser(null);
+    setToken("");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  }
+
+  return (
+    <Router>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            user ? <Navigate to="/foryou" replace /> : <LoginPage onLogin={handleLogin} />
+          }
+        />
+        <Route
+          path="/foryou"
+          element={
+            user ? (
+              <>
+                <NavBar onLogout={handleLogout} />
+                <ForYou />
+              </>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/browse"
+          element={
+            user ? (
+              <>
+                <NavBar onLogout={handleLogout} />
+                <Browse />
+              </>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/calendar"
+          element={
+            user ? (
+              <>
+                <NavBar onLogout={handleLogout} />
+                <Calendar />
+              </>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            user ? (
+              <>
+                <NavBar onLogout={handleLogout} />
+                <Profile onLogout={handleLogout} />
+              </>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+      </Routes>
+    </Router>
   );
 }
 
