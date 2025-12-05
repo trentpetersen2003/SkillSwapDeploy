@@ -1,54 +1,83 @@
 .App {
-  font-family: system-ui, sans-serif;
-  min-height: 100vh;
-}
-
-.login-page {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
+  background: #f5f7fb;
+  font-family: system-ui, sans-serif;
+  padding: 24px;
+}
+
+.card {
+  background: white;
+  padding: 28px 24px;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
   text-align: center;
 }
 
-.page {
-  padding: 40px 16px;
-  text-align: center;
+.subtitle {
+  color: #5a6473;
+  margin: 4px 0 16px;
 }
 
 .form {
-  margin: 16px auto 24px;
   display: flex;
-  gap: 8px;
-  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .form input {
-  padding: 6px 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: 10px 12px;
+  border: 1px solid #d3d7de;
+  border-radius: 8px;
+  font-size: 14px;
 }
 
 .form button {
-  padding: 6px 12px;
+  margin-top: 4px;
+  padding: 10px 12px;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   background: #2563eb;
-  color: white;
+  color: #fff;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .form button:hover {
-  background: #1d4ed8;
+  background: #1e4fc2;
 }
 
-.users {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.switcher {
+  margin: 12px 0 6px;
 }
 
-.users li {
-  margin-bottom: 4px;
+.switcher button {
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.status {
+  margin: 10px 0;
+  color: #1f2933;
+}
+
+.status button {
+  border: none;
+  background: #e5e7eb;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.message {
+  margin-top: 8px;
+  color: #0f172a;
+  font-weight: 600;
 }
