@@ -20,26 +20,32 @@ router.get("/", async (req, res) => {
 // POST /api/users - create a new user
 router.post("/", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, username, email, password } = req.body;
 
-    if (!name || !email || !password) {
+    if (!name || !username || !email || !password) {
       return res
         .status(400)
-        .json({ message: "Name, email, and password are required" });
+        .json({ message: "Name, username, email, and password are required" });
     }
 
-    const existing = await User.findOne({ email });
-    if (existing) {
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
       return res.status(409).json({ message: "Email is already in use" });
     }
 
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(409).json({ message: "Username is already taken" });
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, passwordHash });
+    const user = await User.create({ name, username, email, passwordHash });
 
     console.log("Created user:", user._id);
     res.status(201).json({
       id: user._id,
       name: user.name,
+      username: user.username,
       email: user.email,
     });
   } catch (err) {
