@@ -68,4 +68,65 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// GET /api/users/profile - get current user profile
+router.get("/profile", async (req, res) => {
+  const auth = require("../middleware/auth");
+  await auth(req, res, async () => {
+    try {
+      const user = await User.findById(req.userId).select("-passwordHash");
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Migrate old firstName/lastName to name if needed
+      const userData = user.toObject();
+      if (!userData.name && (userData.firstName || userData.lastName)) {
+        userData.name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+        delete userData.firstName;
+        delete userData.lastName;
+      }
+      
+      res.json(userData);
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+      res.status(500).json({ message: "Error fetching profile" });
+    }
+  });
+});
+
+// PUT /api/users/profile - update current user profile
+router.put("/profile", async (req, res) => {
+  const auth = require("../middleware/auth");
+  await auth(req, res, async () => {
+    try {
+      const { name, city, timeZone, bio, availability, skills } = req.body;
+
+      if (!name || !city || !timeZone) {
+        return res.status(400).json({ message: "Name, city, and time zone are required" });
+      }
+
+      const updateData = { name, city, timeZone, bio, availability, skills };
+      
+      // Remove old firstName/lastName if they exist
+      const user = await User.findByIdAndUpdate(
+        req.userId,
+        { 
+          $set: updateData,
+          $unset: { firstName: "", lastName: "" }
+        },
+        { new: true, runValidators: true }
+      ).select("-passwordHash");
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(user);
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      res.status(500).json({ message: "Error updating profile" });
+    }
+  });
+});
+
 module.exports = router;
