@@ -8,7 +8,7 @@ import Calendar from "./components/Calendar";
 import Profile from "./components/Profile";
 import "./App.css";
 
-const initialForm = { name: "", email: "", password: "" };
+const initialForm = { name: "", username: "", email: "", password: "" };
 
 function LoginPage({ onLogin }) {
   const [mode, setMode] = useState("login");
@@ -33,12 +33,20 @@ function LoginPage({ onLogin }) {
       setMessage("Name is required to register.");
       return;
     }
+    if (mode === "register" && !form.username.trim()) { 
+      setMessage("Username is required to register."); 
+      return; 
+    }
 
     const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
     const body =
       mode === "login"
         ? { email: form.email.trim(), password: form.password }
-        : { name: form.name.trim(), email: form.email.trim(), password: form.password };
+        : { 
+            name: form.name.trim(),
+            username: form.username.trim(),
+            email: form.email.trim(), 
+            password: form.password };
 
     try {
       const res = await fetch(endpoint, {
@@ -78,12 +86,20 @@ function LoginPage({ onLogin }) {
 
         <form onSubmit={handleSubmit} className="form">
           {mode === "register" && (
+            <>
             <input
               name="name"
               placeholder="Name"
               value={form.name}
               onChange={handleChange}
             />
+            <input
+              name="username"
+              placeholder="Username"
+              value={form.username}
+              onChange={handleChange}
+            />
+            </>
           )}
           <input
             name="email"
