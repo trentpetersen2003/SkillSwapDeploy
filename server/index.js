@@ -6,6 +6,8 @@ const cors = require("cors");
 const userRoutes = require("./routes/users");
 const authRoutes = require("./routes/auth");
 const auth = require("./middleware/auth");
+const forYouRoutes = require("./routes/forYou");
+
 
 dotenv.config();
 
@@ -41,6 +43,8 @@ app.get("/api/health", (req, res) => {
 // routes
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/for-you", forYouRoutes);
+
 
 // start server
 app.listen(PORT, () => {

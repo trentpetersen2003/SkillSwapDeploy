@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import NavBar from "./components/NavBar";
-import ForYou from "./components/ForYou";
-import Browse from "./components/Browse";
-import Calendar from "./components/Calendar";
-import Profile from "./components/Profile";
+import ForYou from "./pages/ForYou";
+import Browse from "./pages/Browse";
+import Calendar from "./pages/Calendar";
+import Profile from "./pages/Profile";
 import "./App.css";
 
 const initialForm = { name: "", email: "", password: "" };
@@ -41,6 +41,8 @@ function LoginPage({ onLogin }) {
         : { name: form.name.trim(), email: form.email.trim(), password: form.password };
 
     try {
+      console.log("Mode:", mode, "Endpoint:", endpoint, "Body:", body);
+
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

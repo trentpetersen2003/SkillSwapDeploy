@@ -81,3 +81,70 @@
   color: #0f172a;
   font-weight: 600;
 }
+.for-you {
+  max-width: 800px;
+  margin: 3rem auto;
+  padding: 0 1.5rem;
+}
+
+.for-you__title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.for-you__subtitle {
+  color: #555;
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+}
+
+.for-you__message {
+  color: #c0392b;
+  margin-bottom: 1rem;
+}
+
+.for-you__empty {
+  color: #555;
+}
+
+.for-you__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.for-you__card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.9rem 1.2rem;
+  border-radius: 12px;
+  border: 1px solid #e3e3e3;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+}
+
+.for-you__name {
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+}
+
+.for-you__email {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.for-you__swap-btn {
+  padding: 0.4rem 1.1rem;
+  border-radius: 999px;
+  border: none;
+  background: #1a73e8;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.for-you__swap-btn:hover {
+  filter: brightness(0.95);
+}
