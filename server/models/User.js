@@ -1,6 +1,35 @@
 // server/models/User.js
 const mongoose = require("mongoose");
 
+const availabilitySchema = new mongoose.Schema({
+  day: {
+    type: String,
+    required: true,
+  },
+  timeRange: {
+    type: String,
+    required: true,
+  },
+}, { _id: false });
+
+const skillSchema = new mongoose.Schema({
+  skillName: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  category: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  level: {
+    type: String,
+    required: true,
+    enum: ['Novice', 'Proficient', 'Expert'],
+  },
+}, { _id: false });
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -20,10 +49,27 @@ const userSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
-     passwordHash: {
+    passwordHash: {
       type: String,
       required: true,
     },
+    city: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    timeZone: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    bio: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    availability: [availabilitySchema],
+    skills: [skillSchema],
   },
   {
     timestamps: true,
