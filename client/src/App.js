@@ -6,8 +6,8 @@ function App() {
   const [users, setUsers] = useState([]);
   const [nameInput, setNameInput] = useState("");
   const [emailInput, setEmailInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
 
-  // Load existing users when the page first loads
   useEffect(() => {
     async function fetchUsers() {
       try {
@@ -18,18 +18,18 @@ function App() {
         console.error("Failed to load users:", err);
       }
     }
-
     fetchUsers();
   }, []);
 
   async function handleSubmit(event) {
     event.preventDefault();
 
-    if (!nameInput.trim() || !emailInput.trim()) return;
+    if (!nameInput.trim() || !emailInput.trim() || !passwordInput.trim()) return;
 
     const newUser = {
       name: nameInput.trim(),
       email: emailInput.trim(),
+      password: passwordInput.trim(),
     };
 
     try {
@@ -40,11 +40,14 @@ function App() {
       });
 
       const savedUser = await res.json();
-      setUsers((prev) => [...prev, savedUser]);
-
-      // reset form
-      setNameInput("");
-      setEmailInput("");
+      if (res.ok) {
+        setUsers((prev) => [...prev, savedUser]);
+        setNameInput("");
+        setEmailInput("");
+        setPasswordInput("");
+      } else {
+        console.error("Failed to save user:", savedUser);
+      }
     } catch (err) {
       console.error("Failed to save user:", err);
     }
@@ -66,6 +69,12 @@ function App() {
           value={emailInput}
           onChange={(e) => setEmailInput(e.target.value)}
         />
+        <input
+          placeholder="Password"
+          type="password"
+          value={passwordInput}
+          onChange={(e) => setPasswordInput(e.target.value)}
+        />
         <button type="submit">Add</button>
       </form>
 
@@ -75,13 +84,12 @@ function App() {
       ) : (
         <ul className="users">
           {users.map((user) => (
-            <li key={user._id}>
-              {user.name} – {user.email}
-           </li>
+            <li key={user._id || user.id}>
+              {user.name} — {user.email}
+            </li>
           ))}
         </ul>
       )}
-
     </div>
   );
 }
