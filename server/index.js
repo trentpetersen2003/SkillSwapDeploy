@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const userRoutes = require("./routes/users");
+const authRoutes = require("./routes/auth");
+const auth = require("./middleware/auth");
 
 dotenv.config();
 
@@ -12,6 +14,14 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 app.use(express.json());
+
+// TEMP route to verify auth middleware is working
+app.get("/api/test-protected", auth, (req, res) => {
+  res.json({
+    message: "Protected route hit successfully",
+    userId: req.userId,
+  });
+});
 
 // connect to MongoDB
 mongoose
@@ -30,6 +40,7 @@ app.get("/api/health", (req, res) => {
 
 // routes
 app.use("/api/users", userRoutes);
+app.use("/api/auth", authRoutes);
 
 // start server
 app.listen(PORT, () => {
