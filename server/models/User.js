@@ -76,6 +76,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    phoneNumber: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     timeZone: {
       type: String,
       trim: true,
