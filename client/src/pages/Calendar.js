@@ -1,6 +1,6 @@
 // client/src/pages/Calendar.js
 import React, { useEffect, useState } from "react";
-import Calendar from "react-calendar";
+import ReactCalendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import "../Calendar.css";
 
@@ -203,7 +203,7 @@ function CalendarPage() {
       {view === "calendar" ? (
         <div className="calendar-view">
           <div className="calendar-view__calendar">
-            <Calendar
+            <ReactCalendar
               onChange={setSelectedDate}
               value={selectedDate}
               tileContent={tileContent}

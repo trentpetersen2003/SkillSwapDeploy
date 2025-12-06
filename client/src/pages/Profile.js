@@ -60,11 +60,13 @@ function Profile({ onLogout }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState({
     name: '',
+    username: '',
     city: '',
     timeZone: '',
     bio: '',
     availability: [],
-    skills: []
+    skills: [],
+    skillsWanted: []
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -81,6 +83,11 @@ function Profile({ onLogout }) {
     endPeriod: 'PM'
   });
   const [newSkill, setNewSkill] = useState({
+    skillName: '',
+    category: '',
+    level: 'Novice'
+  });
+  const [newSkillWanted, setNewSkillWanted] = useState({
     skillName: '',
     category: '',
     level: 'Novice'
@@ -111,6 +118,7 @@ function Profile({ onLogout }) {
       const data = await res.json();
       setProfile({
         name: data.name || '',
+        username: data.username || '',
         city: data.city || '',
         timeZone: data.timeZone || '',
         bio: data.bio || '',
@@ -124,7 +132,8 @@ function Profile({ onLogout }) {
           }
           return slot;
         }),
-        skills: data.skills || []
+        skills: data.skills || [],
+        skillsWanted: data.skillsWanted || []
       });
     } catch (err) {
       console.error(err);
@@ -156,6 +165,11 @@ function Profile({ onLogout }) {
   function handleSkillChange(e) {
     const { name, value } = e.target;
     setNewSkill(prev => ({ ...prev, [name]: value }));
+  }
+
+  function handleSkillWantedChange(e) {
+    const { name, value } = e.target;
+    setNewSkillWanted(prev => ({ ...prev, [name]: value }));
   }
 
   function timeToMinutes(hour, minute, period) {
@@ -264,6 +278,33 @@ function Profile({ onLogout }) {
     }));
   }
 
+  function addSkillWanted() {
+    setSkillError('');
+    
+    if (!newSkillWanted.skillName.trim() || !newSkillWanted.category) {
+      setSkillError('Please enter skill name and select a category');
+      return;
+    }
+
+    setProfile(prev => ({
+      ...prev,
+      skillsWanted: [...prev.skillsWanted, { ...newSkillWanted }]
+    }));
+    
+    setNewSkillWanted({
+      skillName: '',
+      category: '',
+      level: 'Novice'
+    });
+  }
+
+  function removeSkillWanted(index) {
+    setProfile(prev => ({
+      ...prev,
+      skillsWanted: prev.skillsWanted.filter((_, i) => i !== index)
+    }));
+  }
+
   function removeAvailability(index) {
     setProfile(prev => ({
       ...prev,
@@ -275,8 +316,8 @@ function Profile({ onLogout }) {
     e.preventDefault();
     setMessage('');
 
-    if (!profile.name || !profile.city || !profile.timeZone) {
-      setMessage('Name, city, and time zone are required');
+    if (!profile.name || !profile.username || !profile.city || !profile.timeZone) {
+      setMessage('Name, username, location, and time zone are required');
       return;
     }
 
@@ -321,11 +362,13 @@ function Profile({ onLogout }) {
 
       setProfile({
         name: data.name || '',
+        username: data.username || '',
         city: data.city || '',
         timeZone: data.timeZone || '',
         bio: data.bio || '',
         availability: sortedAvailability,
-        skills: data.skills || []
+        skills: data.skills || [],
+        skillsWanted: data.skillsWanted || []
       });
       setMessage('Profile updated successfully!');
     } catch (err) {
@@ -363,8 +406,15 @@ function Profile({ onLogout }) {
           required
         />
         <input
+          name="username"
+          placeholder="Username *"
+          value={profile.username}
+          onChange={handleChange}
+          required
+        />
+        <input
           name="city"
-          placeholder="City *"
+          placeholder="Location *"
           value={profile.city}
           onChange={handleChange}
           required
@@ -574,6 +624,57 @@ function Profile({ onLogout }) {
           </div>
           
           <button type="button" onClick={addSkill}>Add Skill</button>
+        </div>
+
+        <h3>Skills You Want</h3>
+        {profile.skillsWanted.length > 0 && (
+          <div className="skills-list" style={{ marginBottom: '15px' }}>
+            {profile.skillsWanted.map((skill, index) => (
+              <div key={index} className="availability-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span><strong>{skill.skillName}</strong> - {skill.category} ({skill.level})</span>
+                <button type="button" onClick={() => removeSkillWanted(index)}>Remove</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="skill-input" style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '10px' }}>
+            <input
+              name="skillName"
+              placeholder="Skill Name (e.g., Guitar Playing)"
+              value={newSkillWanted.skillName}
+              onChange={handleSkillWantedChange}
+              style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+            />
+          </div>
+          
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+            <select
+              name="category"
+              value={newSkillWanted.category}
+              onChange={handleSkillWantedChange}
+              style={{ flex: 1, padding: '8px', fontSize: '14px' }}
+            >
+              <option value="">Select Category *</option>
+              {SKILL_CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            
+            <select
+              name="level"
+              value={newSkillWanted.level}
+              onChange={handleSkillWantedChange}
+              style={{ flex: 1, padding: '8px', fontSize: '14px' }}
+            >
+              {SKILL_LEVELS.map(level => (
+                <option key={level} value={level}>{level}</option>
+              ))}
+            </select>
+          </div>
+          
+          <button type="button" onClick={addSkillWanted}>Add Skill Wanted</button>
         </div>
 
         {skillError && (

@@ -30,6 +30,24 @@ const skillSchema = new mongoose.Schema({
   },
 }, { _id: false });
 
+const skillWantedSchema = new mongoose.Schema({
+  skillName: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  category: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  level: {
+    type: String,
+    required: true,
+    enum: ['Novice', 'Proficient', 'Expert'],
+  },
+}, { _id: false });
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -70,6 +88,7 @@ const userSchema = new mongoose.Schema(
     },
     availability: [availabilitySchema],
     skills: [skillSchema],
+    skillsWanted: [skillWantedSchema],
   },
   {
     timestamps: true,
