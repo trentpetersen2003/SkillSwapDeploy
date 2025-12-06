@@ -57,13 +57,32 @@ The frontend should automatically reload as you make changes.
 
 ## Deployment
 
-Once the app is ready for public use, we plan to deploy:
+The application is deployed as follows:
 
-Frontend using Vercel
+**Frontend:** GitHub Pages (https://sccapstone.github.io/VectorForge)
+- Automatically deploys when changes are pushed to the main branch
+- Uses GitHub Actions workflow for CI/CD
 
-Backend using Render or Railway
+**Backend:** Planned deployment using Render or Railway (details TBD)
 
-Deployment details will be added here later. Note that passwords and secret keys will never be committed to Git or included in this README.
+### Manual Deployment (Alternative)
+
+To manually deploy the frontend to GitHub Pages:
+
+```bash
+cd client
+npm run deploy
+```
+
+Note: Passwords and secret keys will never be committed to Git or included in this README.
+
+### GitHub Pages Setup
+
+The frontend is configured to deploy automatically via GitHub Actions. To enable this:
+
+1. Go to your repository Settings → Pages
+2. Under "Build and deployment", select "Source: GitHub Actions"
+3. Push changes to the main branch to trigger deployment
 
 ## Testing
 
