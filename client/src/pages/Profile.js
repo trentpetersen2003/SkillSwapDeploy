@@ -391,19 +391,20 @@ function Profile({ onLogout }) {
   }
 
   if (loading) {
-    return (
-      <div className="page">
-        <h1>Profile</h1>
-        <p>Loading...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="page">
-      <h1>Profile</h1>
-      
-      <form onSubmit={handleSave} className="form">
+    <div className="profile-page">
+      <h1 className="profile-title">Profile</h1>
+      <p>Loading...</p>
+    </div>
+  );
+}
+
+return (
+  <div className="profile-page">
+    <h1 className="profile-title">Profile</h1>
+   
+
+    <form onSubmit={handleSave} className="profile-form">
         <input
           name="name"
           placeholder="Name *"
