@@ -20,7 +20,6 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
-        const userData = JSON.parse(storedUser);
         // Fetch full profile to get skills
         fetchCurrentUserProfile();
       } catch (err) {
@@ -108,12 +107,6 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
   const recipientSkills =
     user.skills && user.skills.length > 0
       ? user.skills.map((s) => s.skillName || s).filter(Boolean)
-      : [];
-
-  // Get what user wants to learn (what we can offer)
-  const recipientWants =
-    user.skillsWanted && user.skillsWanted.length > 0
-      ? user.skillsWanted.map((s) => s.skillName || s).filter(Boolean)
       : [];
 
   return (

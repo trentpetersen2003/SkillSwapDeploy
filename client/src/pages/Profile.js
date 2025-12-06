@@ -95,11 +95,7 @@ function Profile({ onLogout }) {
     level: 'Novice'
   });
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  async function fetchProfile() {
+  const fetchProfile = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/');
@@ -145,7 +141,11 @@ function Profile({ onLogout }) {
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
 
   function handleChange(e) {
     const { name, value } = e.target;

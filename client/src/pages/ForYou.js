@@ -13,11 +13,7 @@ function ForYouPage() {
   const [selectedUserForSwap, setSelectedUserForSwap] = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  async function loadUsers() {
+  const loadUsers = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
       navigate("/");
@@ -46,7 +42,11 @@ function ForYouPage() {
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
   function toggleExpand(userId) {
     setExpandedUser(expandedUser === userId ? null : userId);
