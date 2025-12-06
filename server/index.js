@@ -5,9 +5,9 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const userRoutes = require("./routes/users");
 const authRoutes = require("./routes/auth");
+const swapRoutes = require("./routes/swaps");
 const auth = require("./middleware/auth");
 const forYouRoutes = require("./routes/forYou");
-
 
 dotenv.config();
 
@@ -44,7 +44,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/for-you", forYouRoutes);
-
+app.use("/api/swaps", swapRoutes);
 
 // start server
 app.listen(PORT, () => {

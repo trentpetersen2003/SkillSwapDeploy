@@ -1,0 +1,368 @@
+/* Calendar CSS */ 
+.calendar-page {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+}
+
+.calendar-page__loading {
+  text-align: center;
+  padding: 3rem;
+  font-size: 1.1rem;
+  color: #666;
+}
+
+.calendar-page__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.calendar-page__title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.calendar-page__view-toggle {
+  display: flex;
+  gap: 0.5rem;
+  background: #f3f4f6;
+  padding: 0.25rem;
+  border-radius: 8px;
+}
+
+.view-toggle-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.view-toggle-btn:hover {
+  background: #e5e7eb;
+}
+
+.view-toggle-btn.active {
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-page__message {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+/* List View */
+.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.list-view__section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  color: #1f2937;
+}
+
+.section-empty {
+  color: #6b7280;
+  text-align: center;
+  padding: 2rem;
+}
+
+.swaps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Calendar View */
+.calendar-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.calendar-view__calendar {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.custom-calendar {
+  width: 100%;
+  border: none;
+  font-family: inherit;
+}
+
+.custom-calendar .react-calendar__tile {
+  padding: 1rem 0.5rem;
+  position: relative;
+}
+
+.custom-calendar .react-calendar__tile:enabled:hover,
+.custom-calendar .react-calendar__tile:enabled:focus {
+  background: #e0f2fe;
+  border-radius: 8px;
+}
+
+.custom-calendar .react-calendar__tile--active {
+  background: #2563eb !important;
+  color: white;
+  border-radius: 8px;
+}
+
+.calendar-tile-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #ef4444;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-view__details {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.details-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  color: #1f2937;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.details-empty {
+  color: #6b7280;
+  text-align: center;
+  padding: 2rem;
+}
+
+.details-swaps {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Swap Card */
+.swap-card {
+  background: #f9fafb;
+  border-left: 4px solid #2563eb;
+  padding: 1rem;
+  border-radius: 8px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.swap-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.swap-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+}
+
+.swap-card__user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.user-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.user-name {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.user-username {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.swap-card__status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+}
+
+.swap-card__skills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 6px;
+}
+
+.skill-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.skill-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.skill-value {
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.swap-card__details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.detail-icon {
+  font-size: 1rem;
+}
+
+.swap-card__notes {
+  background: white;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #4b5563;
+  margin-bottom: 0.75rem;
+}
+
+.swap-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.confirm-btn {
+  background: #10b981;
+  color: white;
+}
+
+.confirm-btn:hover {
+  background: #059669;
+}
+
+.cancel-btn {
+  background: #ef4444;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #dc2626;
+}
+
+.complete-btn {
+  background: #6366f1;
+  color: white;
+}
+
+.complete-btn:hover {
+  background: #4f46e5;
+}
+
+.delete-btn {
+  background: #f3f4f6;
+  color: #ef4444;
+  border: 1px solid #ef4444;
+}
+
+.delete-btn:hover {
+  background: #fee2e2;
+}
+
+/* Responsive */
+@media (max-width: 968px) {
+  .calendar-view {
+    grid-template-columns: 1fr;
+  }
+
+  .swap-card__skills {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .calendar-page__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .swap-card__header {
+    flex-direction: column;
+  }
+
+  .swap-card__details {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
