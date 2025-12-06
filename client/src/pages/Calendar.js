@@ -130,6 +130,10 @@ function CalendarPage() {
     .filter((swap) => new Date(swap.scheduledDate) >= new Date())
     .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
 
+  // Organize upcoming swaps by status
+  const pendingRequests = upcomingSwaps.filter((swap) => swap.status === "pending");
+  const activeSwaps = upcomingSwaps.filter((swap) => swap.status === "confirmed");
+  
   // Get past swaps
   const pastSwaps = swaps
     .filter((swap) => new Date(swap.scheduledDate) < new Date())
@@ -244,15 +248,41 @@ function CalendarPage() {
         <div className="list-view">
           <section className="list-view__section">
             <h2 className="section-title">
-              Upcoming Swaps ({upcomingSwaps.length})
+              Pending Requests ({pendingRequests.length})
             </h2>
-            {upcomingSwaps.length === 0 ? (
+            {pendingRequests.length === 0 ? (
               <p className="section-empty">
-                No upcoming swaps. Visit the "For You" page to schedule one!
+                No pending requests.
               </p>
             ) : (
               <div className="swaps-list">
-                {upcomingSwaps.map((swap) => (
+                {pendingRequests.map((swap) => (
+                  <SwapCard
+                    key={swap._id}
+                    swap={swap}
+                    currentUser={currentUser}
+                    onStatusChange={handleStatusChange}
+                    onDelete={handleDeleteSwap}
+                    formatDate={formatDate}
+                    formatTime={formatTime}
+                    getStatusColor={getStatusColor}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="list-view__section">
+            <h2 className="section-title">
+              Active Swaps ({activeSwaps.length})
+            </h2>
+            {activeSwaps.length === 0 ? (
+              <p className="section-empty">
+                No active swaps. Visit the "For You" page to schedule one!
+              </p>
+            ) : (
+              <div className="swaps-list">
+                {activeSwaps.map((swap) => (
                   <SwapCard
                     key={swap._id}
                     swap={swap}
@@ -375,7 +405,7 @@ function SwapCard({
                 className="action-btn confirm-btn"
                 onClick={() => onStatusChange(swap._id, "confirmed")}
               >
-                Confirm
+                Accept
               </button>
               <button
                 className="action-btn cancel-btn"
@@ -387,12 +417,24 @@ function SwapCard({
           )}
 
           {swap.status === "confirmed" && (
-            <button
-              className="action-btn complete-btn"
-              onClick={() => onStatusChange(swap._id, "completed")}
-            >
-              Mark Complete
-            </button>
+            <>
+              <button
+                className="action-btn complete-btn"
+                onClick={() => onStatusChange(swap._id, "completed")}
+              >
+                Mark Complete
+              </button>
+              <button
+                className="action-btn cancel-btn"
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to end this active swap?")) {
+                    onStatusChange(swap._id, "cancelled");
+                  }
+                }}
+              >
+                End Swap
+              </button>
+            </>
           )}
 
           {isRequester && swap.status === "pending" && (

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import SwapRequestModal from "../components/SwapRequestModal";
+import "../SwapRequestModal.css";
 
 const SKILL_CATEGORIES = [
   'Academic & Tutoring',
@@ -17,6 +19,7 @@ function Browse() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [message, setMessage] = useState('');
+  const [selectedUserForSwap, setSelectedUserForSwap] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -64,6 +67,19 @@ function Browse() {
     setSearchTerm('');
     setSelectedCategory('');
     fetchUsers('', '');
+  }
+
+  function handleSwapRequest(user) {
+    setSelectedUserForSwap(user);
+  }
+
+  function handleCloseModal() {
+    setSelectedUserForSwap(null);
+  }
+
+  function handleSwapSuccess(swap) {
+    setMessage(`Swap request sent to ${selectedUserForSwap.name}!`);
+    setSelectedUserForSwap(null);
   }
 
   if (loading) {
@@ -188,14 +204,22 @@ function Browse() {
                 <button
                   type="button"
                   className="for-you__swap-btn"
-                  onClick={() => console.log("Swap clicked for", user.name)}
+                  onClick={() => handleSwapRequest(user)}
                 >
-                  Swap
+                  Request Swap
                 </button>
               </div>
             );
           })}
         </div>
+      )}
+
+      {selectedUserForSwap && (
+        <SwapRequestModal
+          user={selectedUserForSwap}
+          onClose={handleCloseModal}
+          onSuccess={handleSwapSuccess}
+        />
       )}
     </div>
   );
