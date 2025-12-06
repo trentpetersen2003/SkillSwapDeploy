@@ -154,14 +154,12 @@ function App() {
 
   function handleLogin(userData, userToken) {
     setUser(userData);
-    setToken(userToken);
     localStorage.setItem("token", userToken);
     localStorage.setItem("user", JSON.stringify(userData));
   }
 
   function handleLogout() {
     setUser(null);
-    setToken("");
     localStorage.removeItem("token");
     localStorage.removeItem("user");
   }
