@@ -124,19 +124,25 @@ router.put("/profile", async (req, res) => {
   const auth = require("../middleware/auth");
   await auth(req, res, async () => {
     try {
-      const { name, username, city, timeZone, bio, availability, skills, skillsWanted } = req.body;
+      const { name, username, email, city, phoneNumber, timeZone, bio, availability, skills, skillsWanted } = req.body;
 
-      if (!name || !username || !city || !timeZone) {
-        return res.status(400).json({ message: "Name, username, city, and time zone are required" });
+      if (!name || !username || !email || !city || !timeZone) {
+        return res.status(400).json({ message: "Name, username, email, city, and time zone are required" });
       }
 
       // Check if username is being changed and if it's already taken by another user
-      const existingUser = await User.findOne({ username, _id: { $ne: req.userId } });
-      if (existingUser) {
+      const existingUsername = await User.findOne({ username, _id: { $ne: req.userId } });
+      if (existingUsername) {
         return res.status(409).json({ message: "Username is already taken" });
       }
 
-      const updateData = { name, username, city, timeZone, bio, availability, skills, skillsWanted };
+      // Check if email is being changed and if it's already taken by another user
+      const existingEmail = await User.findOne({ email, _id: { $ne: req.userId } });
+      if (existingEmail) {
+        return res.status(409).json({ message: "Email is already in use" });
+      }
+
+      const updateData = { name, username, email, city, phoneNumber, timeZone, bio, availability, skills, skillsWanted };
       
       // Remove old firstName/lastName if they exist
       const user = await User.findByIdAndUpdate(

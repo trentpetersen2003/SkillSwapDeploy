@@ -61,7 +61,9 @@ function Profile({ onLogout }) {
   const [profile, setProfile] = useState({
     name: '',
     username: '',
+    email: '',
     city: '',
+    phoneNumber: '',
     timeZone: '',
     bio: '',
     availability: [],
@@ -119,7 +121,9 @@ function Profile({ onLogout }) {
       setProfile({
         name: data.name || '',
         username: data.username || '',
+        email: data.email || '',
         city: data.city || '',
+        phoneNumber: data.phoneNumber || '',
         timeZone: data.timeZone || '',
         bio: data.bio || '',
         availability: (data.availability || []).map(slot => {
@@ -316,8 +320,8 @@ function Profile({ onLogout }) {
     e.preventDefault();
     setMessage('');
 
-    if (!profile.name || !profile.username || !profile.city || !profile.timeZone) {
-      setMessage('Name, username, location, and time zone are required');
+    if (!profile.name || !profile.username || !profile.email || !profile.city || !profile.timeZone) {
+      setMessage('Name, username, email, location, and time zone are required');
       return;
     }
 
@@ -363,7 +367,9 @@ function Profile({ onLogout }) {
       setProfile({
         name: data.name || '',
         username: data.username || '',
+        email: data.email || '',
         city: data.city || '',
+        phoneNumber: data.phoneNumber || '',
         timeZone: data.timeZone || '',
         bio: data.bio || '',
         availability: sortedAvailability,
@@ -413,11 +419,25 @@ function Profile({ onLogout }) {
           required
         />
         <input
+          name="email"
+          type="email"
+          placeholder="Email *"
+          value={profile.email}
+          onChange={handleChange}
+          required
+        />
+        <input
           name="city"
           placeholder="Location *"
           value={profile.city}
           onChange={handleChange}
           required
+        />
+        <input
+          name="phoneNumber"
+          placeholder="Phone Number (optional)"
+          value={profile.phoneNumber}
+          onChange={handleChange}
         />
         <select
           name="timeZone"
