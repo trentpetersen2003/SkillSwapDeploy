@@ -71,7 +71,7 @@ The application is deployed as follows:
 - Automatically deploys when changes are pushed to the main branch
 - Uses GitHub Actions workflow for CI/CD
 
-**Backend:** Planned deployment using Render or Railway (details TBD)
+**Backend:** Deployed on Render (https://skillswapdeploy-eqyo.onrender.com)
 
 ### Manual Deployment (Alternative)
 
