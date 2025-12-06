@@ -6,6 +6,7 @@ import ForYou from "./pages/ForYou";
 import Browse from "./pages/Browse";
 import Calendar from "./pages/Calendar";
 import Profile from "./pages/Profile";
+import API_URL from "./config";
 import "./App.css";
 
 const initialForm = { name: "", username: "", email: "", password: "" };
@@ -51,7 +52,7 @@ function LoginPage({ onLogin }) {
     try {
       console.log("Mode:", mode, "Endpoint:", endpoint, "Body:", body);
 
-      const res = await fetch(endpoint, {
+      const res = await fetch(API_URL + endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
