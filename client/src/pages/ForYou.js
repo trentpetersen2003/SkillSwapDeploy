@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import SwapRequestModal from "../components/SwapRequestModal";
+import API_URL from "../config";
 import "../Foryou.css";
 import "../SwapRequestModal.css";
 
@@ -21,7 +22,7 @@ function ForYouPage() {
     }
 
     try {
-      const res = await fetch("/api/for-you", {
+      const res = await fetch(API_URL + "/api/for-you", {
         headers: {
           Authorization: `Bearer ${token}`,
         },

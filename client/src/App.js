@@ -165,7 +165,7 @@ function App() {
   }
 
   return (
-    <Router>
+    <Router basename="/VectorForge">
       <Routes>
         <Route
           path="/"

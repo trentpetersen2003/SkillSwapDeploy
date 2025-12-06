@@ -1,6 +1,7 @@
 // client/src/pages/Calendar.js
 import React, { useEffect, useState } from "react";
 import ReactCalendar from "react-calendar";
+import API_URL from "../config";
 import "react-calendar/dist/Calendar.css";
 import "../Calendar.css";
 
@@ -24,7 +25,7 @@ function CalendarPage() {
     }
 
     try {
-      const res = await fetch("/api/swaps", {
+      const res = await fetch(API_URL + "/api/swaps", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -50,7 +51,7 @@ function CalendarPage() {
   async function handleStatusChange(swapId, newStatus) {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`/api/swaps/${swapId}/status`, {
+      const res = await fetch(API_URL + `/api/swaps/${swapId}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -79,7 +80,7 @@ function CalendarPage() {
 
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`/api/swaps/${swapId}`, {
+      const res = await fetch(API_URL + `/api/swaps/${swapId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,

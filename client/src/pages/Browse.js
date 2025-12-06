@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SwapRequestModal from "../components/SwapRequestModal";
+import API_URL from "../config";
 import "../SwapRequestModal.css";
 
 const SKILL_CATEGORIES = [
@@ -30,7 +31,7 @@ function Browse() {
     setMessage('');
     
     try {
-      let url = '/api/users';
+      let url = API_URL + '/api/users';
       const params = new URLSearchParams();
       if (search) params.append('search', search);
       if (category) params.append('category', category);

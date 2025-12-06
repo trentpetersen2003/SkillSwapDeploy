@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import API_URL from '../config';
 
 const TIMEZONES = [
   { value: 'UTC-12:00', label: '(GMT-12:00) International Date Line West' },
@@ -103,7 +104,7 @@ function Profile({ onLogout }) {
     }
 
     try {
-      const res = await fetch('/api/users/profile', {
+      const res = await fetch(API_URL + '/api/users/profile', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -334,7 +335,7 @@ function Profile({ onLogout }) {
         timeRange
       }));
 
-      const res = await fetch('/api/users/profile', {
+      const res = await fetch(API_URL + '/api/users/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

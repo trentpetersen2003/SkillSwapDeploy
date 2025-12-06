@@ -1,5 +1,6 @@
 // client/src/components/SwapRequestModal.js
 import React, { useState, useEffect } from "react";
+import API_URL from "../config";
 
 function SwapRequestModal({ user, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -31,7 +32,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
   async function fetchCurrentUserProfile() {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch("/api/users/profile", {
+      const res = await fetch(API_URL + "/api/users/profile", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -71,7 +72,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch("/api/swaps", {
+      const res = await fetch(API_URL + "/api/swaps", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
