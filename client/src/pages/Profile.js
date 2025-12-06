@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const TIMEZONES = [
@@ -95,7 +95,7 @@ function Profile({ onLogout }) {
     level: 'Novice'
   });
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/');
@@ -141,11 +141,11 @@ function Profile({ onLogout }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     fetchProfile();
-  }, []);
+  }, [fetchProfile]);
 
   function handleChange(e) {
     const { name, value } = e.target;

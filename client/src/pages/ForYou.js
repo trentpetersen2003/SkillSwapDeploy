@@ -1,5 +1,5 @@
 // client/src/pages/ForYou.js
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import SwapRequestModal from "../components/SwapRequestModal";
 import "../Foryou.css";
@@ -13,7 +13,7 @@ function ForYouPage() {
   const [selectedUserForSwap, setSelectedUserForSwap] = useState(null);
   const navigate = useNavigate();
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     const token = localStorage.getItem("token");
     if (!token) {
       navigate("/");
@@ -42,11 +42,11 @@ function ForYouPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [loadUsers]);
 
   function toggleExpand(userId) {
     setExpandedUser(expandedUser === userId ? null : userId);
