@@ -1,41 +1,43 @@
 # SkillSwap
 
-SkillSwap is a community-driven web application where users can trade skills with one another (e.g., “I can teach guitar if you help me learn Spanish”). The app will match users based on skills offered and requested, allow them to chat in real-time, and provide an easy way to schedule sessions through Google Calendar. More detailed information can be found in our project wiki.
+SkillSwap is a community-driven web app where users can trade skills with each other  
+(e.g., “I can teach guitar if you help me learn Spanish”).  
 
-This README provides instructions for developers joining the project so they can install, run, and contribute to the application.
+For this proof-of-concept (v0.1), the app supports:
 
-## External Requirements
+- User registration and login (JWT auth)
+- Profile with city, time zone, bio, availability, and skills
+- “For You” page that shows other users with their skills
+- Browse and Calendar pages as initial UI stubs
 
-You will need the following installed on your computer:
+This README is for developers who want to run the project locally.
 
-Node.js (includes npm): https://nodejs.org/en/
+---
 
-Git: https://git-scm.com/
+## Requirements
 
-MongoDB: https://www.mongodb.com/try/download/community
+Install:
 
-Example installation commands (macOS/Homebrew):
-brew install node
-brew install git
-brew tap mongodb/brew
-brew install mongodb-community
+- Node.js (includes npm): https://nodejs.org/
+- Git: https://git-scm.com/
+- A MongoDB database (local or MongoDB Atlas): https://www.mongodb.com/
 
-Windows users can download installers from the links above.
+---
 
 ## Setup
 
-After cloning the repository:
+Clone the repo:
 
 git clone https://github.com/SCCapstone/VectorForge.git
-
 cd VectorForge
 
+
 Install frontend dependencies:
-cd frontend
+cd client
 npm install
 
 Install backend dependencies:
-cd ../backend
+cd ../server
 npm install
 
 Note: Folder structure may change as we build more features.
@@ -43,17 +45,23 @@ Note: Folder structure may change as we build more features.
 ## Running
 
 Run the backend API:
-cd backend
+cd server
 npm start
 
 Run the frontend application:
-cd frontend
+cd client
 npm start
 
 Open your browser and go to:
 http://localhost:3000
 
-The frontend should automatically reload as you make changes.
+Environment variables (backend)
+
+In the server folder, create a .env file with at least:
+
+MONGO_URI=your-mongodb-connection-string
+JWT_SECRET=some-long-random-secret
+PORT=3001
 
 ## Deployment
 
