@@ -36,6 +36,8 @@ jobs:
           npm ci
       
       - name: Build
+        env:
+          REACT_APP_API_URL: ${{ vars.REACT_APP_API_URL }}
         run: |
           cd client
           npm run build
