@@ -67,21 +67,33 @@ return (
       </p>
     ) : (
       <div className="for-you__list">
-        {users.map((user) => (
-          <div key={user._id} className="for-you__card">
-            <div>
-              <div className="for-you__name">{user.name}</div>
-              <div className="for-you__email">{user.email}</div>
-            </div>
-            <button
-              type="button"
-              className="for-you__swap-btn"
-              onClick={() => console.log("Swap clicked for", user.name)}
-            >
-              Swap
-            </button>
-          </div>
-        ))}
+     {users.map((user) => {
+  const skillNames =
+    user.skills && user.skills.length
+      ? user.skills.map((s) => s.skillName).join(", ")
+      : "No skills listed yet";
+
+  return (
+    <div key={user._id} className="for-you__card">
+      <div>
+        <div className="for-you__name">{user.name}</div>
+        <div className="for-you__city">
+          {user.city || "City not set"}
+        </div>
+        <div className="for-you__skills">
+          {skillNames}
+        </div>
+      </div>
+      <button
+        type="button"
+        className="for-you__swap-btn"
+        onClick={() => console.log("Swap clicked for", user.name)}
+      >
+        Swap
+      </button>
+    </div>
+  );
+})}
       </div>
     )}
   </div>

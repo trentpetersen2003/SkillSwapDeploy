@@ -148,3 +148,13 @@
 .for-you__swap-btn:hover {
   filter: brightness(0.95);
 }
+.for-you__city {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.for-you__skills {
+  font-size: 0.85rem;
+  color: #777;
+  margin-top: 0.15rem;
+}

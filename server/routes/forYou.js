@@ -6,9 +6,10 @@ const router = express.Router();
 
 router.get("/", auth, async (req, res) => {
   try {
-    const users = await User.find({ _id: { $ne: req.userId } }).select(
-      "-passwordHash"
-    );
+    const users = await User.find({
+      _id: { $ne: req.userId },     
+    }).select("name city skills");   
+
     res.json(users);
   } catch (err) {
     console.error("Error in GET /api/for-you:", err);
