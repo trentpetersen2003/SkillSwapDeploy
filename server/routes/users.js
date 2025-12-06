@@ -6,10 +6,29 @@ const User = require("../models/User");
 
 const router = express.Router();
 
-// GET /api/users - list all users
+// GET /api/users - list all users with search/filter
 router.get("/", async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: 1 });
+    const { search, category } = req.query;
+    let query = {};
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { username: { $regex: search, $options: 'i' } },
+        { 'skills.skillName': { $regex: search, $options: 'i' } },
+        { 'skillsWanted.skillName': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    if (category) {
+      query.$or = [
+        { 'skills.category': category },
+        { 'skillsWanted.category': category }
+      ];
+    }
+
+    const users = await User.find(query).select('-passwordHash').sort({ createdAt: 1 });
     res.json(users);
   } catch (err) {
     console.error("Error fetching users:", err);
