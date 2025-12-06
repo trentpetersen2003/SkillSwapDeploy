@@ -1,14 +1,16 @@
 // client/src/pages/ForYou.js
-// client/src/pages/ForYou.js
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import SwapRequestModal from "../components/SwapRequestModal";
 import "../Foryou.css";
+import "../SwapRequestModal.css";
 
 function ForYouPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [expandedUser, setExpandedUser] = useState(null);
+  const [selectedUserForSwap, setSelectedUserForSwap] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -50,6 +52,23 @@ function ForYouPage() {
     setExpandedUser(expandedUser === userId ? null : userId);
   }
 
+  function handleSwapRequest(user) {
+    setSelectedUserForSwap(user);
+  }
+
+  function handleCloseModal() {
+    setSelectedUserForSwap(null);
+  }
+
+  function handleSwapSuccess(swap) {
+    setMessage(`Swap request sent to ${selectedUserForSwap.name}!`);
+    setSelectedUserForSwap(null);
+    // Optionally navigate to calendar
+    setTimeout(() => {
+      navigate("/calendar");
+    }, 2000);
+  }
+
   if (loading) {
     return <div className="for-you-loading">Loading users...</div>;
   }
@@ -77,15 +96,24 @@ function ForYouPage() {
               user={user}
               isExpanded={expandedUser === user._id}
               onToggleExpand={() => toggleExpand(user._id)}
+              onRequestSwap={() => handleSwapRequest(user)}
             />
           ))}
         </div>
+      )}
+
+      {selectedUserForSwap && (
+        <SwapRequestModal
+          user={selectedUserForSwap}
+          onClose={handleCloseModal}
+          onSuccess={handleSwapSuccess}
+        />
       )}
     </div>
   );
 }
 
-function UserCard({ user, isExpanded, onToggleExpand }) {
+function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap }) {
   // Extract skills data
   const skillsOffered =
     user.skills && user.skills.length > 0
@@ -207,11 +235,7 @@ function UserCard({ user, isExpanded, onToggleExpand }) {
         </button>
         <button
           className="btn-primary"
-          onClick={() => {
-            // For now, just log - we'll add scheduling later
-            console.log("Swap with:", user.name);
-            alert(`Coming soon: Schedule a swap with ${user.name}!`);
-          }}
+          onClick={onRequestSwap}
         >
           Request Swap
         </button>
