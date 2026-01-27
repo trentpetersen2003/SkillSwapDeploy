@@ -94,21 +94,26 @@ The frontend is configured to deploy automatically via GitHub Actions. To enable
 
 ## Testing
 
-Automated testing will be added later in CSCE 492.
+SkillSwap uses automated unit tests and will add additional tests throughout development.
 
-Future structure will likely include:
-/frontend/tests
-/backend/tests
+### Backend Unit Tests
 
-### Testing Technology (planned)
+From the server directory:
+```bash
+npm run test:unit
+```
 
-Jest + React Testing Library (frontend)
+Tests are located in:
+```bash
+server/tests/unit/
+```
 
-Jest or Mocha/Chai (backend)
+### Planned Additions
 
-### Running Tests
+Frontend unit tests using Jest + React Testing Library
+Behavior (end-to-end) tests using Cypress
 
-Testing commands will be documented once implemented.
+Testing commands and additional test locations will be added as more tests are implemented.
 
 ## Authors
 
