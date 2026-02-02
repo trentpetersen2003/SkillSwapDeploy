@@ -199,12 +199,26 @@ npm test -- --watchAll=false
 
 ### Test Requirements Met
 
-This testing suite meets the assignment requirements by providing:
-- ✅ **Comprehensive unit tests** for both backend and frontend (exceeds minimum)
-- ✅ **Clear test structure** with meaningful test cases (not IDE-generated defaults)
-- ✅ **Well-documented instructions** in this README for running and understanding tests
-- ✅ **Behavior tests** with Cypress for end-to-end verification
-- ✅ **Multiple test suites** covering middleware, routes, models, and components
+SkillSwap uses automated unit tests and will add additional tests throughout development.
+
+### Backend Unit Tests
+
+From the server directory:
+```bash
+npm run test:unit
+```
+
+Tests are located in:
+```bash
+server/tests/unit/
+```
+
+### Planned Additions
+
+Frontend unit tests using Jest + React Testing Library
+Behavior (end-to-end) tests using Cypress
+
+Testing commands and additional test locations will be added as more tests are implemented.
 
 ## Authors
 
