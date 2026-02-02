@@ -20,9 +20,14 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:unit": "react-scripts test --watchAll=false",
+    "test:unit:watch": "react-scripts test",
+    "test:unit:coverage": "react-scripts test --coverage --watchAll=false",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "deploy": "gh-pages -d build",
+    "test:e2e": "cypress open",
+    "test:e2e:run": "cypress run"
   },
   "eslintConfig": {
     "extends": [
@@ -43,6 +48,7 @@
     ]
   },
   "devDependencies": {
+    "cypress": "^15.9.0",
     "gh-pages": "^6.3.0"
   }
 }

@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test:unit": "jest",
+    "test:unit:watch": "jest --watch",
+    "test:unit:coverage": "jest --coverage"
   },
   "keywords": [],
   "author": "",
@@ -21,5 +23,9 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.19.2",
     "react-calendar": "^6.0.0"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "supertest": "^6.3.3"
   }
 }

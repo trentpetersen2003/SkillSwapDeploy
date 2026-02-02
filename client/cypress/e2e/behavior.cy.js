@@ -1,0 +1,128 @@
+const BASE_URL = "http://localhost:3000/VectorForge";
+const API_BASE = "http://localhost:3001";
+
+function setAuth(win) {
+  win.localStorage.setItem("token", "test-token");
+  win.localStorage.setItem(
+    "user",
+    JSON.stringify({
+      name: "Test User",
+      username: "testuser",
+      email: "test@example.com",
+    })
+  );
+}
+
+describe("SkillSwap behavior tests", () => {
+  it("shows login validation messages", () => {
+    cy.visit(`${BASE_URL}/`);
+    cy.contains("SkillSwap").should("be.visible");
+
+    cy.contains("Log in").should("be.visible").click();
+    cy.contains("Email and password are required.").should("be.visible");
+
+    cy.contains("Need an account? Sign up").click();
+    cy.get("input[name='email']").type("test@example.com");
+    cy.get("input[name='password']").type("password123");
+    cy.contains("Sign up").should("be.visible").click();
+    cy.contains("Name is required to register.").should("be.visible");
+
+    cy.get("input[name='name']").type("Test User");
+    cy.contains("Sign up").should("be.visible").click();
+    cy.contains("Username is required to register.").should("be.visible");
+  });
+
+  it("loads For You page and opens swap request modal", () => {
+    cy.intercept("GET", `${API_BASE}/api/for-you`, {
+      body: [
+        {
+          _id: "u1",
+          name: "Alice",
+          username: "alice",
+          city: "Denver",
+          skills: [{ skillName: "Guitar" }],
+          skillsWanted: [{ skillName: "Spanish" }],
+          bio: "Music teacher",
+        },
+      ],
+    }).as("getForYou");
+
+    cy.intercept("GET", `${API_BASE}/api/users/profile`, {
+      body: { skills: [{ skillName: "Piano" }], skillsWanted: [] },
+    }).as("getProfile");
+
+    cy.visit(`${BASE_URL}/foryou`, { onBeforeLoad: setAuth });
+    cy.wait("@getForYou");
+
+    cy.contains("For You").should("be.visible").click();
+    cy.contains("Alice").should("be.visible");
+
+    cy.contains("Request Swap").should("be.visible").click();
+    cy.contains("Request Swap with Alice").should("be.visible");
+  });
+
+  it("browses users and searches by name", () => {
+    cy.intercept("GET", `${API_BASE}/api/users*`, (req) => {
+      const search = req.query.search || "";
+      if (search.toLowerCase().includes("ann")) {
+        req.reply({
+          body: [
+            {
+              _id: "u2",
+              name: "Ann Lee",
+              username: "annlee",
+              city: "Seattle",
+              skills: [{ skillName: "Python" }],
+              skillsWanted: [{ skillName: "Guitar" }],
+            },
+          ],
+        });
+      } else {
+        req.reply({
+          body: [
+            {
+              _id: "u3",
+              name: "Bob Ray",
+              username: "bobray",
+              city: "Austin",
+              skills: [{ skillName: "Excel" }],
+              skillsWanted: [],
+            },
+          ],
+        });
+      }
+    }).as("getUsers");
+
+    cy.visit(`${BASE_URL}/foryou`, { onBeforeLoad: setAuth });
+    cy.contains("Browse").should("be.visible").click();
+    cy.wait("@getUsers");
+    cy.contains("Browse Users").should("be.visible");
+
+    cy.get("input[placeholder='Search by name, username, or skill...']")
+      .should("be.visible")
+      .type("Ann");
+    cy.contains("button", "Search").should("be.visible").click();
+    cy.wait("@getUsers");
+
+    cy.contains("Ann Lee").should("be.visible");
+  });
+
+  it("loads calendar and switches view", () => {
+    cy.intercept("GET", `${API_BASE}/api/swaps`, {
+      body: [],
+    }).as("getSwaps");
+
+    cy.visit(`${BASE_URL}/foryou`, { onBeforeLoad: setAuth });
+    cy.contains("Calendar").should("be.visible").click();
+    cy.wait("@getSwaps");
+    
+    cy.contains("button", "Calendar View").should("be.visible").click();
+    cy.get(".react-calendar").should("exist");
+  });
+
+  it("navigates to profile tab", () => {
+    cy.visit(`${BASE_URL}/foryou`, { onBeforeLoad: setAuth });
+    cy.contains("Profile").should("be.visible").click();
+    cy.contains("Profile").should("be.visible");
+  });
+});
