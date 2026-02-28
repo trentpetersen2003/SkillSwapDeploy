@@ -3,6 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const auth = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -14,21 +15,24 @@ router.get("/", async (req, res) => {
 
     if (search) {
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { username: { $regex: search, $options: 'i' } },
-        { 'skills.skillName': { $regex: search, $options: 'i' } },
-        { 'skillsWanted.skillName': { $regex: search, $options: 'i' } }
+        { name: { $regex: search, $options: "i" } },
+        { username: { $regex: search, $options: "i" } },
+        { "skills.skillName": { $regex: search, $options: "i" } },
+        { "skillsWanted.skillName": { $regex: search, $options: "i" } },
       ];
     }
 
     if (category) {
       query.$or = [
-        { 'skills.category': category },
-        { 'skillsWanted.category': category }
+        { "skills.category": category },
+        { "skillsWanted.category": category },
       ];
     }
 
-    const users = await User.find(query).select('-passwordHash').sort({ createdAt: 1 });
+    const users = await User.find(query)
+      .select("-passwordHash")
+      .sort({ createdAt: 1 });
+
     res.json(users);
   } catch (err) {
     console.error("Error fetching users:", err);
@@ -60,7 +64,6 @@ router.post("/", async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await User.create({ name, username, email, passwordHash });
 
-    console.log("Created user:", user._id);
     res.status(201).json({
       id: user._id,
       name: user.name,
@@ -94,76 +97,116 @@ router.delete("/:id", async (req, res) => {
 });
 
 // GET /api/users/profile - get current user profile
-router.get("/profile", async (req, res) => {
-  const auth = require("../middleware/auth");
-  await auth(req, res, async () => {
-    try {
-      const user = await User.findById(req.userId).select("-passwordHash");
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      // Migrate old firstName/lastName to name if needed
-      const userData = user.toObject();
-      if (!userData.name && (userData.firstName || userData.lastName)) {
-        userData.name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
-        delete userData.firstName;
-        delete userData.lastName;
-      }
-      
-      res.json(userData);
-    } catch (err) {
-      console.error("Error fetching profile:", err);
-      res.status(500).json({ message: "Error fetching profile" });
+router.get("/profile", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select("-passwordHash");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Migrate old firstName/lastName to name if needed
+    const userData = user.toObject();
+    if (!userData.name && (userData.firstName || userData.lastName)) {
+      userData.name = `${userData.firstName || ""} ${userData.lastName || ""}`.trim();
+      delete userData.firstName;
+      delete userData.lastName;
     }
-  });
+
+    res.json(userData);
+  } catch (err) {
+    console.error("Error fetching profile:", err);
+    res.status(500).json({ message: "Error fetching profile" });
+  }
 });
 
 // PUT /api/users/profile - update current user profile
-router.put("/profile", async (req, res) => {
-  const auth = require("../middleware/auth");
-  await auth(req, res, async () => {
-    try {
-      const { name, username, email, city, phoneNumber, timeZone, bio, availability, skills, skillsWanted } = req.body;
+router.put("/profile", auth, async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      city,
+      phoneNumber,
+      timeZone,
+      bio,
+      availability,
+      skills,
+      skillsWanted,
+    } = req.body;
 
-      if (!name || !username || !email || !city || !timeZone) {
-        return res.status(400).json({ message: "Name, username, email, city, and time zone are required" });
-      }
-
-      // Check if username is being changed and if it's already taken by another user
-      const existingUsername = await User.findOne({ username, _id: { $ne: req.userId } });
-      if (existingUsername) {
-        return res.status(409).json({ message: "Username is already taken" });
-      }
-
-      // Check if email is being changed and if it's already taken by another user
-      const existingEmail = await User.findOne({ email, _id: { $ne: req.userId } });
-      if (existingEmail) {
-        return res.status(409).json({ message: "Email is already in use" });
-      }
-
-      const updateData = { name, username, email, city, phoneNumber, timeZone, bio, availability, skills, skillsWanted };
-      
-      // Remove old firstName/lastName if they exist
-      const user = await User.findByIdAndUpdate(
-        req.userId,
-        { 
-          $set: updateData,
-          $unset: { firstName: "", lastName: "" }
-        },
-        { new: true, runValidators: true }
-      ).select("-passwordHash");
-
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      res.json(user);
-    } catch (err) {
-      console.error("Error updating profile:", err);
-      res.status(500).json({ message: "Error updating profile" });
+    if (!name || !email || !city || !timeZone) {
+      return res
+        .status(400)
+        .json({ message: "Name, email, city, and time zone are required" });
     }
-  });
+
+    // Email uniqueness check
+    const existingEmail = await User.findOne({
+      email,
+      _id: { $ne: req.userId },
+    });
+    if (existingEmail) {
+      return res.status(409).json({ message: "Email is already in use" });
+    }
+
+    const updateData = {
+      name,
+      email,
+      city,
+      phoneNumber,
+      timeZone,
+      bio,
+      availability,
+      skills,
+      skillsWanted,
+    };
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        $set: updateData,
+        $unset: { firstName: "", lastName: "" },
+      },
+      { new: true, runValidators: true }
+    ).select("-passwordHash");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json(user);
+  } catch (err) {
+    console.error("Error updating profile:", err);
+    res.status(500).json({ message: "Error updating profile" });
+  }
+});
+
+// PUT /api/users/username - update username only 
+router.put("/username", auth, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username || !username.trim()) {
+      return res.status(400).json({ message: "Username is required" });
+    }
+
+    const clean = username.trim();
+
+    const existing = await User.findOne({
+      username: clean,
+      _id: { $ne: req.userId },
+    });
+    if (existing) {
+      return res.status(409).json({ message: "Username is already taken" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $set: { username: clean } },
+      { new: true, runValidators: true }
+    ).select("-passwordHash");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (err) {
+    console.error("Error updating username:", err);
+    res.status(500).json({ message: "Error updating username" });
+  }
 });
 
 module.exports = router;

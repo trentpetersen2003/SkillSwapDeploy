@@ -30,6 +30,12 @@ function NavBar() {
         >
           Profile
         </NavLink>
+        <NavLink 
+          to="/settings" 
+          className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
+        >
+          Settings
+        </NavLink>
       </div>
     </nav>
   );
