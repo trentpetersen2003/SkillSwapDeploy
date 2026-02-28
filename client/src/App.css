@@ -1,17 +1,16 @@
+/* App CSS */
 .App {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f7fb;
-  font-family: system-ui, sans-serif;
   padding: 24px;
 }
 
 .card {
-  background: white;
+  background: var(--card);
   padding: 28px 24px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   max-width: 400px;
   width: 100%;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
@@ -19,7 +18,7 @@
 }
 
 .subtitle {
-  color: #5a6473;
+  color: var(--muted);
   margin: 4px 0 16px;
 }
 
@@ -36,19 +35,26 @@
   font-size: 14px;
 }
 
+.form input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
 .form button {
   margin-top: 4px;
   padding: 10px 12px;
   border: none;
   border-radius: 8px;
-  background: #2563eb;
+  background: var(--primary);
   color: #fff;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s;
 }
 
 .form button:hover {
-  background: #1e4fc2;
+  background: var(--primary-hover);
 }
 
 .switcher {
@@ -58,220 +64,13 @@
 .switcher button {
   border: none;
   background: transparent;
-  color: #2563eb;
+  color: var(--primary);
   cursor: pointer;
   font-weight: 600;
-}
-
-.status {
-  margin: 10px 0;
-  color: #1f2933;
-}
-
-.status button {
-  border: none;
-  background: #e5e7eb;
-  padding: 8px 10px;
-  border-radius: 8px;
-  cursor: pointer;
 }
 
 .message {
-  margin-top: 8px;
-  color: #0f172a;
+  margin-top: 10px;
+  color: var(--text);
   font-weight: 600;
-}
-
-.for-you {
-  max-width: 800px;
-  margin: 3rem auto;
-  padding: 0 1.5rem;
-}
-
-.for-you__title {
-  font-size: 2rem;
-  font-weight: 700;
-  margin-bottom: 0.25rem;
-}
-
-.for-you__subtitle {
-  color: #555;
-  font-size: 0.95rem;
-  margin-bottom: 1.5rem;
-}
-
-.for-you__message {
-  color: #c0392b;
-  margin-bottom: 1rem;
-}
-
-.for-you__empty {
-  color: #555;
-}
-
-.for-you__list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.for-you__card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.9rem 1.2rem;
-  border-radius: 12px;
-  border: 1px solid #e3e3e3;
-  background: #fff;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
-}
-
-.for-you__name {
-  font-weight: 600;
-  margin-bottom: 0.15rem;
-}
-
-.for-you__email {
-  font-size: 0.9rem;
-  color: #666;
-}
-
-.for-you__swap-btn {
-  padding: 0.4rem 1.1rem;
-  border-radius: 999px;
-  border: none;
-  background: #1a73e8;
-  color: #fff;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.for-you__swap-btn:hover {
-  filter: brightness(0.95);
-}
-.for-you__city {
-  font-size: 0.9rem;
-  color: #555;
-}
-
-.for-you__skills {
-  font-size: 0.85rem;
-  color: #777;
-  margin-top: 0.15rem;
-}
-.profile-logout-button {
-  margin-top: 1.5rem;
-  border: 1px solid #e3e3e3;
-  background: #fff;
-  border-radius: 999px;
-  padding: 0.45rem 1.2rem;
-  cursor: pointer;
-}
-.profile-logout-button:hover {
-  background: #f5f5f5;
-}
-.profile-page {
-  max-width: 960px;
-  margin: 3rem auto;
-  padding: 0 1.5rem 3rem;
-}
-
-
-.profile-title {
-  font-size: 2rem;
-  font-weight: 700;
-  margin-bottom: 0.25rem;
-}
-
-.profile-subtitle {
-  font-size: 0.95rem;
-  color: #555;
-  margin-bottom: 1.5rem;
-}
-
-
-.profile-form {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 1.5rem 1.75rem 1.75rem;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-
-.profile-form input,
-.profile-form select,
-.profile-form textarea {
-  font: inherit;
-  padding: 0.45rem 0.6rem;
-  border-radius: 6px;
-  border: 1px solid #d0d7e2;
-  outline: none;
-}
-
-.profile-form input:focus,
-.profile-form select:focus,
-.profile-form textarea:focus {
-  border-color: #1a73e8;
-  box-shadow: 0 0 0 1px rgba(26, 115, 232, 0.24);
-}
-
-.profile-form h3 {
-  margin-top: 1.4rem;
-  margin-bottom: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid #e4e7f0;
-  font-size: 1.05rem;
-}
-
-.availability-list,
-.availability-input,
-.skills-list,
-.skill-input {
-  background: #fafbff;
-  border-radius: 8px;
-  border: 1px solid #e1e4f0;
-  padding: 0.75rem 0.9rem;
-}
-
-.availability-item {
-  margin-bottom: 0.4rem;
-  font-size: 0.9rem;
-}
-
-
-.profile-form button[type="submit"] {
-  align-self: flex-end;
-  margin-top: 1.25rem;
-  padding: 0.5rem 1.4rem;
-  border-radius: 999px;
-  border: none;
-  background: #1a73e8;
-  color: #fff;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.profile-form button[type="submit"]:disabled {
-  opacity: 0.7;
-  cursor: default;
-}
-
-.profile-form button[type="submit"]:not(:disabled):hover {
-  filter: brightness(0.95);
-}
-
-.profile-logout-button {
-  margin-top: 1.25rem;
-  border-radius: 999px;
-  border: 1px solid #d0d7e2;
-  background: #ffffff;
-  padding: 0.4rem 1.1rem;
-  cursor: pointer;
-}
-
-.profile-logout-button:hover {
-  background: #f3f4f8;
 }

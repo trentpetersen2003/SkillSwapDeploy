@@ -1,0 +1,108 @@
+/* Profile CSS */
+.profile-page {
+  max-width: 960px;
+  margin: 3rem auto;
+  padding: 0 1.5rem 3rem;
+}
+
+.profile-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  color: var(--text);
+}
+
+.profile-subtitle {
+  font-size: 0.95rem;
+  color: #555;
+  margin-bottom: 1.25rem;
+}
+
+.profile-form {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.75rem 1.75rem;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.profile-form input,
+.profile-form select,
+.profile-form textarea {
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #d0d7e2;
+  outline: none;
+  background: #fff;
+}
+
+.profile-form input:focus,
+.profile-form select:focus,
+.profile-form textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.profile-form h3 {
+  margin-top: 1.4rem;
+  margin-bottom: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e4e7f0;
+  font-size: 1.05rem;
+}
+
+.availability-list,
+.availability-input,
+.skills-list,
+.skill-input {
+  background: #fafbff;
+  border-radius: var(--radius-sm);
+  border: 1px solid #e1e4f0;
+  padding: 0.75rem 0.9rem;
+}
+
+.availability-item {
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.profile-form button[type="submit"] {
+  align-self: flex-end;
+  margin-top: 1.25rem;
+  padding: 0.5rem 1.2rem;
+  border-radius: 999px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-form button[type="submit"]:hover {
+  background: var(--primary-hover);
+}
+
+.profile-form button[type="submit"]:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.profile-logout-button {
+  margin-top: 1.25rem;
+  align-self: flex-start;
+  border-radius: 999px;
+  border: 1px solid #d0d7e2;
+  background: #ffffff;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.profile-logout-button:hover {
+  background: #f3f4f8;
+}

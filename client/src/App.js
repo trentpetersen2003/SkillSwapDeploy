@@ -6,6 +6,7 @@ import ForYou from "./pages/ForYou";
 import Browse from "./pages/Browse";
 import Calendar from "./pages/Calendar";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import API_URL from "./config";
 import "./App.css";
 
@@ -158,6 +159,7 @@ function App() {
     localStorage.setItem("user", JSON.stringify(userData));
   }
 
+
   function handleLogout() {
     setUser(null);
     localStorage.removeItem("token");
@@ -219,6 +221,19 @@ function App() {
               <>
                 <NavBar onLogout={handleLogout} />
                 <Profile onLogout={handleLogout} />
+              </>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            user ? (
+              <>
+                <NavBar onLogout={handleLogout} />
+                <Settings onLogout={handleLogout} />
               </>
             ) : (
               <Navigate to="/" replace />

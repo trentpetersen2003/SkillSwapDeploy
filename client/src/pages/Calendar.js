@@ -3,14 +3,14 @@ import React, { useEffect, useState } from "react";
 import ReactCalendar from "react-calendar";
 import API_URL from "../config";
 import "react-calendar/dist/Calendar.css";
-import "../Calendar.css";
+import "../pages/Calendar.css";
 
 function CalendarPage() {
   const [swaps, setSwaps] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const [view, setView] = useState("list"); // 'list' or 'calendar'
+  const [view, setView] = useState("list"); 
 
   useEffect(() => {
     loadSwaps();
@@ -61,7 +61,6 @@ function CalendarPage() {
       });
 
       if (res.ok) {
-        // Reload swaps
         loadSwaps();
       } else {
         const data = await res.json();
@@ -126,7 +125,7 @@ function CalendarPage() {
     return null;
   }
 
-  // Get upcoming swaps (future dates only)
+  // Get upcoming swaps
   const upcomingSwaps = swaps
     .filter((swap) => new Date(swap.scheduledDate) >= new Date())
     .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));

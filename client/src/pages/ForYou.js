@@ -3,8 +3,9 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import SwapRequestModal from "../components/SwapRequestModal";
 import API_URL from "../config";
-import "../Foryou.css";
+import "./Foryou.css";
 import "../SwapRequestModal.css";
+
 
 function ForYouPage() {
   const [users, setUsers] = useState([]);
@@ -64,7 +65,6 @@ function ForYouPage() {
   function handleSwapSuccess(swap) {
     setMessage(`Swap request sent to ${selectedUserForSwap.name}!`);
     setSelectedUserForSwap(null);
-    // Optionally navigate to calendar
     setTimeout(() => {
       navigate("/calendar");
     }, 2000);
@@ -115,7 +115,6 @@ function ForYouPage() {
 }
 
 function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap }) {
-  // Extract skills data
   const skillsOffered =
     user.skills && user.skills.length > 0
       ? user.skills.map((s) => s.skillName || s).filter(Boolean)
