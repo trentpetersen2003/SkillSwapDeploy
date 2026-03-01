@@ -12,7 +12,6 @@ describe("Email service delivery mode", () => {
     delete process.env.SMTP_PORT;
     delete process.env.SMTP_USER;
     delete process.env.SMTP_PASS;
-    delete process.env.RESEND_API_KEY;
     delete process.env.NODE_ENV;
   });
 
@@ -33,32 +32,28 @@ describe("Email service delivery mode", () => {
     expect(getEmailDeliveryMode()).toBe("smtp");
   });
 
-  test("uses resend in production when api key is present", () => {
-    process.env.NODE_ENV = "production";
-    process.env.RESEND_API_KEY = "re_test_key";
-
-    expect(getEmailDeliveryMode()).toBe("resend");
-  });
-
   test("validates non-production as always valid", () => {
     process.env.NODE_ENV = "development";
 
     expect(validateProductionEmailConfig()).toEqual({ valid: true });
   });
 
-  test("fails production config when RESEND_API_KEY is missing", () => {
+  test("fails production config when SMTP config is missing", () => {
     process.env.NODE_ENV = "production";
     process.env.EMAIL_FROM = "SkillSwap <no-reply@example.com>";
 
     expect(validateProductionEmailConfig()).toEqual({
       valid: false,
-      message: "Startup blocked: RESEND_API_KEY is required in production.",
+      message: "Startup blocked: SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS are required in production.",
     });
   });
 
   test("fails production config when EMAIL_FROM is missing", () => {
     process.env.NODE_ENV = "production";
-    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.SMTP_HOST = "smtp.gmail.com";
+    process.env.SMTP_PORT = "587";
+    process.env.SMTP_USER = "skillswap@example.com";
+    process.env.SMTP_PASS = "app-password";
 
     expect(validateProductionEmailConfig()).toEqual({
       valid: false,
@@ -66,10 +61,13 @@ describe("Email service delivery mode", () => {
     });
   });
 
-  test("passes production config when required values are present", () => {
+  test("passes production config when SMTP values are present", () => {
     process.env.NODE_ENV = "production";
-    process.env.RESEND_API_KEY = "re_test_key";
-    process.env.EMAIL_FROM = "SkillSwap <no-reply@example.com>";
+    process.env.SMTP_HOST = "smtp.gmail.com";
+    process.env.SMTP_PORT = "587";
+    process.env.SMTP_USER = "skillswap@example.com";
+    process.env.SMTP_PASS = "app-password";
+    process.env.EMAIL_FROM = "SkillSwap <skillswap@example.com>";
 
     expect(validateProductionEmailConfig()).toEqual({ valid: true });
   });

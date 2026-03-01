@@ -10,12 +10,25 @@ function Settings({ onLogout }) {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [locationVisibility, setLocationVisibility] = useState("visible");
+  const [notificationPreferences, setNotificationPreferences] = useState({
+    swapRequestEmail: true,
+    swapConfirmedEmail: true,
+    swapCancelledEmail: true,
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [blockedUsers, setBlockedUsers] = useState([]);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [actions, setActions] = useState({
     savingUsername: false,
     savingVisibility: false,
+    savingNotifications: false,
+    changingPassword: false,
     unblockingUserId: "",
     loggingOut: false,
     deletingAccount: false,
@@ -66,6 +79,11 @@ function Settings({ onLogout }) {
 
       setUsername(profileData.username || "");
       setLocationVisibility(profileData.locationVisibility || "visible");
+      setNotificationPreferences({
+        swapRequestEmail: profileData.notificationPreferences?.swapRequestEmail ?? true,
+        swapConfirmedEmail: profileData.notificationPreferences?.swapConfirmedEmail ?? true,
+        swapCancelledEmail: profileData.notificationPreferences?.swapCancelledEmail ?? true,
+      });
       setBlockedUsers(Array.isArray(blockedData) ? blockedData : []);
     } catch (e) {
       setLoadError(e.message || "Error loading settings.");
@@ -213,6 +231,88 @@ function Settings({ onLogout }) {
     }
   }
 
+  async function handleSaveNotificationPreferences() {
+    setMessage("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+      return;
+    }
+
+    setActions((prev) => ({ ...prev, savingNotifications: true }));
+
+    try {
+      await withMinimumDelay(async () => {
+        const res = await fetch(API_URL + "/api/users/notifications", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ notificationPreferences }),
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(payload.message || "Failed to update notification preferences");
+        }
+      });
+
+      setMessage("Notification preferences updated.");
+    } catch (e) {
+      setMessage(e.message || "Error updating notification preferences.");
+    } finally {
+      setActions((prev) => ({ ...prev, savingNotifications: false }));
+    }
+  }
+
+  async function handleChangePassword() {
+    setMessage("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+      return;
+    }
+
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setMessage("Please complete all password fields.");
+      return;
+    }
+
+    setActions((prev) => ({ ...prev, changingPassword: true }));
+
+    try {
+      await withMinimumDelay(async () => {
+        const res = await fetch(API_URL + "/api/users/password", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(passwordForm),
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(payload.message || "Failed to update password");
+        }
+      });
+
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setMessage("Password updated.");
+    } catch (e) {
+      setMessage(e.message || "Error updating password.");
+    } finally {
+      setActions((prev) => ({ ...prev, changingPassword: false }));
+    }
+  }
+
   async function handleDeleteAccount() {
     const savedUser = localStorage.getItem("user");
     const parsedUser = savedUser ? JSON.parse(savedUser) : null;
@@ -223,7 +323,8 @@ function Settings({ onLogout }) {
       return;
     }
 
-    if (!window.confirm("Delete your account permanently? This cannot be undone.")) {
+    if (deleteConfirmation.trim() !== username.trim()) {
+      setMessage("Type your username exactly to confirm account deletion.");
       return;
     }
 
@@ -257,6 +358,8 @@ function Settings({ onLogout }) {
   const isAnyBlockingAction =
     actions.savingUsername ||
     actions.savingVisibility ||
+    actions.savingNotifications ||
+    actions.changingPassword ||
     actions.loggingOut ||
     actions.deletingAccount ||
     Boolean(actions.unblockingUserId);
@@ -266,6 +369,8 @@ function Settings({ onLogout }) {
       ? "Logging out..."
       : actions.unblockingUserId
         ? "Updating blocked users..."
+        : actions.changingPassword
+          ? "Updating password..."
       : "Saving settings...";
 
   if (loadingSettings) {
@@ -305,7 +410,6 @@ function Settings({ onLogout }) {
               </button>
             </div>
 
-            {message && <div className="settings-message">{message}</div>}
             {actions.savingUsername && (
               <div className="settings-inline-loading">
                 <InlineLoading message="Saving settings..." />
@@ -361,6 +465,117 @@ function Settings({ onLogout }) {
               )}
             </div>
           </div>
+
+          <div className="settings-section">
+            <h3>Notifications</h3>
+
+            <div className="settings-checkbox-list">
+              <label className="settings-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={notificationPreferences.swapRequestEmail}
+                  onChange={(e) => setNotificationPreferences((prev) => ({
+                    ...prev,
+                    swapRequestEmail: e.target.checked,
+                  }))}
+                  disabled={isAnyBlockingAction}
+                />
+                <span>Email me for new swap requests</span>
+              </label>
+
+              <label className="settings-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={notificationPreferences.swapConfirmedEmail}
+                  onChange={(e) => setNotificationPreferences((prev) => ({
+                    ...prev,
+                    swapConfirmedEmail: e.target.checked,
+                  }))}
+                  disabled={isAnyBlockingAction}
+                />
+                <span>Email me when swaps are confirmed</span>
+              </label>
+
+              <label className="settings-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={notificationPreferences.swapCancelledEmail}
+                  onChange={(e) => setNotificationPreferences((prev) => ({
+                    ...prev,
+                    swapCancelledEmail: e.target.checked,
+                  }))}
+                  disabled={isAnyBlockingAction}
+                />
+                <span>Email me when swaps are cancelled</span>
+              </label>
+            </div>
+
+            <button
+              className="settings-btn-primary"
+              onClick={handleSaveNotificationPreferences}
+              disabled={isAnyBlockingAction}
+            >
+              {actions.savingNotifications ? "Saving..." : "Save Notifications"}
+            </button>
+          </div>
+
+          <div className="settings-section">
+            <h3>Security</h3>
+
+            <div className="settings-password-grid">
+              <input
+                className="settings-input"
+                type="password"
+                placeholder="Current password"
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
+                disabled={isAnyBlockingAction}
+              />
+              <input
+                className="settings-input"
+                type="password"
+                placeholder="New password"
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
+                disabled={isAnyBlockingAction}
+              />
+              <input
+                className="settings-input"
+                type="password"
+                placeholder="Confirm new password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                disabled={isAnyBlockingAction}
+              />
+            </div>
+
+            <button
+              className="settings-btn-primary"
+              onClick={handleChangePassword}
+              disabled={isAnyBlockingAction}
+            >
+              {actions.changingPassword ? "Updating..." : "Update Password"}
+            </button>
+          </div>
+
+          <div className="settings-section">
+            <h3>Danger Zone</h3>
+            <p className="settings-muted">Type your username to confirm account deletion.</p>
+            <div className="settings-row">
+              <div className="settings-field">
+                <div className="settings-label">Confirm username</div>
+                <input
+                  className="settings-input"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  disabled={isAnyBlockingAction}
+                  placeholder={username || "username"}
+                />
+              </div>
+            </div>
+          </div>
+
+          {message && <div className="settings-message">{message}</div>}
           <button
             className="settings-logout"
             onClick={handleLogoutClick}
@@ -372,7 +587,7 @@ function Settings({ onLogout }) {
           <button
             className="settings-delete"
             onClick={handleDeleteAccount}
-            disabled={isAnyBlockingAction}
+            disabled={isAnyBlockingAction || deleteConfirmation.trim() !== username.trim()}
           >
             {actions.deletingAccount ? "Deleting account..." : "Delete account"}
           </button>
