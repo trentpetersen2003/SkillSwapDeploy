@@ -63,6 +63,13 @@
   padding: 24px;
 }
 
+.swap-request-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
 .form-group {
   margin-bottom: 20px;
 }

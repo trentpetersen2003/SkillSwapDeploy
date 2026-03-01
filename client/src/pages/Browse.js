@@ -1,7 +1,9 @@
 // client/src/pages/Browse.js
 import React, { useEffect, useState } from "react";
 import SwapRequestModal from "../components/SwapRequestModal";
+import LoadingState from "../components/LoadingState";
 import API_URL from "../config";
+import { withMinimumDelay } from "../utils/loading";
 import "./Browse.css";
 import "../SwapRequestModal.css";
 
@@ -22,6 +24,7 @@ function Browse() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [message, setMessage] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [selectedUserForSwap, setSelectedUserForSwap] = useState(null);
 
   useEffect(() => {
@@ -31,27 +34,31 @@ function Browse() {
   async function fetchUsers(search = "", category = "") {
     setLoading(true);
     setMessage("");
+    setLoadError("");
 
     try {
-      let url = API_URL + "/api/users";
-      const params = new URLSearchParams();
-      if (search) params.append("search", search);
-      if (category) params.append("category", category);
-      if (params.toString()) url += `?${params.toString()}`;
+      const data = await withMinimumDelay(async () => {
+        let url = API_URL + "/api/users";
+        const params = new URLSearchParams();
+        if (search) params.append("search", search);
+        if (category) params.append("category", category);
+        if (params.toString()) url += `?${params.toString()}`;
 
-      const res = await fetch(url);
+        const res = await fetch(url);
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Failed to fetch users");
-      }
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error(payload.message || "Failed to fetch users");
+        }
 
-      const data = await res.json();
+        return res.json();
+      });
+
       setUsers(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
       setUsers([]);
-      setMessage(err.message || "Error loading users");
+      setLoadError(err.message || "Error loading users");
     } finally {
       setLoading(false);
     }
@@ -89,7 +96,16 @@ function Browse() {
   }
 
   if (loading) {
-    return <div className="browse-loading">Loading users...</div>;
+    return <LoadingState message="Loading users..." />;
+  }
+
+  if (loadError) {
+    return (
+      <LoadingState
+        message={loadError}
+        onRetry={() => fetchUsers(searchTerm.trim(), selectedCategory)}
+      />
+    );
   }
 
   return (

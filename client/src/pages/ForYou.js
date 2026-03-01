@@ -2,7 +2,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import SwapRequestModal from "../components/SwapRequestModal";
+import LoadingState from "../components/LoadingState";
 import API_URL from "../config";
+import { withMinimumDelay } from "../utils/loading";
 import "./Foryou.css";
 import "../SwapRequestModal.css";
 
@@ -10,6 +12,7 @@ import "../SwapRequestModal.css";
 function ForYouPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
   const [expandedUser, setExpandedUser] = useState(null);
   const [selectedUserForSwap, setSelectedUserForSwap] = useState(null);
@@ -22,25 +25,29 @@ function ForYouPage() {
       return;
     }
 
+    setLoading(true);
+    setLoadError("");
+
     try {
-      const res = await fetch(API_URL + "/api/for-you", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const data = await withMinimumDelay(async () => {
+        const res = await fetch(API_URL + "/api/for-you", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error(payload.message || "Failed to load users");
+        }
+
+        return res.json();
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setMessage(data.message || "Failed to load users");
-        setLoading(false);
-        return;
-      }
-
-      const data = await res.json();
       setUsers(data);
     } catch (err) {
       console.error("Error loading users:", err);
-      setMessage("Something went wrong loading users.");
+      setLoadError(err.message || "Something went wrong loading users.");
     } finally {
       setLoading(false);
     }
@@ -71,7 +78,11 @@ function ForYouPage() {
   }
 
   if (loading) {
-    return <div className="for-you-loading">Loading users...</div>;
+    return <LoadingState message="Loading users..." />;
+  }
+
+  if (loadError) {
+    return <LoadingState message={loadError} onRetry={loadUsers} />;
   }
 
   return (

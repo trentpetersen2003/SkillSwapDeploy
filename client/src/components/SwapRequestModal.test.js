@@ -1,14 +1,23 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SwapRequestModal from './SwapRequestModal';
+
+jest.mock('../utils/loading', () => ({
+  MIN_LOADING_MS: 600,
+  withMinimumDelay: (taskOrPromise) =>
+    typeof taskOrPromise === 'function' ? taskOrPromise() : taskOrPromise,
+}));
 
 // Mock localStorage
 const localStorageMock = {
   getItem: jest.fn(),
   setItem: jest.fn(),
 };
-global.localStorage = localStorageMock;
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock,
+  configurable: true,
+});
 
 // Mock fetch
 global.fetch = jest.fn();
@@ -28,12 +37,24 @@ describe('SwapRequestModal Component', () => {
     ],
   };
 
+  let consoleErrorSpy;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    localStorageMock.getItem.mockReturnValue(null);
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    localStorageMock.getItem.mockImplementation((key) => {
+      if (key === 'token') return 'fake-token';
+      return null;
+    });
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   test('renders without crashing', () => {
+    fetch.mockImplementation(() => new Promise(() => {}));
+
     const { container } = render(
       <SwapRequestModal 
         user={mockUser} 
@@ -45,6 +66,8 @@ describe('SwapRequestModal Component', () => {
   });
 
   test('displays user name in modal header', () => {
+    fetch.mockImplementation(() => new Promise(() => {}));
+
     const { container } = render(
       <SwapRequestModal 
         user={mockUser} 
@@ -56,6 +79,8 @@ describe('SwapRequestModal Component', () => {
   });
 
   test('has modal overlay structure', () => {
+    fetch.mockImplementation(() => new Promise(() => {}));
+
     const { container } = render(
       <SwapRequestModal 
         user={mockUser} 
@@ -68,6 +93,8 @@ describe('SwapRequestModal Component', () => {
   });
 
   test('calls onClose when close button is clicked', () => {
+    fetch.mockImplementation(() => new Promise(() => {}));
+
     const { container } = render(
       <SwapRequestModal 
         user={mockUser} 
@@ -81,30 +108,103 @@ describe('SwapRequestModal Component', () => {
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  test('renders form fields', () => {
-    const { container } = render(
+  test('shows loading state while fetching swap details', () => {
+    fetch.mockImplementation(() => new Promise(() => {}));
+
+    render(
       <SwapRequestModal 
         user={mockUser} 
         onClose={mockOnClose}
         onSuccess={mockOnSuccess}
       />
     );
-    expect(container.querySelector('.swap-request-form')).toBeInTheDocument();
+    expect(screen.getByText('Loading swap details...')).toBeInTheDocument();
   });
 
-  test('has select dropdowns for skills', () => {
-    const { container } = render(
+  test('shows retry when swap details request fails', async () => {
+    fetch.mockRejectedValue(new Error('Network down'));
+
+    render(
       <SwapRequestModal 
         user={mockUser} 
         onClose={mockOnClose}
         onSuccess={mockOnSuccess}
       />
     );
+
+    await waitFor(() => {
+      expect(screen.getByText('Network down')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  test('renders form fields after successful details fetch', async () => {
+    fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        skills: [{ skillName: 'Piano' }],
+      }),
+    });
+
+    const { container } = render(
+      <SwapRequestModal
+        user={mockUser}
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+      />
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('.swap-request-form')).toBeInTheDocument();
+    });
+
     const selects = container.querySelectorAll('select');
     expect(selects.length).toBeGreaterThan(0);
   });
 
+  test('disables form and shows sending text while request is in-flight', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ skills: [{ skillName: 'Piano' }] }),
+      })
+      .mockImplementationOnce(() => new Promise(() => {}));
+
+    const { container } = render(
+      <SwapRequestModal
+        user={mockUser}
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+      />
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('.swap-request-form')).toBeInTheDocument();
+    });
+
+    fireEvent.change(container.querySelector('#skillOffered'), {
+      target: { value: 'Piano' },
+    });
+    fireEvent.change(container.querySelector('#skillWanted'), {
+      target: { value: 'Guitar' },
+    });
+    fireEvent.change(container.querySelector('#scheduledDate'), {
+      target: { value: '2030-01-01' },
+    });
+    fireEvent.change(container.querySelector('#scheduledTime'), {
+      target: { value: '10:30' },
+    });
+
+    const submitButton = screen.getByRole('button', { name: 'Send Request' });
+    fireEvent.click(submitButton);
+
+    expect(screen.getByRole('button', { name: 'Sending...' })).toBeDisabled();
+    expect(container.querySelector('.swap-request-fieldset')).toBeDisabled();
+  });
+
   test('modal closes when overlay is clicked', () => {
+    fetch.mockImplementation(() => new Promise(() => {}));
+
     const { container } = render(
       <SwapRequestModal 
         user={mockUser} 
