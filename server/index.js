@@ -6,6 +6,7 @@ const cors = require("cors");
 const userRoutes = require("./routes/users");
 const authRoutes = require("./routes/auth");
 const swapRoutes = require("./routes/swaps");
+const messageRoutes = require("./routes/messages");
 const auth = require("./middleware/auth");
 const forYouRoutes = require("./routes/forYou");
 const { getEmailDeliveryMode, validateProductionEmailConfig } = require("./services/email");
@@ -66,6 +67,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/for-you", forYouRoutes);
 app.use("/api/swaps", swapRoutes);
+app.use("/api/messages", messageRoutes);
 
 // start server
 app.listen(PORT, () => {

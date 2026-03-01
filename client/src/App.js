@@ -13,6 +13,7 @@ import NavBar from "./components/NavBar";
 import ForYou from "./pages/ForYou";
 import Browse from "./pages/Browse";
 import Calendar from "./pages/Calendar";
+import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import API_URL from "./config";
@@ -475,6 +476,19 @@ function App() {
               <>
                 <NavBar onLogout={handleLogout} />
                 <Browse />
+              </>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            user ? (
+              <>
+                <NavBar onLogout={handleLogout} />
+                <Chat />
               </>
             ) : (
               <Navigate to="/" replace />

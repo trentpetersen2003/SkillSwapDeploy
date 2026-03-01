@@ -98,6 +98,10 @@ function Browse() {
     setSelectedUserForSwap(user);
   }
 
+  function handleOpenChat(userId) {
+    navigate(`/chat?userId=${userId}`);
+  }
+
   function handleCloseModal() {
     setSelectedUserForSwap(null);
   }
@@ -268,6 +272,10 @@ function Browse() {
                   </button>
                   <button
                     type="button"
+                    className="browse-request-btn browse-message-btn"
+                    onClick={() => handleOpenChat(user._id)}
+                  >
+                    Message
                     className="browse-btn-secondary browse-block-btn"
                     onClick={() => handleBlockUser(user)}
                     disabled={Boolean(blockingUserId)}
