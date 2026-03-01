@@ -3,12 +3,15 @@
 SkillSwap is a community-driven web app where users can trade skills with each other  
 (e.g., “I can teach guitar if you help me learn Spanish”).  
 
-For this proof-of-concept (v0.1), the app supports:
+Current implemented functionality includes:
 
 - User registration and login (JWT auth)
-- Profile with city, time zone, bio, availability, and skills
-- “For You” page that shows other users with their skills
-- Browse and Calendar pages as initial UI stubs
+- Password reset flow (forgot password + reset token)
+- Profile and settings management (username, password, location visibility, notifications)
+- Browse and For You recommendations with skill details
+- Swap request creation and calendar management
+- Direct messaging with conversation threads
+- User blocking (blocked users are hidden from browse/recommendations/chat)
 
 This README is for developers who want to run the project locally.
 
@@ -28,37 +31,47 @@ Install:
 
 Clone the repo:
 
+```bash
 git clone https://github.com/SCCapstone/VectorForge.git
 cd VectorForge
+```
 
+Install dependencies:
 
-Install frontend dependencies:
+```bash
 cd client
 npm install
 
-Install backend dependencies:
 cd ../server
 npm install
+```
 
 Note: Folder structure may change as we build more features.
 
 ## Running
 
 Run the backend API:
+```bash
 cd server
 npm start
+```
 
 Run the frontend application:
+```bash
 cd client
 npm start
+```
 
 Open your browser and go to:
+```text
 http://localhost:3000
+```
 
 Environment variables (backend)
 
 In the server folder, create a .env file with at least:
 
+```env
 MONGO_URI=your-mongodb-connection-string
 JWT_SECRET=some-long-random-secret
 PORT=3001
@@ -79,6 +92,7 @@ EMAIL_FROM="SkillSwap <no-reply@skillswap.local>"
 
 # Production email provider (Resend)
 RESEND_API_KEY=
+```
 
 Password reset email behavior:
 - In production with `RESEND_API_KEY`, email is sent through Resend.
@@ -112,7 +126,10 @@ npm run test:unit
 **Backend test coverage:**
 - `auth.middleware.test.js` - Tests for JWT authentication middleware (token validation, error handling, user extraction)
 - `auth.routes.test.js` - Tests for authentication routes (register, login, validation, error cases)
-- `User.model.test.js` - Tests for User model schema (field validation, arrays, defaults, timestamps)
+- `users.routes.test.js` - Tests settings/profile privacy endpoints (notifications, password, blocked users)
+- `messages.routes.test.js` - Tests message route blocking behavior and conversation filtering
+- `email.service.test.js` - Tests email delivery mode/config behavior
+- `User.model.test.js` - Tests User model schema (field validation, arrays, defaults, timestamps)
 
 **Run with watch mode (auto-rerun on changes):**
 ```bash
@@ -141,6 +158,10 @@ npm run test:unit
 - `components/NavBar.test.js` - Tests for navigation bar rendering and links
 - `components/SwapRequestModal.test.js` - Tests for swap request modal functionality
 - `components/Message.test.js` - Tests for message component display and handling
+- `components/LoadingState.test.js` - Tests loading and retry UI states
+- `pages/Settings.test.js` - Tests settings workflows and protected API calls
+- `pages/Chat.test.js` - Tests chat auth headers and blocked-chat behavior
+- `utils/loading.test.js` - Tests minimum-loading-delay helper behavior
 
 **Run tests in watch mode (recommended during development):**
 ```bash
@@ -186,6 +207,7 @@ npm run test:e2e:run
 
 **E2E test coverage:**
 - `app_loads.cy.js` - Tests that the application loads successfully and main components are present
+- `behavior.cy.js` - Tests core app behavior flows
 
 ### Running All Tests
 
@@ -197,31 +219,8 @@ npm run test:unit
 
 # Frontend
 cd client
-npm test -- --watchAll=false
-```
-
-### Test Requirements Met
-
-SkillSwap uses automated unit tests and will add additional tests throughout development.
-
-### Backend Unit Tests
-
-From the server directory:
-```bash
 npm run test:unit
 ```
-
-Tests are located in:
-```bash
-server/tests/unit/
-```
-
-### Planned Additions
-
-Frontend unit tests using Jest + React Testing Library
-Behavior (end-to-end) tests using Cypress
-
-Testing commands and additional test locations will be added as more tests are implemented.
 
 ## Authors
 
