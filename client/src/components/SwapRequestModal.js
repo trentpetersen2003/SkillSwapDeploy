@@ -1,6 +1,8 @@
 // client/src/components/SwapRequestModal.js
 import React, { useState, useEffect } from "react";
 import API_URL from "../config";
+import LoadingState from "./LoadingState";
+import { withMinimumDelay } from "../utils/loading";
 
 function SwapRequestModal({ user, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -15,34 +17,44 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [currentUserSkills, setCurrentUserSkills] = useState([]);
+  const [detailsLoading, setDetailsLoading] = useState(true);
+  const [detailsError, setDetailsError] = useState("");
 
   useEffect(() => {
-    // Load current user's skills
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        // Fetch full profile to get skills
-        fetchCurrentUserProfile();
-      } catch (err) {
-        console.error("Error parsing user data:", err);
-      }
-    }
+    fetchCurrentUserProfile();
   }, []);
 
   async function fetchCurrentUserProfile() {
+    setDetailsLoading(true);
+    setDetailsError("");
+
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(API_URL + "/api/users/profile", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCurrentUserSkills(data.skills || []);
+      if (!token) {
+        throw new Error("Please log in to request a swap.");
       }
+
+      const data = await withMinimumDelay(async () => {
+        const res = await fetch(API_URL + "/api/users/profile", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error(payload.message || "Failed to load swap details.");
+        }
+
+        return res.json();
+      });
+
+      setCurrentUserSkills(data.skills || []);
     } catch (err) {
       console.error("Error fetching current user profile:", err);
+      setDetailsError(err.message || "Failed to load swap details.");
+    } finally {
+      setDetailsLoading(false);
     }
   }
 
@@ -72,29 +84,32 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch(API_URL + "/api/swaps", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          recipientId: user._id,
-          skillOffered: formData.skillOffered,
-          skillWanted: formData.skillWanted,
-          scheduledDate: scheduledDateTime,
-          duration: parseInt(formData.duration),
-          location: formData.location,
-          notes: formData.notes,
-        }),
+      const data = await withMinimumDelay(async () => {
+        const res = await fetch(API_URL + "/api/swaps", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            recipientId: user._id,
+            skillOffered: formData.skillOffered,
+            skillWanted: formData.skillWanted,
+            scheduledDate: scheduledDateTime,
+            duration: parseInt(formData.duration, 10),
+            location: formData.location,
+            notes: formData.notes,
+          }),
+        });
+
+        if (!res.ok) {
+          const payload = await res.json();
+          throw new Error(payload.message || "Failed to send swap request");
+        }
+
+        return res.json();
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "Failed to send swap request");
-      }
-
-      const data = await res.json();
       onSuccess(data);
     } catch (err) {
       console.error("Error sending swap request:", err);
@@ -120,7 +135,13 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
           </button>
         </div>
 
+        {detailsLoading ? (
+          <LoadingState message="Loading swap details..." compact />
+        ) : detailsError ? (
+          <LoadingState message={detailsError} compact onRetry={fetchCurrentUserProfile} />
+        ) : (
         <form onSubmit={handleSubmit} className="swap-request-form">
+          <fieldset className="swap-request-fieldset" disabled={loading}>
           <div className="form-group">
             <label htmlFor="skillOffered">
               Skill You'll Teach <span className="required">*</span>
@@ -260,7 +281,9 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
               {loading ? "Sending..." : "Send Request"}
             </button>
           </div>
+          </fieldset>
         </form>
+        )}
       </div>
     </div>
   );

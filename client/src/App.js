@@ -8,6 +8,8 @@ import Calendar from "./pages/Calendar";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import API_URL from "./config";
+import LoadingState, { InlineLoading } from "./components/LoadingState";
+import { withMinimumDelay } from "./utils/loading";
 import "./App.css";
 
 const initialForm = { name: "", username: "", email: "", password: "" };
@@ -16,6 +18,7 @@ function LoginPage({ onLogin }) {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   function handleChange(e) {
@@ -25,6 +28,10 @@ function LoginPage({ onLogin }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (submitting) {
+      return;
+    }
+
     setMessage("");
 
     if (!form.email.trim() || !form.password.trim()) {
@@ -50,15 +57,17 @@ function LoginPage({ onLogin }) {
             email: form.email.trim(), 
             password: form.password };
 
+    setSubmitting(true);
     try {
-      console.log("Mode:", mode, "Endpoint:", endpoint, "Body:", body);
-
-      const res = await fetch(API_URL + endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const { res, data } = await withMinimumDelay(async () => {
+        const request = await fetch(API_URL + endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const payload = await request.json();
+        return { res: request, data: payload };
       });
-      const data = await res.json();
 
       if (!res.ok) {
         setMessage(data.message || "Request failed");
@@ -77,6 +86,8 @@ function LoginPage({ onLogin }) {
     } catch (err) {
       console.error(err);
       setMessage("Something went wrong. Try again.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -96,12 +107,14 @@ function LoginPage({ onLogin }) {
               placeholder="Name"
               value={form.name}
               onChange={handleChange}
+              disabled={submitting}
             />
             <input
               name="username"
               placeholder="Username"
               value={form.username}
               onChange={handleChange}
+              disabled={submitting}
             />
             </>
           )}
@@ -111,6 +124,7 @@ function LoginPage({ onLogin }) {
             placeholder="Email"
             value={form.email}
             onChange={handleChange}
+            disabled={submitting}
           />
           <input
             name="password"
@@ -118,25 +132,40 @@ function LoginPage({ onLogin }) {
             placeholder="Password"
             value={form.password}
             onChange={handleChange}
+            disabled={submitting}
           />
-          <button type="submit">
-            {mode === "login" ? "Log in" : "Sign up"}
+          <button type="submit" disabled={submitting}>
+            {submitting
+              ? mode === "login"
+                ? "Logging in..."
+                : "Creating account..."
+              : mode === "login"
+                ? "Log in"
+                : "Sign up"}
           </button>
         </form>
 
         <div className="switcher">
           {mode === "login" ? (
-            <button type="button" onClick={() => setMode("register")}>
+            <button type="button" onClick={() => setMode("register")} disabled={submitting}>
               Need an account? Sign up
             </button>
           ) : (
-            <button type="button" onClick={() => setMode("login")}>
+            <button type="button" onClick={() => setMode("login")} disabled={submitting}>
               Have an account? Log in
             </button>
           )}
         </div>
 
-        {message && <div className="message">{message}</div>}
+        {submitting ? (
+          <div className="message">
+            <InlineLoading
+              message={mode === "login" ? "Logging in..." : "Creating your account..."}
+            />
+          </div>
+        ) : (
+          message && <div className="message">{message}</div>
+        )}
       </div>
     </div>
   );
@@ -144,13 +173,41 @@ function LoginPage({ onLogin }) {
 
 function App() {
   const [user, setUser] = useState(null);
+  const [authChecking, setAuthChecking] = useState(true);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
-    if (savedToken && savedUser) {
-      setUser(JSON.parse(savedUser));
+    let isMounted = true;
+
+    async function restoreSession() {
+      await withMinimumDelay(async () => {
+        const savedToken = localStorage.getItem("token");
+        const savedUser = localStorage.getItem("user");
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (savedToken && savedUser) {
+          try {
+            setUser(JSON.parse(savedUser));
+          } catch (err) {
+            console.error("Unable to parse saved user", err);
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+          }
+        }
+      });
+
+      if (isMounted) {
+        setAuthChecking(false);
+      }
     }
+
+    restoreSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   function handleLogin(userData, userToken) {
@@ -164,6 +221,10 @@ function App() {
     setUser(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+  }
+
+  if (authChecking) {
+    return <LoadingState message="Checking session..." />;
   }
 
   return (

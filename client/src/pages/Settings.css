@@ -103,6 +103,10 @@
   color: #1b3a7a;
 }
 
+.settings-inline-loading {
+  margin-top: 0.65rem;
+}
+
 /* logout at bottom */
 .settings-logout {
   margin-top: 0.25rem;
@@ -119,4 +123,30 @@
 
 .settings-logout:hover {
   background: #f3f4f8;
+}
+
+.settings-logout:disabled {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.settings-delete {
+  align-self: flex-start;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #ef4444;
+  background: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #b91c1c;
+}
+
+.settings-delete:hover {
+  background: #fef2f2;
+}
+
+.settings-delete:disabled {
+  opacity: 0.75;
+  cursor: default;
 }

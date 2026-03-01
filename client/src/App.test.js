@@ -1,6 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import App from './App';
 
 // Mock config to avoid API calls
 jest.mock('./config', () => 'http://localhost:3001');
@@ -57,5 +58,10 @@ describe('App Component Smoke Tests', () => {
     const App = require('./App').default;
     expect(App).toBeDefined();
     expect(typeof App).toBe('function');
+  });
+
+  test('shows auth checking loading indicator on initial render', () => {
+    render(<App />);
+    expect(document.body.textContent).toContain('Checking session...');
   });
 });

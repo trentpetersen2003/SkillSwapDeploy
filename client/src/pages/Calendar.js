@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from "react";
 import ReactCalendar from "react-calendar";
 import API_URL from "../config";
+import LoadingState from "../components/LoadingState";
+import { withMinimumDelay } from "../utils/loading";
 import "react-calendar/dist/Calendar.css";
 import "../pages/Calendar.css";
 
@@ -9,6 +11,7 @@ function CalendarPage() {
   const [swaps, setSwaps] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
   const [view, setView] = useState("list"); 
 
@@ -24,25 +27,30 @@ function CalendarPage() {
       return;
     }
 
+    setLoading(true);
+    setLoadError("");
+
     try {
-      const res = await fetch(API_URL + "/api/swaps", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const data = await withMinimumDelay(async () => {
+        const res = await fetch(API_URL + "/api/swaps", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error(payload.message || "Failed to load swaps");
+        }
+
+        return res.json();
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setMessage(data.message || "Failed to load swaps");
-        setLoading(false);
-        return;
-      }
-
-      const data = await res.json();
       setSwaps(data);
+      setMessage("");
     } catch (err) {
       console.error("Error loading swaps:", err);
-      setMessage("Something went wrong loading swaps.");
+      setLoadError(err.message || "Something went wrong loading swaps.");
     } finally {
       setLoading(false);
     }
@@ -179,7 +187,11 @@ function CalendarPage() {
   }
 
   if (loading) {
-    return <div className="calendar-page__loading">Loading calendar...</div>;
+    return <LoadingState message="Loading calendar..." />;
+  }
+
+  if (loadError) {
+    return <LoadingState message={loadError} onRetry={loadSwaps} />;
   }
 
   return (
