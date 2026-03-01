@@ -76,6 +76,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    locationVisibility: {
+      type: String,
+      enum: ["visible", "hidden"],
+      default: "visible",
+    },
     phoneNumber: {
       type: String,
       trim: true,
@@ -94,6 +99,10 @@ const userSchema = new mongoose.Schema(
     availability: [availabilitySchema],
     skills: [skillSchema],
     skillsWanted: [skillWantedSchema],
+    blockedUsers: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    }],
   },
   {
     timestamps: true,

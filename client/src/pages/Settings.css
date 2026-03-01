@@ -107,6 +107,30 @@
   margin-top: 0.65rem;
 }
 
+.settings-blocked-list {
+  margin-top: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.settings-blocked-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.settings-blocked-user {
+  font-size: 0.95rem;
+}
+
+.settings-muted {
+  font-size: 0.9rem;
+  color: #555;
+}
+
 /* logout at bottom */
 .settings-logout {
   margin-top: 0.25rem;

@@ -7,11 +7,35 @@ const auth = require("../middleware/auth");
 
 const router = express.Router();
 
+function sanitizePublicUser(userDoc) {
+  const user = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
+
+  if (user.locationVisibility === "hidden") {
+    user.city = "";
+  }
+
+  return user;
+}
+
 // GET /api/users - list all users with search/filter
-router.get("/", async (req, res) => {
+router.get("/", auth, async (req, res) => {
   try {
     const { search, category } = req.query;
-    let query = {};
+    const currentUser = await User.findById(req.userId).select("blockedUsers");
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const usersWhoBlockedCurrent = await User.find({ blockedUsers: req.userId }).select("_id");
+    const excludedIds = [
+      req.userId,
+      ...(currentUser.blockedUsers || []),
+      ...usersWhoBlockedCurrent.map((user) => user._id),
+    ];
+
+    let query = {
+      _id: { $nin: excludedIds },
+    };
 
     if (search) {
       query.$or = [
@@ -23,17 +47,24 @@ router.get("/", async (req, res) => {
     }
 
     if (category) {
-      query.$or = [
+      const categoryFilter = [
         { "skills.category": category },
         { "skillsWanted.category": category },
       ];
+
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: categoryFilter }];
+        delete query.$or;
+      } else {
+        query.$or = categoryFilter;
+      }
     }
 
     const users = await User.find(query)
-      .select("-passwordHash")
+      .select("-passwordHash -blockedUsers")
       .sort({ createdAt: 1 });
 
-    res.json(users);
+    res.json(users.map(sanitizePublicUser));
   } catch (err) {
     console.error("Error fetching users:", err);
     res.status(500).json({ message: "Error fetching users" });
@@ -206,6 +237,104 @@ router.put("/username", auth, async (req, res) => {
   } catch (err) {
     console.error("Error updating username:", err);
     res.status(500).json({ message: "Error updating username" });
+  }
+});
+
+// PUT /api/users/location-visibility - update location visibility setting
+router.put("/location-visibility", auth, async (req, res) => {
+  try {
+    const { locationVisibility } = req.body;
+
+    if (!["visible", "hidden"].includes(locationVisibility)) {
+      return res.status(400).json({ message: "locationVisibility must be 'visible' or 'hidden'" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $set: { locationVisibility } },
+      { new: true, runValidators: true }
+    ).select("locationVisibility");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ locationVisibility: user.locationVisibility });
+  } catch (err) {
+    console.error("Error updating location visibility:", err);
+    res.status(500).json({ message: "Error updating location visibility" });
+  }
+});
+
+// GET /api/users/blocked - list blocked users for current user
+router.get("/blocked", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId)
+      .populate("blockedUsers", "name username")
+      .select("blockedUsers");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json(user.blockedUsers || []);
+  } catch (err) {
+    console.error("Error loading blocked users:", err);
+    res.status(500).json({ message: "Error loading blocked users" });
+  }
+});
+
+// POST /api/users/blocked - block a user
+router.post("/blocked", auth, async (req, res) => {
+  try {
+    const { targetUserId } = req.body;
+
+    if (!targetUserId || !mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({ message: "Valid targetUserId is required" });
+    }
+
+    if (targetUserId === req.userId) {
+      return res.status(400).json({ message: "You cannot block yourself" });
+    }
+
+    const targetUser = await User.findById(targetUserId).select("_id");
+    if (!targetUser) {
+      return res.status(404).json({ message: "User to block not found" });
+    }
+
+    const existing = await User.findOne({
+      _id: req.userId,
+      blockedUsers: targetUserId,
+    }).select("_id");
+
+    if (existing) {
+      return res.status(409).json({ message: "User is already blocked" });
+    }
+
+    await User.findByIdAndUpdate(req.userId, {
+      $addToSet: { blockedUsers: targetUserId },
+    });
+
+    res.status(201).json({ message: "User blocked" });
+  } catch (err) {
+    console.error("Error blocking user:", err);
+    res.status(500).json({ message: "Error blocking user" });
+  }
+});
+
+// DELETE /api/users/blocked/:blockedUserId - unblock a user
+router.delete("/blocked/:blockedUserId", auth, async (req, res) => {
+  try {
+    const { blockedUserId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(blockedUserId)) {
+      return res.status(400).json({ message: "Invalid blocked user id" });
+    }
+
+    await User.findByIdAndUpdate(req.userId, {
+      $pull: { blockedUsers: blockedUserId },
+    });
+
+    res.json({ message: "User unblocked" });
+  } catch (err) {
+    console.error("Error unblocking user:", err);
+    res.status(500).json({ message: "Error unblocking user" });
   }
 });
 

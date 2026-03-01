@@ -16,6 +16,7 @@ function ForYouPage() {
   const [message, setMessage] = useState("");
   const [expandedUser, setExpandedUser] = useState(null);
   const [selectedUserForSwap, setSelectedUserForSwap] = useState(null);
+  const [blockingUserId, setBlockingUserId] = useState("");
   const navigate = useNavigate();
 
   const loadUsers = useCallback(async () => {
@@ -77,6 +78,44 @@ function ForYouPage() {
     }, 2000);
   }
 
+  async function handleBlockUser(user) {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+      return;
+    }
+
+    setMessage("");
+    setBlockingUserId(user._id);
+
+    try {
+      await withMinimumDelay(async () => {
+        const res = await fetch(API_URL + "/api/users/blocked", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ targetUserId: user._id }),
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(payload.message || "Failed to block user");
+        }
+      });
+
+      setUsers((prev) => prev.filter((existingUser) => existingUser._id !== user._id));
+      setExpandedUser((prev) => (prev === user._id ? null : prev));
+      setMessage(`Blocked @${user.username || "user"}.`);
+    } catch (err) {
+      console.error("Error blocking user:", err);
+      setMessage(err.message || "Unable to block user.");
+    } finally {
+      setBlockingUserId("");
+    }
+  }
+
   if (loading) {
     return <LoadingState message="Loading users..." />;
   }
@@ -109,6 +148,9 @@ function ForYouPage() {
               isExpanded={expandedUser === user._id}
               onToggleExpand={() => toggleExpand(user._id)}
               onRequestSwap={() => handleSwapRequest(user)}
+              onBlockUser={() => handleBlockUser(user)}
+              isBlocking={blockingUserId === user._id}
+              disableActions={Boolean(blockingUserId)}
             />
           ))}
         </div>
@@ -125,7 +167,7 @@ function ForYouPage() {
   );
 }
 
-function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap }) {
+function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap, onBlockUser, isBlocking, disableActions }) {
   const skillsOffered =
     user.skills && user.skills.length > 0
       ? user.skills.map((s) => s.skillName || s).filter(Boolean)
@@ -148,7 +190,9 @@ function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap }) {
         <div className="user-location">
           <span className="location-icon">📍</span>
           <span className="location-text">
-            {user.city || "Location not set"}
+            {user.locationVisibility === "hidden"
+              ? "Location hidden"
+              : user.city || "Location not set"}
           </span>
         </div>
       </div>
@@ -241,14 +285,23 @@ function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap }) {
         <button
           className="btn-secondary"
           onClick={onToggleExpand}
+          disabled={disableActions}
         >
           {isExpanded ? "Show Less" : "View Details"}
         </button>
         <button
           className="btn-primary"
           onClick={onRequestSwap}
+          disabled={disableActions}
         >
           Request Swap
+        </button>
+        <button
+          className="btn-secondary"
+          onClick={onBlockUser}
+          disabled={disableActions}
+        >
+          {isBlocking ? "Blocking..." : "Block User"}
         </button>
       </div>
     </div>

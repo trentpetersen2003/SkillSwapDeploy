@@ -9,10 +9,14 @@ import "./Settings.css";
 function Settings({ onLogout }) {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
+  const [locationVisibility, setLocationVisibility] = useState("visible");
+  const [blockedUsers, setBlockedUsers] = useState([]);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [actions, setActions] = useState({
     savingUsername: false,
+    savingVisibility: false,
+    unblockingUserId: "",
     loggingOut: false,
     deletingAccount: false,
   });
@@ -30,19 +34,39 @@ function Settings({ onLogout }) {
     }
 
     try {
-      const data = await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + "/api/users/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+      const { profileData, blockedData } = await withMinimumDelay(async () => {
+        const [profileRes, blockedRes] = await Promise.all([
+          fetch(API_URL + "/api/users/profile", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(API_URL + "/api/users/blocked", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
 
-        if (!res.ok) {
+        if (!profileRes.ok) {
           throw new Error("Failed to load settings");
         }
 
-        return res.json();
+        if (!blockedRes.ok) {
+          const payload = await blockedRes.json().catch(() => ({}));
+          throw new Error(payload.message || "Failed to load blocked users");
+        }
+
+        const [profilePayload, blockedPayload] = await Promise.all([
+          profileRes.json(),
+          blockedRes.json(),
+        ]);
+
+        return {
+          profileData: profilePayload,
+          blockedData: blockedPayload,
+        };
       });
 
-      setUsername(data.username || "");
+      setUsername(profileData.username || "");
+      setLocationVisibility(profileData.locationVisibility || "visible");
+      setBlockedUsers(Array.isArray(blockedData) ? blockedData : []);
     } catch (e) {
       setLoadError(e.message || "Error loading settings.");
     } finally {
@@ -116,6 +140,79 @@ function Settings({ onLogout }) {
     }
   }
 
+  async function handleSaveLocationVisibility() {
+    setMessage("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+      return;
+    }
+
+    setActions((prev) => ({ ...prev, savingVisibility: true }));
+    try {
+      await withMinimumDelay(async () => {
+        const res = await fetch(API_URL + "/api/users/location-visibility", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ locationVisibility }),
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(payload.message || "Failed to update location visibility");
+        }
+      });
+
+      setMessage("Location visibility updated.");
+    } catch (e) {
+      setMessage(e.message || "Error updating location visibility.");
+    } finally {
+      setActions((prev) => ({ ...prev, savingVisibility: false }));
+    }
+  }
+
+  async function handleUnblockUser(blockedUserId) {
+    setMessage("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+      return;
+    }
+
+    setActions((prev) => ({
+      ...prev,
+      unblockingUserId: blockedUserId,
+    }));
+
+    try {
+      await withMinimumDelay(async () => {
+        const res = await fetch(API_URL + `/api/users/blocked/${blockedUserId}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(payload.message || "Failed to unblock user");
+        }
+      });
+
+      setBlockedUsers((prev) => prev.filter((user) => user._id !== blockedUserId));
+      setMessage("User unblocked.");
+    } catch (e) {
+      setMessage(e.message || "Error unblocking user.");
+    } finally {
+      setActions((prev) => ({ ...prev, unblockingUserId: "" }));
+    }
+  }
+
   async function handleDeleteAccount() {
     const savedUser = localStorage.getItem("user");
     const parsedUser = savedUser ? JSON.parse(savedUser) : null;
@@ -157,11 +254,18 @@ function Settings({ onLogout }) {
     }
   }
 
-  const isAnyBlockingAction = actions.savingUsername || actions.loggingOut || actions.deletingAccount;
+  const isAnyBlockingAction =
+    actions.savingUsername ||
+    actions.savingVisibility ||
+    actions.loggingOut ||
+    actions.deletingAccount ||
+    Boolean(actions.unblockingUserId);
   const blockingMessage = actions.deletingAccount
     ? "Deleting account..."
     : actions.loggingOut
       ? "Logging out..."
+      : actions.unblockingUserId
+        ? "Updating blocked users..."
       : "Saving settings...";
 
   if (loadingSettings) {
@@ -207,6 +311,55 @@ function Settings({ onLogout }) {
                 <InlineLoading message="Saving settings..." />
               </div>
             )}
+          </div>
+
+          <div className="settings-section">
+            <h3>Privacy &amp; Safety</h3>
+
+            <div className="settings-row">
+              <div className="settings-field">
+                <div className="settings-label">Location visibility</div>
+                <select
+                  className="settings-input"
+                  value={locationVisibility}
+                  onChange={(e) => setLocationVisibility(e.target.value)}
+                  disabled={isAnyBlockingAction}
+                >
+                  <option value="visible">Visible in Browse and For You</option>
+                  <option value="hidden">Hidden in Browse and For You</option>
+                </select>
+              </div>
+
+              <button
+                className="settings-btn-primary"
+                onClick={handleSaveLocationVisibility}
+                disabled={isAnyBlockingAction}
+              >
+                {actions.savingVisibility ? "Saving..." : "Save Visibility"}
+              </button>
+            </div>
+
+            <div className="settings-blocked-list">
+              <div className="settings-label">Blocked users</div>
+              {blockedUsers.length === 0 ? (
+                <div className="settings-muted">No blocked users.</div>
+              ) : (
+                blockedUsers.map((blockedUser) => (
+                  <div key={blockedUser._id} className="settings-blocked-item">
+                    <div className="settings-blocked-user">
+                      {blockedUser.name || "Unnamed User"} (@{blockedUser.username || "unknown"})
+                    </div>
+                    <button
+                      className="settings-logout"
+                      onClick={() => handleUnblockUser(blockedUser._id)}
+                      disabled={isAnyBlockingAction}
+                    >
+                      {actions.unblockingUserId === blockedUser._id ? "Unblocking..." : "Unblock"}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
           <button
             className="settings-logout"
