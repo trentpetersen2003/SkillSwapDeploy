@@ -125,4 +125,37 @@ describe("SkillSwap behavior tests", () => {
     cy.contains("Profile").should("be.visible").click();
     cy.contains("Profile").should("be.visible");
   });
+
+  it("completes forgot and reset password flow", () => {
+    cy.intercept("POST", `${API_BASE}/api/auth/forgot-password`, {
+      body: {
+        message: "If an account exists for that email, a password reset link has been sent.",
+      },
+    }).as("forgotPassword");
+
+    cy.intercept("POST", `${API_BASE}/api/auth/reset-password`, {
+      body: {
+        message: "Password reset successful",
+      },
+    }).as("resetPassword");
+
+    cy.visit(`${BASE_URL}/`);
+    cy.contains("Forgot password?").should("be.visible").click();
+
+    cy.get("input[name='email']").type("test@example.com");
+    cy.contains("Send reset link").click();
+    cy.wait("@forgotPassword");
+    cy.contains("If an account exists for that email, a password reset link has been sent.").should(
+      "be.visible"
+    );
+
+    cy.visit(`${BASE_URL}/reset-password/mock-token`);
+    cy.get("input[name='password']").type("newpassword123");
+    cy.get("input[name='confirmPassword']").type("newpassword123");
+    cy.contains("Reset password").click();
+    cy.wait("@resetPassword");
+
+    cy.url().should("include", "?reset=success");
+    cy.contains("Password reset successful. You can now log in.").should("be.visible");
+  });
 });

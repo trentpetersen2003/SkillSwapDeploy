@@ -1,6 +1,14 @@
 // client/src/App.js
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useParams,
+  useLocation,
+} from "react-router-dom";
 import NavBar from "./components/NavBar";
 import ForYou from "./pages/ForYou";
 import Browse from "./pages/Browse";
@@ -13,6 +21,8 @@ import { withMinimumDelay } from "./utils/loading";
 import "./App.css";
 
 const initialForm = { name: "", username: "", email: "", password: "" };
+const genericForgotPasswordMessage =
+  "If an account exists for that email, a password reset link has been sent.";
 
 function LoginPage({ onLogin }) {
   const [mode, setMode] = useState("login");
@@ -20,6 +30,14 @@ function LoginPage({ onLogin }) {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("reset") === "success") {
+      setMessage("Password reset successful. You can now log in.");
+    }
+  }, [location.search]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -152,9 +170,18 @@ function LoginPage({ onLogin }) {
 
         <div className="switcher">
           {mode === "login" ? (
-            <button type="button" onClick={() => setMode("register")} disabled={submitting}>
-              Need an account? Sign up
-            </button>
+            <>
+              <button type="button" onClick={() => setMode("register")} disabled={submitting}>
+                Need an account? Sign up
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+                disabled={submitting}
+              >
+                Forgot password?
+              </button>
+            </>
           ) : (
             <button type="button" onClick={() => setMode("login")} disabled={submitting}>
               Have an account? Log in
@@ -171,6 +198,185 @@ function LoginPage({ onLogin }) {
         ) : (
           message && <div className="message">{message}</div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ForgotPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (submitting) {
+      return;
+    }
+
+    if (!email.trim()) {
+      setMessage("Email is required.");
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage("");
+
+    try {
+      const { res, data } = await withMinimumDelay(async () => {
+        const request = await fetch(`${API_URL}/api/auth/forgot-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        const payload = await request.json();
+        return { res: request, data: payload };
+      });
+
+      if (!res.ok) {
+        setMessage(data.message || "Request failed");
+        return;
+      }
+
+      setMessage(data.message || genericForgotPasswordMessage);
+    } catch (err) {
+      console.error(err);
+      setMessage("Something went wrong. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="App">
+      <div className="card">
+        <h1>Forgot Password</h1>
+        <p className="subtitle">Enter your email and we&apos;ll send a reset link.</p>
+
+        <form onSubmit={handleSubmit} className="form">
+          <input
+            name="email"
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={submitting}
+          />
+          <button type="submit" disabled={submitting}>
+            {submitting ? "Sending reset link..." : "Send reset link"}
+          </button>
+        </form>
+
+        <div className="switcher">
+          <button type="button" onClick={() => navigate("/")} disabled={submitting}>
+            Back to login
+          </button>
+        </div>
+
+        {message && <div className="message">{message}</div>}
+      </div>
+    </div>
+  );
+}
+
+function ResetPasswordPage() {
+  const { token } = useParams();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (submitting) {
+      return;
+    }
+
+    setMessage("");
+
+    if (!token) {
+      setMessage("Invalid reset link.");
+      return;
+    }
+
+    if (!password || !confirmPassword) {
+      setMessage("Both password fields are required.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setMessage("Passwords do not match.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const { res, data } = await withMinimumDelay(async () => {
+        const request = await fetch(`${API_URL}/api/auth/reset-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token,
+            password,
+            confirmPassword,
+          }),
+        });
+        const payload = await request.json();
+        return { res: request, data: payload };
+      });
+
+      if (!res.ok) {
+        setMessage(data.message || "Request failed");
+        return;
+      }
+
+      navigate("/?reset=success", { replace: true });
+    } catch (err) {
+      console.error(err);
+      setMessage("Something went wrong. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="App">
+      <div className="card">
+        <h1>Reset Password</h1>
+        <p className="subtitle">Enter your new password below.</p>
+
+        <form onSubmit={handleSubmit} className="form">
+          <input
+            name="password"
+            type="password"
+            placeholder="New password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={submitting}
+          />
+          <input
+            name="confirmPassword"
+            type="password"
+            placeholder="Confirm new password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            disabled={submitting}
+          />
+          <button type="submit" disabled={submitting}>
+            {submitting ? "Resetting password..." : "Reset password"}
+          </button>
+        </form>
+
+        <div className="switcher">
+          <button type="button" onClick={() => navigate("/")} disabled={submitting}>
+            Back to login
+          </button>
+        </div>
+
+        {message && <div className="message">{message}</div>}
       </div>
     </div>
   );
@@ -240,6 +446,14 @@ function App() {
           element={
             user ? <Navigate to="/foryou" replace /> : <LoginPage onLogin={handleLogin} />
           }
+        />
+        <Route
+          path="/forgot-password"
+          element={user ? <Navigate to="/foryou" replace /> : <ForgotPasswordPage />}
+        />
+        <Route
+          path="/reset-password/:token"
+          element={user ? <Navigate to="/foryou" replace /> : <ResetPasswordPage />}
         />
         <Route
           path="/foryou"
