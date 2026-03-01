@@ -126,6 +126,81 @@ describe("SkillSwap behavior tests", () => {
     cy.contains("Profile").should("be.visible");
   });
 
+  it("manages settings notifications, security, and safety controls", () => {
+    cy.intercept("GET", `${API_BASE}/api/users/profile`, {
+      body: {
+        _id: "u0",
+        username: "testuser",
+        locationVisibility: "visible",
+        notificationPreferences: {
+          swapRequestEmail: true,
+          swapConfirmedEmail: true,
+          swapCancelledEmail: true,
+        },
+      },
+    }).as("getSettingsProfile");
+
+    cy.intercept("GET", `${API_BASE}/api/users/blocked`, {
+      body: [
+        { _id: "u9", name: "Blocked User", username: "blockeduser" },
+      ],
+    }).as("getBlockedUsers");
+
+    cy.intercept("PUT", `${API_BASE}/api/users/location-visibility`, {
+      body: { locationVisibility: "hidden" },
+    }).as("saveVisibility");
+
+    cy.intercept("PUT", `${API_BASE}/api/users/notifications`, {
+      body: {
+        notificationPreferences: {
+          swapRequestEmail: false,
+          swapConfirmedEmail: true,
+          swapCancelledEmail: true,
+        },
+      },
+    }).as("saveNotifications");
+
+    cy.intercept("PUT", `${API_BASE}/api/users/password`, {
+      body: { message: "Password updated" },
+    }).as("changePassword");
+
+    cy.intercept("DELETE", `${API_BASE}/api/users/blocked/u9`, {
+      body: { message: "User unblocked" },
+    }).as("unblockUser");
+
+    cy.visit(`${BASE_URL}/settings`, { onBeforeLoad: setAuth });
+    cy.wait("@getSettingsProfile");
+    cy.wait("@getBlockedUsers");
+
+    cy.contains("Settings").should("be.visible");
+
+    cy.get("select.settings-input").first().select("Hidden in Browse and For You");
+    cy.contains("button", "Save Visibility").click();
+    cy.wait("@saveVisibility");
+
+    cy.contains("span", "Email me for new swap requests")
+      .closest("label")
+      .find("input[type='checkbox']")
+      .click();
+    cy.contains("button", "Save Notifications").click();
+    cy.wait("@saveNotifications");
+
+    cy.contains("Blocked User (@blockeduser)").should("be.visible");
+    cy.contains("button", "Unblock").click();
+    cy.wait("@unblockUser");
+    cy.contains("Blocked User (@blockeduser)").should("not.exist");
+
+    cy.get("input[placeholder='Current password']").type("oldpassword");
+    cy.get("input[placeholder='New password']").type("newpassword123");
+    cy.get("input[placeholder='Confirm new password']").type("newpassword123");
+    cy.contains("button", "Update Password").click();
+    cy.wait("@changePassword");
+
+    cy.contains("button", "Delete account").should("be.disabled");
+    cy.get("input[placeholder='testuser']").type("testuser");
+    cy.contains("button", "Delete account").should("not.be.disabled");
+  });
+
   it("completes forgot and reset password flow", () => {
     cy.intercept("POST", `${API_BASE}/api/auth/forgot-password`, {
       body: {

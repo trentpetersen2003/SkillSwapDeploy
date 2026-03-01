@@ -1,21 +1,19 @@
 const nodemailer = require("nodemailer");
-const { Resend } = require("resend");
 
 let cachedTransporter;
 let cachedTestAccount;
 
-function getEmailDeliveryMode() {
-  const hasSmtpConfig =
+function hasSmtpConfig() {
+  return Boolean(
     process.env.SMTP_HOST &&
     process.env.SMTP_PORT &&
     process.env.SMTP_USER &&
-    process.env.SMTP_PASS;
+    process.env.SMTP_PASS
+  );
+}
 
-  if (process.env.NODE_ENV === "production" && process.env.RESEND_API_KEY) {
-    return "resend";
-  }
-
-  if (hasSmtpConfig) {
+function getEmailDeliveryMode() {
+  if (hasSmtpConfig()) {
     return "smtp";
   }
 
@@ -27,17 +25,18 @@ function validateProductionEmailConfig() {
     return { valid: true };
   }
 
-  if (!process.env.RESEND_API_KEY) {
-    return {
-      valid: false,
-      message: "Startup blocked: RESEND_API_KEY is required in production.",
-    };
-  }
-
   if (!process.env.EMAIL_FROM) {
     return {
       valid: false,
       message: "Startup blocked: EMAIL_FROM is required in production.",
+    };
+  }
+
+  if (!hasSmtpConfig()) {
+    return {
+      valid: false,
+      message:
+        "Startup blocked: SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS are required in production.",
     };
   }
 
@@ -49,13 +48,7 @@ async function getTransporter() {
     return cachedTransporter;
   }
 
-  const hasSmtpConfig =
-    process.env.SMTP_HOST &&
-    process.env.SMTP_PORT &&
-    process.env.SMTP_USER &&
-    process.env.SMTP_PASS;
-
-  if (hasSmtpConfig) {
+  if (hasSmtpConfig()) {
     cachedTransporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
@@ -97,19 +90,6 @@ async function sendPasswordResetEmail({ to, resetLink }) {
   `;
 
   const from = process.env.EMAIL_FROM || "SkillSwap <no-reply@skillswap.local>";
-  const useResend = process.env.NODE_ENV === "production" && process.env.RESEND_API_KEY;
-
-  if (useResend) {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
-      from,
-      to,
-      subject,
-      text,
-      html,
-    });
-    return;
-  }
 
   const transporter = await getTransporter();
   const info = await transporter.sendMail({
