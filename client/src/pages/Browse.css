@@ -209,6 +209,16 @@
   filter: brightness(0.95);
 }
 
+.browse-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.browse-block-btn {
+  width: 100%;
+}
+
 /* Responsive */
 
 @media (max-width: 768px) {
@@ -228,5 +238,9 @@
 
   .browse-request-btn {
     align-self: flex-start;
+  }
+
+  .browse-card-actions {
+    width: 100%;
   }
 }
