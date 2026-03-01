@@ -6,6 +6,16 @@ function NavBar() {
   return (
     <nav className="navbar">
       <div className="navbar-container">
+        <NavLink to="/foryou" className="navbar-brand">
+          <img
+            className="navbar-brand-logo"
+            src={`${process.env.PUBLIC_URL}/skillswap-logo.png`}
+            alt="SkillSwap logo"
+          />
+          <span className="navbar-brand-text">SkillSwap</span>
+        </NavLink>
+
+        <div className="navbar-links">
         <NavLink 
           to="/foryou" 
           className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
@@ -36,6 +46,7 @@ function NavBar() {
         >
           Settings
         </NavLink>
+        </div>
       </div>
     </nav>
   );
