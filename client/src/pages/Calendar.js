@@ -133,18 +133,28 @@ function CalendarPage() {
     return null;
   }
 
-  // Get upcoming swaps
-  const upcomingSwaps = swaps
-    .filter((swap) => new Date(swap.scheduledDate) >= new Date())
+  const HISTORY_STATUSES = ["completed", "cancelled"];
+
+  // Get upcoming swaps that still require action
+  const actionableUpcomingSwaps = swaps
+    .filter(
+      (swap) =>
+        !HISTORY_STATUSES.includes(swap.status) &&
+        new Date(swap.scheduledDate) >= new Date()
+    )
     .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
 
   // Organize upcoming swaps by status
-  const pendingRequests = upcomingSwaps.filter((swap) => swap.status === "pending");
-  const activeSwaps = upcomingSwaps.filter((swap) => swap.status === "confirmed");
-  
-  // Get past swaps
-  const pastSwaps = swaps
-    .filter((swap) => new Date(swap.scheduledDate) < new Date())
+  const pendingRequests = actionableUpcomingSwaps.filter(
+    (swap) => swap.status === "pending"
+  );
+  const activeSwaps = actionableUpcomingSwaps.filter(
+    (swap) => swap.status === "confirmed"
+  );
+
+  // Keep completed/cancelled items visible as history even after refresh
+  const swapHistory = swaps
+    .filter((swap) => HISTORY_STATUSES.includes(swap.status))
     .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate));
 
   // Get swaps for selected date
@@ -310,11 +320,15 @@ function CalendarPage() {
             )}
           </section>
 
-          {pastSwaps.length > 0 && (
-            <section className="list-view__section">
-              <h2 className="section-title">Past Swaps ({pastSwaps.length})</h2>
+          <section className="list-view__section">
+            <h2 className="section-title">Swap History ({swapHistory.length})</h2>
+            {swapHistory.length === 0 ? (
+              <p className="section-empty">
+                No completed or cancelled swaps yet.
+              </p>
+            ) : (
               <div className="swaps-list">
-                {pastSwaps.map((swap) => (
+                {swapHistory.map((swap) => (
                   <SwapCard
                     key={swap._id}
                     swap={swap}
@@ -324,12 +338,12 @@ function CalendarPage() {
                     formatDate={formatDate}
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
-                    isPast={true}
+                    isHistory={true}
                   />
                 ))}
               </div>
-            </section>
-          )}
+            )}
+          </section>
         </div>
       )}
     </div>
@@ -345,6 +359,7 @@ function SwapCard({
   formatTime,
   getStatusColor,
   isPast = false,
+  isHistory = false,
 }) {
   const isRequester = swap.requester._id === currentUser.id;
   const otherUser = isRequester ? swap.recipient : swap.requester;
@@ -379,6 +394,15 @@ function SwapCard({
           <span className="skill-value">{swap.skillWanted}</span>
         </div>
       </div>
+
+      {isHistory && (
+        <div className="swap-card__history-skill">
+          <span className="history-skill-label">Skill exchanged:</span>
+          <span className="history-skill-value">
+            {swap.skillOffered} {" <-> "} {swap.skillWanted}
+          </span>
+        </div>
+      )}
 
       <div className="swap-card__details">
         {formatDate && (
