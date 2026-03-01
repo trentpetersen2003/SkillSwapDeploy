@@ -57,7 +57,11 @@ function Chat() {
 
     try {
       const [usersRes, conversationsRes] = await Promise.all([
-        fetch(`${API_URL}/api/users`),
+        fetch(`${API_URL}/api/users`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
         fetch(`${API_URL}/api/messages/conversations`, {
           headers: {
             Authorization: `Bearer ${token}`,

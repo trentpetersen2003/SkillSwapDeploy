@@ -22,10 +22,47 @@ function getOtherUser(message, currentUserId) {
     : message.sender;
 }
 
+async function hasBlockedRelationship(currentUserId, otherUserId) {
+  const [currentUser, otherUser] = await Promise.all([
+    User.findById(currentUserId).select("blockedUsers"),
+    User.findById(otherUserId).select("blockedUsers"),
+  ]);
+
+  if (!currentUser || !otherUser) {
+    return false;
+  }
+
+  const currentUserBlocked = new Set(
+    (currentUser.blockedUsers || []).map((id) => String(id))
+  );
+  const otherUserBlocked = new Set(
+    (otherUser.blockedUsers || []).map((id) => String(id))
+  );
+
+  return (
+    currentUserBlocked.has(otherUserId) ||
+    otherUserBlocked.has(currentUserId)
+  );
+}
+
 // GET /api/messages/conversations - list latest DM threads for current user
 router.get("/conversations", auth, async (req, res) => {
   try {
     const currentUserId = String(req.userId);
+
+    const [currentUser, usersWhoBlockedCurrent] = await Promise.all([
+      User.findById(currentUserId).select("blockedUsers"),
+      User.find({ blockedUsers: currentUserId }).select("_id"),
+    ]);
+
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const blockedUserIds = new Set([
+      ...(currentUser.blockedUsers || []).map((id) => String(id)),
+      ...usersWhoBlockedCurrent.map((user) => String(user._id)),
+    ]);
 
     const messages = await Message.find({
       $or: [{ sender: currentUserId }, { recipient: currentUserId }],
@@ -36,11 +73,15 @@ router.get("/conversations", auth, async (req, res) => {
 
     const unreadCounts = new Map();
     messages.forEach((message) => {
+      const otherUserId = getOtherUserId(message, currentUserId);
+      if (blockedUserIds.has(otherUserId)) {
+        return;
+      }
+
       if (
         String(message.recipient?._id || message.recipient) === currentUserId &&
         !message.readAt
       ) {
-        const otherUserId = getOtherUserId(message, currentUserId);
         unreadCounts.set(otherUserId, (unreadCounts.get(otherUserId) || 0) + 1);
       }
     });
@@ -48,6 +89,10 @@ router.get("/conversations", auth, async (req, res) => {
     const conversationsMap = new Map();
     messages.forEach((message) => {
       const otherUserId = getOtherUserId(message, currentUserId);
+      if (blockedUserIds.has(otherUserId)) {
+        return;
+      }
+
       if (conversationsMap.has(otherUserId)) {
         return;
       }
@@ -91,6 +136,11 @@ router.get("/:userId", auth, async (req, res) => {
     const otherUser = await User.findById(userId).select("_id");
     if (!otherUser) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    const isBlocked = await hasBlockedRelationship(currentUserId, userId);
+    if (isBlocked) {
+      return res.status(403).json({ message: "Cannot chat with a blocked user" });
     }
 
     await Message.updateMany(
@@ -143,6 +193,11 @@ router.post("/:userId", auth, async (req, res) => {
     const recipient = await User.findById(userId).select("_id");
     if (!recipient) {
       return res.status(404).json({ message: "Recipient not found" });
+    }
+
+    const isBlocked = await hasBlockedRelationship(currentUserId, userId);
+    if (isBlocked) {
+      return res.status(403).json({ message: "Cannot chat with a blocked user" });
     }
 
     const message = await Message.create({
