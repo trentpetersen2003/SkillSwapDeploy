@@ -217,6 +217,12 @@
 
 .browse-message-btn {
   background: #2563eb;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.browse-block-btn {
+  width: 100%;
 }
 
 /* Responsive */
@@ -242,5 +248,10 @@
 
   .browse-request-btn {
     align-self: flex-start;
+  }
+}
+
+  .browse-card-actions {
+    width: 100%;
   }
 }

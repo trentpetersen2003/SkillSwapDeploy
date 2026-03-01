@@ -27,12 +27,31 @@ describe("User Model", () => {
 
       const user = new User(userData);
       expect(user.city).toBe("");
+      expect(user.locationVisibility).toBe("visible");
       expect(user.phoneNumber).toBe("");
       expect(user.timeZone).toBe("");
       expect(user.bio).toBe("");
       expect(user.availability).toEqual([]);
       expect(user.skills).toEqual([]);
       expect(user.skillsWanted).toEqual([]);
+      expect(user.blockedUsers).toEqual([]);
+      expect(user.notificationPreferences).toEqual({
+        swapRequestEmail: true,
+        swapConfirmedEmail: true,
+        swapCancelledEmail: true,
+      });
+    });
+
+    test("should accept hidden location visibility", () => {
+      const user = new User({
+        name: "Hidden User",
+        username: "hiddenuser",
+        email: "hidden@example.com",
+        passwordHash: "hash",
+        locationVisibility: "hidden",
+      });
+
+      expect(user.locationVisibility).toBe("hidden");
     });
 
     test("should accept optional profile fields", () => {

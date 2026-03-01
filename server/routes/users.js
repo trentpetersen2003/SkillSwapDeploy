@@ -6,12 +6,37 @@ const User = require("../models/User");
 const auth = require("../middleware/auth");
 
 const router = express.Router();
+const PASSWORD_MIN_LENGTH = 8;
+
+function sanitizePublicUser(userDoc) {
+  const user = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
+
+  if (user.locationVisibility === "hidden") {
+    user.city = "";
+  }
+
+  return user;
+}
 
 // GET /api/users - list all users with search/filter
-router.get("/", async (req, res) => {
+router.get("/", auth, async (req, res) => {
   try {
     const { search, category } = req.query;
-    let query = {};
+    const currentUser = await User.findById(req.userId).select("blockedUsers");
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const usersWhoBlockedCurrent = await User.find({ blockedUsers: req.userId }).select("_id");
+    const excludedIds = [
+      req.userId,
+      ...(currentUser.blockedUsers || []),
+      ...usersWhoBlockedCurrent.map((user) => user._id),
+    ];
+
+    let query = {
+      _id: { $nin: excludedIds },
+    };
 
     if (search) {
       query.$or = [
@@ -23,17 +48,24 @@ router.get("/", async (req, res) => {
     }
 
     if (category) {
-      query.$or = [
+      const categoryFilter = [
         { "skills.category": category },
         { "skillsWanted.category": category },
       ];
+
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: categoryFilter }];
+        delete query.$or;
+      } else {
+        query.$or = categoryFilter;
+      }
     }
 
     const users = await User.find(query)
-      .select("-passwordHash")
+      .select("-passwordHash -blockedUsers")
       .sort({ createdAt: 1 });
 
-    res.json(users);
+    res.json(users.map(sanitizePublicUser));
   } catch (err) {
     console.error("Error fetching users:", err);
     res.status(500).json({ message: "Error fetching users" });
@@ -206,6 +238,192 @@ router.put("/username", auth, async (req, res) => {
   } catch (err) {
     console.error("Error updating username:", err);
     res.status(500).json({ message: "Error updating username" });
+  }
+});
+
+// PUT /api/users/location-visibility - update location visibility setting
+router.put("/location-visibility", auth, async (req, res) => {
+  try {
+    const { locationVisibility } = req.body;
+
+    if (!["visible", "hidden"].includes(locationVisibility)) {
+      return res.status(400).json({ message: "locationVisibility must be 'visible' or 'hidden'" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $set: { locationVisibility } },
+      { new: true, runValidators: true }
+    ).select("locationVisibility");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ locationVisibility: user.locationVisibility });
+  } catch (err) {
+    console.error("Error updating location visibility:", err);
+    res.status(500).json({ message: "Error updating location visibility" });
+  }
+});
+
+// PUT /api/users/notifications - update notification preferences
+router.put("/notifications", auth, async (req, res) => {
+  try {
+    const { notificationPreferences } = req.body;
+
+    if (!notificationPreferences || typeof notificationPreferences !== "object") {
+      return res.status(400).json({ message: "notificationPreferences is required" });
+    }
+
+    const existingUser = await User.findById(req.userId).select("notificationPreferences");
+    if (!existingUser) return res.status(404).json({ message: "User not found" });
+
+    const current = existingUser.notificationPreferences || {};
+
+    const updates = {
+      "notificationPreferences.swapRequestEmail":
+        notificationPreferences.swapRequestEmail !== undefined
+          ? Boolean(notificationPreferences.swapRequestEmail)
+          : current.swapRequestEmail ?? true,
+      "notificationPreferences.swapConfirmedEmail":
+        notificationPreferences.swapConfirmedEmail !== undefined
+          ? Boolean(notificationPreferences.swapConfirmedEmail)
+          : current.swapConfirmedEmail ?? true,
+      "notificationPreferences.swapCancelledEmail":
+        notificationPreferences.swapCancelledEmail !== undefined
+          ? Boolean(notificationPreferences.swapCancelledEmail)
+          : current.swapCancelledEmail ?? true,
+    };
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select("notificationPreferences");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ notificationPreferences: user.notificationPreferences });
+  } catch (err) {
+    console.error("Error updating notification preferences:", err);
+    res.status(500).json({ message: "Error updating notification preferences" });
+  }
+});
+
+// PUT /api/users/password - change current user password
+router.put("/password", auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res
+        .status(400)
+        .json({ message: "Current password, new password, and confirmation are required" });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "New passwords do not match" });
+    }
+
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      return res
+        .status(400)
+        .json({ message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters` });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const currentPasswordMatches = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!currentPasswordMatches) {
+      return res.status(401).json({ message: "Current password is incorrect" });
+    }
+
+    const sameAsCurrent = await bcrypt.compare(newPassword, user.passwordHash);
+    if (sameAsCurrent) {
+      return res.status(400).json({ message: "New password must be different from current password" });
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ message: "Password updated" });
+  } catch (err) {
+    console.error("Error updating password:", err);
+    res.status(500).json({ message: "Error updating password" });
+  }
+});
+
+// GET /api/users/blocked - list blocked users for current user
+router.get("/blocked", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId)
+      .populate("blockedUsers", "name username")
+      .select("blockedUsers");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json(user.blockedUsers || []);
+  } catch (err) {
+    console.error("Error loading blocked users:", err);
+    res.status(500).json({ message: "Error loading blocked users" });
+  }
+});
+
+// POST /api/users/blocked - block a user
+router.post("/blocked", auth, async (req, res) => {
+  try {
+    const { targetUserId } = req.body;
+
+    if (!targetUserId || !mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({ message: "Valid targetUserId is required" });
+    }
+
+    if (targetUserId === req.userId) {
+      return res.status(400).json({ message: "You cannot block yourself" });
+    }
+
+    const targetUser = await User.findById(targetUserId).select("_id");
+    if (!targetUser) {
+      return res.status(404).json({ message: "User to block not found" });
+    }
+
+    const existing = await User.findOne({
+      _id: req.userId,
+      blockedUsers: targetUserId,
+    }).select("_id");
+
+    if (existing) {
+      return res.status(409).json({ message: "User is already blocked" });
+    }
+
+    await User.findByIdAndUpdate(req.userId, {
+      $addToSet: { blockedUsers: targetUserId },
+    });
+
+    res.status(201).json({ message: "User blocked" });
+  } catch (err) {
+    console.error("Error blocking user:", err);
+    res.status(500).json({ message: "Error blocking user" });
+  }
+});
+
+// DELETE /api/users/blocked/:blockedUserId - unblock a user
+router.delete("/blocked/:blockedUserId", auth, async (req, res) => {
+  try {
+    const { blockedUserId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(blockedUserId)) {
+      return res.status(400).json({ message: "Invalid blocked user id" });
+    }
+
+    await User.findByIdAndUpdate(req.userId, {
+      $pull: { blockedUsers: blockedUserId },
+    });
+
+    res.json({ message: "User unblocked" });
+  } catch (err) {
+    console.error("Error unblocking user:", err);
+    res.status(500).json({ message: "Error unblocking user" });
   }
 });
 

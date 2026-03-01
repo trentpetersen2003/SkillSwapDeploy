@@ -76,6 +76,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    locationVisibility: {
+      type: String,
+      enum: ["visible", "hidden"],
+      default: "visible",
+    },
     phoneNumber: {
       type: String,
       trim: true,
@@ -94,6 +99,24 @@ const userSchema = new mongoose.Schema(
     availability: [availabilitySchema],
     skills: [skillSchema],
     skillsWanted: [skillWantedSchema],
+    blockedUsers: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    }],
+    notificationPreferences: {
+      swapRequestEmail: {
+        type: Boolean,
+        default: true,
+      },
+      swapConfirmedEmail: {
+        type: Boolean,
+        default: true,
+      },
+      swapCancelledEmail: {
+        type: Boolean,
+        default: true,
+      },
+    },
   },
   {
     timestamps: true,

@@ -1,5 +1,5 @@
 // client/src/pages/Browse.js
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SwapRequestModal from "../components/SwapRequestModal";
 import LoadingState from "../components/LoadingState";
@@ -28,25 +28,32 @@ function Browse() {
   const [message, setMessage] = useState("");
   const [loadError, setLoadError] = useState("");
   const [selectedUserForSwap, setSelectedUserForSwap] = useState(null);
+  const [blockingUserId, setBlockingUserId] = useState("");
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  async function fetchUsers(search = "", category = "") {
+  const fetchUsers = useCallback(async (search = "", category = "") => {
     setLoading(true);
     setMessage("");
     setLoadError("");
 
     try {
       const data = await withMinimumDelay(async () => {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          navigate("/");
+          return [];
+        }
+
         let url = API_URL + "/api/users";
         const params = new URLSearchParams();
         if (search) params.append("search", search);
         if (category) params.append("category", category);
         if (params.toString()) url += `?${params.toString()}`;
 
-        const res = await fetch(url);
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (!res.ok) {
           const payload = await res.json().catch(() => ({}));
@@ -64,7 +71,11 @@ function Browse() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [navigate]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   function handleSearch(e) {
     e.preventDefault();
@@ -99,6 +110,43 @@ function Browse() {
     const name = selectedUserForSwap?.name || "that user";
     setMessage(`Swap request sent to ${name}!`);
     setSelectedUserForSwap(null);
+  }
+
+  async function handleBlockUser(user) {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+      return;
+    }
+
+    setMessage("");
+    setBlockingUserId(user._id);
+
+    try {
+      await withMinimumDelay(async () => {
+        const res = await fetch(API_URL + "/api/users/blocked", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ targetUserId: user._id }),
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(payload.message || "Failed to block user");
+        }
+      });
+
+      setUsers((prev) => prev.filter((existingUser) => existingUser._id !== user._id));
+      setMessage(`Blocked @${user.username || "user"}.`);
+    } catch (err) {
+      console.error(err);
+      setMessage(err.message || "Unable to block user.");
+    } finally {
+      setBlockingUserId("");
+    }
   }
 
   if (loading) {
@@ -196,7 +244,11 @@ function Browse() {
 
                   <div className="browse-location">
                     <span>📍</span>
-                    <span>{user.city || "Location not set"}</span>
+                    <span>
+                      {user.locationVisibility === "hidden"
+                        ? "Location hidden"
+                        : user.city || "Location not set"}
+                    </span>
                   </div>
 
                   {user.bio && <p className="browse-bio">{user.bio}</p>}
@@ -214,6 +266,7 @@ function Browse() {
                     type="button"
                     className="browse-request-btn"
                     onClick={() => handleSwapRequest(user)}
+                    disabled={blockingUserId === user._id}
                   >
                     Request Swap
                   </button>
@@ -223,6 +276,11 @@ function Browse() {
                     onClick={() => handleOpenChat(user._id)}
                   >
                     Message
+                    className="browse-btn-secondary browse-block-btn"
+                    onClick={() => handleBlockUser(user)}
+                    disabled={Boolean(blockingUserId)}
+                  >
+                    {blockingUserId === user._id ? "Blocking..." : "Block User"}
                   </button>
                 </div>
               </div>

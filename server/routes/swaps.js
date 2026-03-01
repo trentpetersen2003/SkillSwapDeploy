@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const Swap = require("../models/Swap");
+const User = require("../models/User");
 const auth = require("../middleware/auth");
 
 // Get all swaps for the authenticated user
@@ -70,6 +71,26 @@ router.post("/", auth, async (req, res) => {
     // Don't allow swapping with yourself
     if (recipientId === req.userId) {
       return res.status(400).json({ message: "Cannot create a swap with yourself" });
+    }
+
+    const [requester, recipient] = await Promise.all([
+      User.findById(req.userId).select("blockedUsers"),
+      User.findById(recipientId).select("blockedUsers"),
+    ]);
+
+    if (!requester || !recipient) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const requesterBlockedRecipient = (requester.blockedUsers || []).some(
+      (id) => id.toString() === recipientId
+    );
+    const recipientBlockedRequester = (recipient.blockedUsers || []).some(
+      (id) => id.toString() === req.userId
+    );
+
+    if (requesterBlockedRecipient || recipientBlockedRequester) {
+      return res.status(403).json({ message: "Cannot create swap with a blocked user" });
     }
 
     const newSwap = new Swap({
