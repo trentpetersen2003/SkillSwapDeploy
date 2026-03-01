@@ -67,30 +67,11 @@ PORT=3001
 
 The application is deployed as follows:
 
-**Frontend:** GitHub Pages (https://sccapstone.github.io/VectorForge)
-- Automatically deploys when changes are pushed to the main branch
-- Uses GitHub Actions workflow for CI/CD
+**Frontend:** Deployment is handled outside this repository's Pages pipeline
 
 **Backend:** Deployed on Render (https://skillswapdeploy-eqyo.onrender.com)
 
-### Manual Deployment (Alternative)
-
-To manually deploy the frontend to GitHub Pages:
-
-```bash
-cd client
-npm run deploy
-```
-
 Note: Passwords and secret keys will never be committed to Git or included in this README.
-
-### GitHub Pages Setup
-
-The frontend is configured to deploy automatically via GitHub Actions. To enable this:
-
-1. Go to your repository Settings → Pages
-2. Under "Build and deployment", select "Source: GitHub Actions"
-3. Push changes to the main branch to trigger deployment
 
 ## Testing
 

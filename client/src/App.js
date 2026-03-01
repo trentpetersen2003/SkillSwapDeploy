@@ -94,6 +94,11 @@ function LoginPage({ onLogin }) {
   return (
     <div className="App">
       <div className="card">
+        <img
+          className="brand-logo"
+          src={`${process.env.PUBLIC_URL}/skillswap-logo.png`}
+          alt="SkillSwap logo"
+        />
         <h1>SkillSwap</h1>
         <p className="subtitle">
           {mode === "login" ? "Welcome back" : "Create your account"}
@@ -228,7 +233,7 @@ function App() {
   }
 
   return (
-    <Router basename="/VectorForge">
+    <Router>
       <Routes>
         <Route
           path="/"

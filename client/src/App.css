@@ -17,6 +17,14 @@
   text-align: center;
 }
 
+.brand-logo {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 10px;
+}
+
 .subtitle {
   color: var(--muted);
   margin: 4px 0 16px;
