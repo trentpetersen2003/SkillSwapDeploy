@@ -34,6 +34,12 @@ function NavBar() {
         >
           Calendar
         </NavLink>
+        <NavLink
+          to="/chat"
+          className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}
+        >
+          Chat
+        </NavLink>
         <NavLink 
           to="/profile" 
           className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}

@@ -1,5 +1,6 @@
 // client/src/pages/Browse.js
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import SwapRequestModal from "../components/SwapRequestModal";
 import LoadingState from "../components/LoadingState";
 import API_URL from "../config";
@@ -19,6 +20,7 @@ const SKILL_CATEGORIES = [
 ];
 
 function Browse() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -83,6 +85,10 @@ function Browse() {
 
   function handleSwapRequest(user) {
     setSelectedUserForSwap(user);
+  }
+
+  function handleOpenChat(userId) {
+    navigate(`/chat?userId=${userId}`);
   }
 
   function handleCloseModal() {
@@ -203,13 +209,22 @@ function Browse() {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  className="browse-request-btn"
-                  onClick={() => handleSwapRequest(user)}
-                >
-                  Request Swap
-                </button>
+                <div className="browse-card-actions">
+                  <button
+                    type="button"
+                    className="browse-request-btn"
+                    onClick={() => handleSwapRequest(user)}
+                  >
+                    Request Swap
+                  </button>
+                  <button
+                    type="button"
+                    className="browse-request-btn browse-message-btn"
+                    onClick={() => handleOpenChat(user._id)}
+                  >
+                    Message
+                  </button>
+                </div>
               </div>
             );
           })}

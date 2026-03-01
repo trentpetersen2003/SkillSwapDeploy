@@ -209,6 +209,16 @@
   filter: brightness(0.95);
 }
 
+.browse-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.browse-message-btn {
+  background: #2563eb;
+}
+
 /* Responsive */
 
 @media (max-width: 768px) {
@@ -224,6 +234,10 @@
   .browse-card {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .browse-card-actions {
+    width: 100%;
   }
 
   .browse-request-btn {
