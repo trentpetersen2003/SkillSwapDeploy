@@ -62,6 +62,28 @@ In the server folder, create a .env file with at least:
 MONGO_URI=your-mongodb-connection-string
 JWT_SECRET=some-long-random-secret
 PORT=3001
+CLIENT_URL=http://localhost:3000
+RESET_TOKEN_TTL_MINUTES=30
+RESET_RATE_WINDOW_MINUTES=15
+FORGOT_PASSWORD_RATE_LIMIT_MAX=5
+RESET_PASSWORD_RATE_LIMIT_MAX=10
+
+# Optional SMTP configuration (used in development if provided)
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASS=
+
+# Sender identity
+EMAIL_FROM="SkillSwap <no-reply@skillswap.local>"
+
+# Production email provider (Resend)
+RESEND_API_KEY=
+
+Password reset email behavior:
+- In production with `RESEND_API_KEY`, email is sent through Resend.
+- In non-production (or if Resend key is missing), the server uses Nodemailer.
+- If no SMTP credentials are configured in non-production, Nodemailer falls back to a free Ethereal test inbox and logs a preview URL to the server console.
 
 ## Deployment
 

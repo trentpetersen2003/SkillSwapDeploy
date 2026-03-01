@@ -21,6 +21,8 @@ jest.mock(
     Route: () => null,
     Navigate: () => null,
     useNavigate: () => jest.fn(),
+    useParams: () => ({ token: "mock-token" }),
+    useLocation: () => ({ search: "" }),
   }),
   { virtual: true }
 );

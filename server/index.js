@@ -8,11 +8,18 @@ const authRoutes = require("./routes/auth");
 const swapRoutes = require("./routes/swaps");
 const auth = require("./middleware/auth");
 const forYouRoutes = require("./routes/forYou");
+const { getEmailDeliveryMode, validateProductionEmailConfig } = require("./services/email");
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+const productionEmailConfig = validateProductionEmailConfig();
+if (!productionEmailConfig.valid) {
+  console.error(productionEmailConfig.message);
+  process.exit(1);
+}
 
 const allowedOrigins = [
   "http://localhost:3000",
@@ -63,4 +70,5 @@ app.use("/api/swaps", swapRoutes);
 // start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Password reset email mode: ${getEmailDeliveryMode()}`);
 });

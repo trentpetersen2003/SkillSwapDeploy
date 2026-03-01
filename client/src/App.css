@@ -67,6 +67,9 @@
 
 .switcher {
   margin: 12px 0 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .switcher button {
