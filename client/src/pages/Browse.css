@@ -208,7 +208,25 @@
 .browse-request-btn:hover {
   filter: brightness(0.95);
 }
+.browse-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
 
+.browse-btn-secondary {
+  border-radius: 999px;
+  border: 1px solid #d0d7e2;
+  background: #fff;
+  padding: 0.45rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.browse-btn-secondary:hover {
+  background: #f3f4f8;
+}
 /* Responsive */
 
 @media (max-width: 768px) {

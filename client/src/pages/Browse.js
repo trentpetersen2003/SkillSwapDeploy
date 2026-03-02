@@ -221,17 +221,17 @@ function Browse() {
             const offeredSkills =
               user.skills && user.skills.length
                 ? user.skills
-                    .map((s) => s?.skillName)
-                    .filter(Boolean)
-                    .join(", ")
+                  .map((s) => s?.skillName)
+                  .filter(Boolean)
+                  .join(", ")
                 : "None";
 
             const wantedSkills =
               user.skillsWanted && user.skillsWanted.length
                 ? user.skillsWanted
-                    .map((s) => s?.skillName)
-                    .filter(Boolean)
-                    .join(", ")
+                  .map((s) => s?.skillName)
+                  .filter(Boolean)
+                  .join(", ")
                 : "None";
 
             return (
@@ -270,12 +270,18 @@ function Browse() {
                   >
                     Request Swap
                   </button>
+
                   <button
                     type="button"
                     className="browse-request-btn browse-message-btn"
                     onClick={() => handleOpenChat(user._id)}
+                    disabled={Boolean(blockingUserId)}
                   >
                     Message
+                  </button>
+
+                  <button
+                    type="button"
                     className="browse-btn-secondary browse-block-btn"
                     onClick={() => handleBlockUser(user)}
                     disabled={Boolean(blockingUserId)}
