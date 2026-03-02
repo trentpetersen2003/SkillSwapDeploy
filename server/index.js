@@ -22,10 +22,17 @@ if (!productionEmailConfig.valid) {
   process.exit(1);
 }
 
+const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://sccapstone.github.io"
-];
+  "https://sccapstone.github.io",
+  process.env.CLIENT_URL,
+  ...envAllowedOrigins,
+].filter(Boolean);
 
 app.use(cors({ 
   origin: function(origin, callback) {
