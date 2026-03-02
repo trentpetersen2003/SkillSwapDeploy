@@ -27,16 +27,24 @@ const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+function normalizeOrigin(value) {
+  return (value || "").trim().replace(/\/+$/, "");
+}
+
 const allowedOrigins = [
   "http://localhost:3000",
   "https://sccapstone.github.io",
   process.env.CLIENT_URL,
+  process.env.CORS_ORIGIN,
   ...envAllowedOrigins,
-].filter(Boolean);
+]
+  .map(normalizeOrigin)
+  .filter(Boolean);
 
 app.use(cors({ 
   origin: function(origin, callback) {
-    if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (!origin || allowedOrigins.includes(normalizedOrigin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
