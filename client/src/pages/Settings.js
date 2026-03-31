@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../config";
+import fetchWithAuth from "../utils/api";
 import LoadingState, { BlockingLoader, InlineLoading } from "../components/LoadingState";
 import { withMinimumDelay } from "../utils/loading";
 import "./Settings.css";
@@ -49,10 +50,10 @@ function Settings({ onLogout }) {
     try {
       const { profileData, blockedData } = await withMinimumDelay(async () => {
         const [profileRes, blockedRes] = await Promise.all([
-          fetch(API_URL + "/api/users/profile", {
+          fetchWithAuth(API_URL + "/api/users/profile", {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch(API_URL + "/api/users/blocked", {
+          fetchWithAuth(API_URL + "/api/users/blocked", {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -114,7 +115,7 @@ function Settings({ onLogout }) {
     setActions((prev) => ({ ...prev, savingUsername: true }));
     try {
       const data = await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + "/api/users/username", {
+        const res = await fetchWithAuth(API_URL + "/api/users/username", {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -170,7 +171,7 @@ function Settings({ onLogout }) {
     setActions((prev) => ({ ...prev, savingVisibility: true }));
     try {
       await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + "/api/users/location-visibility", {
+        const res = await fetchWithAuth(API_URL + "/api/users/location-visibility", {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -209,7 +210,7 @@ function Settings({ onLogout }) {
 
     try {
       await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + `/api/users/blocked/${blockedUserId}`, {
+        const res = await fetchWithAuth(API_URL + `/api/users/blocked/${blockedUserId}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -244,7 +245,7 @@ function Settings({ onLogout }) {
 
     try {
       await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + "/api/users/notifications", {
+        const res = await fetchWithAuth(API_URL + "/api/users/notifications", {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -285,7 +286,7 @@ function Settings({ onLogout }) {
 
     try {
       await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + "/api/users/password", {
+        const res = await fetchWithAuth(API_URL + "/api/users/password", {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -335,7 +336,7 @@ function Settings({ onLogout }) {
       const token = localStorage.getItem("token");
 
       await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + `/api/users/${userId}`, {
+        const res = await fetchWithAuth(API_URL + `/api/users/${userId}`, {
           method: "DELETE",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });

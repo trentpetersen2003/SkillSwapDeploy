@@ -1,8 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import API_URL from "../config";
-import LoadingState from "../components/LoadingState";
+import LoadingState, { Spinner } from "../components/LoadingState";
+import fetchWithAuth from "../utils/api";
+import { withMinimumDelay } from "../utils/loading";
 import "./Chat.css";
+
+const VISIBILITY_RESUME_DEBOUNCE_MS = 250;
+const THREAD_POLLING_INTERVAL_MS = 3000;
+const THREAD_LOADING_MIN_DELAY_MS = 300;
 
 function formatTimestamp(dateString) {
   return new Date(dateString).toLocaleString("en-US", {
@@ -30,6 +36,7 @@ function Chat() {
     () => JSON.parse(localStorage.getItem("user") || "{}"),
     []
   );
+  const currentUserId = String(currentUser.id || currentUser._id || "");
 
   useEffect(() => {
     fetchInitialData();
@@ -45,6 +52,71 @@ function Chat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUserId]);
 
+  useEffect(() => {
+    if (!selectedUserId) {
+      return;
+    }
+
+    let intervalId = null;
+    let visibilityTimeoutId = null;
+
+    function startPolling() {
+      if (intervalId !== null) {
+        return;
+      }
+
+      intervalId = setInterval(() => {
+        fetchThread(selectedUserId, { showLoading: false, refreshConversation: false });
+      }, THREAD_POLLING_INTERVAL_MS);
+    }
+
+    function stopPolling() {
+      if (intervalId === null) {
+        return;
+      }
+
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+
+    function clearVisibilityTimeout() {
+      if (visibilityTimeoutId === null) {
+        return;
+      }
+
+      clearTimeout(visibilityTimeoutId);
+      visibilityTimeoutId = null;
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        clearVisibilityTimeout();
+        stopPolling();
+        return;
+      }
+
+      clearVisibilityTimeout();
+      visibilityTimeoutId = setTimeout(() => {
+        visibilityTimeoutId = null;
+        fetchThread(selectedUserId, { showLoading: false, refreshConversation: false });
+        startPolling();
+      }, VISIBILITY_RESUME_DEBOUNCE_MS);
+    }
+
+    if (document.visibilityState !== "hidden") {
+      startPolling();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearVisibilityTimeout();
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedUserId]);
+
   async function fetchInitialData() {
     if (!token) {
       setLoadError("Please log in");
@@ -57,12 +129,12 @@ function Chat() {
 
     try {
       const [usersRes, conversationsRes] = await Promise.all([
-        fetch(`${API_URL}/api/users`, {
+        fetchWithAuth(`${API_URL}/api/users`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }),
-        fetch(`${API_URL}/api/messages/conversations`, {
+        fetchWithAuth(`${API_URL}/api/messages/conversations`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -80,7 +152,7 @@ function Chat() {
       }
 
       const otherUsers = Array.isArray(usersData)
-        ? usersData.filter((user) => user._id !== currentUser.id)
+        ? usersData.filter((user) => user._id !== currentUserId)
         : [];
       const params = new URLSearchParams(location.search);
       const requestedUserId = params.get("userId");
@@ -106,33 +178,66 @@ function Chat() {
     }
   }
 
-  async function fetchThread(userId) {
+  async function fetchThread(
+    userId,
+    { showLoading = true, refreshConversation = true } = {}
+  ) {
     if (!token) {
       return;
     }
 
-    setThreadLoading(true);
     setMessageError("");
 
-    try {
-      const res = await fetch(`${API_URL}/api/messages/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json().catch(() => []);
+    if (showLoading) {
+      // Start the loading indicator after a brief delay
+      setThreadLoading(true);
+    }
 
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to load messages");
+    try {
+      let data;
+
+      if (showLoading) {
+        data = await withMinimumDelay(
+          async () => {
+            const res = await fetchWithAuth(`${API_URL}/api/messages/${userId}`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            const resData = await res.json().catch(() => []);
+
+            if (!res.ok) {
+              throw new Error(resData.message || "Failed to load messages");
+            }
+
+            return resData;
+          },
+          THREAD_LOADING_MIN_DELAY_MS
+        );
+      } else {
+        const res = await fetchWithAuth(`${API_URL}/api/messages/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        data = await res.json().catch(() => []);
+
+        if (!res.ok) {
+          throw new Error(data.message || "Failed to load messages");
+        }
       }
 
       setThread(Array.isArray(data) ? data : []);
-      refreshConversations();
+      if (refreshConversation) {
+        refreshConversations();
+      }
     } catch (error) {
       console.error("Error loading message thread:", error);
       setMessageError(error.message || "Failed to load messages");
     } finally {
-      setThreadLoading(false);
+      if (showLoading) {
+        setThreadLoading(false);
+      }
     }
   }
 
@@ -142,7 +247,7 @@ function Chat() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/messages/conversations`, {
+      const res = await fetchWithAuth(`${API_URL}/api/messages/conversations`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -170,7 +275,7 @@ function Chat() {
     setMessageError("");
 
     try {
-      const res = await fetch(`${API_URL}/api/messages/${selectedUserId}`, {
+      const res = await fetchWithAuth(`${API_URL}/api/messages/${selectedUserId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -250,18 +355,22 @@ function Chat() {
               <p>@{selectedUser.username}</p>
             </header>
 
-            {threadLoading ? (
-              <LoadingState message="Loading messages..." />
-            ) : (
-              <div className="chat-messages">
-                {thread.length === 0 ? (
+            <div className="chat-messages">
+              {threadLoading && (
+                <div className="chat-messages__loading-overlay" data-testid="thread-loading">
+                  <Spinner />
+                  <span className="chat-messages__loading-text">Loading messages...</span>
+                </div>
+              )}
+              {!threadLoading && (
+                thread.length === 0 ? (
                   <p className="chat-messages__empty">
                     No messages yet. Start the conversation.
                   </p>
                 ) : (
                   thread.map((message) => {
                     const isMine =
-                      String(message.sender?._id || message.sender) === currentUser.id;
+                      String(message.sender?._id || message.sender) === currentUserId;
                     return (
                       <div
                         key={message._id}
@@ -272,9 +381,9 @@ function Chat() {
                       </div>
                     );
                   })
-                )}
-              </div>
-            )}
+                )
+              )}
+            </div>
 
             <form className="chat-composer" onSubmit={handleSendMessage}>
               <input

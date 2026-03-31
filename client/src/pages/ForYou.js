@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import SwapRequestModal from "../components/SwapRequestModal";
 import LoadingState from "../components/LoadingState";
 import API_URL from "../config";
+import fetchWithAuth from "../utils/api";
 import { withMinimumDelay } from "../utils/loading";
 import "./Foryou.css";
 import "../SwapRequestModal.css";
@@ -31,7 +32,7 @@ function ForYouPage() {
 
     try {
       const data = await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + "/api/for-you", {
+        const res = await fetchWithAuth(API_URL + "/api/for-you", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -90,7 +91,7 @@ function ForYouPage() {
 
     try {
       await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + "/api/users/blocked", {
+        const res = await fetchWithAuth(API_URL + "/api/users/blocked", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

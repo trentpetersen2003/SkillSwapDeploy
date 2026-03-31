@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../config";
+import fetchWithAuth from "../utils/api";
 import "./Profile.css";
 
 const TIMEZONES = [
@@ -123,7 +124,7 @@ function Profile({ onLogout }) {
     }
 
     try {
-      const res = await fetch(API_URL + "/api/users/profile", {
+      const res = await fetchWithAuth(API_URL + "/api/users/profile", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -378,7 +379,7 @@ function Profile({ onLogout }) {
         skillsWanted: profile.skillsWanted,
       };
 
-      const res = await fetch(API_URL + "/api/users/profile", {
+      const res = await fetchWithAuth(API_URL + "/api/users/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

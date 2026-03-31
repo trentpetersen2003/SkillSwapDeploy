@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import ReactCalendar from "react-calendar";
 import API_URL from "../config";
+import fetchWithAuth from "../utils/api";
 import LoadingState from "../components/LoadingState";
 import { withMinimumDelay } from "../utils/loading";
 import "react-calendar/dist/Calendar.css";
@@ -32,7 +33,7 @@ function CalendarPage() {
 
     try {
       const data = await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + "/api/swaps", {
+        const res = await fetchWithAuth(API_URL + "/api/swaps", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -59,7 +60,7 @@ function CalendarPage() {
   async function handleStatusChange(swapId, newStatus) {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(API_URL + `/api/swaps/${swapId}/status`, {
+      const res = await fetchWithAuth(API_URL + `/api/swaps/${swapId}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -87,7 +88,7 @@ function CalendarPage() {
 
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(API_URL + `/api/swaps/${swapId}`, {
+      const res = await fetchWithAuth(API_URL + `/api/swaps/${swapId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,

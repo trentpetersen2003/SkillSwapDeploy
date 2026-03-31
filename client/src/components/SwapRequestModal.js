@@ -1,6 +1,7 @@
 // client/src/components/SwapRequestModal.js
 import React, { useState, useEffect } from "react";
 import API_URL from "../config";
+import fetchWithAuth from "../utils/api";
 import LoadingState from "./LoadingState";
 import { withMinimumDelay } from "../utils/loading";
 
@@ -35,7 +36,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
       }
 
       const data = await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + "/api/users/profile", {
+        const res = await fetchWithAuth(API_URL + "/api/users/profile", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -85,7 +86,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
 
     try {
       const data = await withMinimumDelay(async () => {
-        const res = await fetch(API_URL + "/api/swaps", {
+        const res = await fetchWithAuth(API_URL + "/api/swaps", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

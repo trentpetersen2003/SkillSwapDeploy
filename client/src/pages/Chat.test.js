@@ -1,4 +1,4 @@
-import React from "react";
+import React, { act } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import Chat from "./Chat";
@@ -174,5 +174,164 @@ describe("Chat Page", () => {
 
     expect(await screen.findByText("Please log in")).toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test("updates active thread without changing selected chat", async () => {
+    jest.useFakeTimers();
+    let threadFetchCount = 0;
+
+    global.fetch = jest.fn(async (url) => {
+      if (url === "http://localhost:3001/api/users") {
+        return {
+          ok: true,
+          json: async () => [{ _id: "u2", name: "Other", username: "other" }],
+        };
+      }
+
+      if (url === "http://localhost:3001/api/messages/conversations") {
+        return {
+          ok: true,
+          json: async () => [],
+        };
+      }
+
+      if (url === "http://localhost:3001/api/messages/u2") {
+        threadFetchCount += 1;
+        if (threadFetchCount === 1) {
+          return {
+            ok: true,
+            json: async () => [],
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => [
+            {
+              _id: "m1",
+              sender: "u2",
+              recipient: "u1",
+              text: "New message while selected",
+              createdAt: "2026-03-31T12:00:00.000Z",
+            },
+          ],
+        };
+      }
+
+      return {
+        ok: false,
+        json: async () => ({ message: "Unhandled request" }),
+      };
+    });
+
+    render(<Chat />);
+
+    expect(await screen.findByText("Chat with Other")).toBeInTheDocument();
+    expect(await screen.findByText("No messages yet. Start the conversation.")).toBeInTheDocument();
+
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    expect(await screen.findByText("New message while selected")).toBeInTheDocument();
+
+    jest.useRealTimers();
+  });
+
+  test("pauses polling when hidden and refreshes when visible again", async () => {
+    jest.useFakeTimers();
+
+    const originalVisibilityDescriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "visibilityState"
+    );
+    let visibilityState = "hidden";
+
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibilityState,
+    });
+
+    let threadFetchCount = 0;
+    global.fetch = jest.fn(async (url) => {
+      if (url === "http://localhost:3001/api/users") {
+        return {
+          ok: true,
+          json: async () => [{ _id: "u2", name: "Other", username: "other" }],
+        };
+      }
+
+      if (url === "http://localhost:3001/api/messages/conversations") {
+        return {
+          ok: true,
+          json: async () => [],
+        };
+      }
+
+      if (url === "http://localhost:3001/api/messages/u2") {
+        threadFetchCount += 1;
+
+        if (threadFetchCount === 1) {
+          return {
+            ok: true,
+            json: async () => [],
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => [
+            {
+              _id: "m2",
+              sender: "u2",
+              recipient: "u1",
+              text: "Message after tab is visible",
+              createdAt: "2026-03-31T13:00:00.000Z",
+            },
+          ],
+        };
+      }
+
+      return {
+        ok: false,
+        json: async () => ({ message: "Unhandled request" }),
+      };
+    });
+
+    render(<Chat />);
+
+    expect(await screen.findByText("Chat with Other")).toBeInTheDocument();
+    expect(threadFetchCount).toBe(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(9000);
+    });
+
+    expect(threadFetchCount).toBe(1);
+    expect(
+      screen.queryByText("Message after tab is visible")
+    ).not.toBeInTheDocument();
+
+    visibilityState = "visible";
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(threadFetchCount).toBe(1);
+    expect(
+      screen.queryByText("Message after tab is visible")
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      jest.advanceTimersByTime(250);
+    });
+
+    expect(await screen.findByText("Message after tab is visible")).toBeInTheDocument();
+    expect(threadFetchCount).toBeGreaterThanOrEqual(2);
+
+    if (originalVisibilityDescriptor) {
+      Object.defineProperty(document, "visibilityState", originalVisibilityDescriptor);
+    }
+    jest.useRealTimers();
   });
 });
