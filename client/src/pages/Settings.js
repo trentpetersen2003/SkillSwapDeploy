@@ -13,6 +13,7 @@ function Settings({ onLogout }) {
   const blockedSectionRef = useRef(null);
   const [username, setUsername] = useState("");
   const [locationVisibility, setLocationVisibility] = useState("visible");
+  const [showOthersLocations, setShowOthersLocations] = useState(true);
   const [notificationPreferences, setNotificationPreferences] = useState({
     swapRequestEmail: true,
     swapConfirmedEmail: true,
@@ -37,6 +38,22 @@ function Settings({ onLogout }) {
     deletingAccount: false,
   });
   const [message, setMessage] = useState("");
+  const messageTimeoutRef = useRef(null);
+
+  const showMessage = useCallback((text) => {
+    // Clear any existing timeout
+    if (messageTimeoutRef.current) {
+      clearTimeout(messageTimeoutRef.current);
+    }
+    
+    // Show the message
+    setMessage(text);
+    
+    // Auto-dismiss after 4 seconds
+    messageTimeoutRef.current = setTimeout(() => {
+      setMessage("");
+    }, 4000);
+  }, []);
 
   const loadSettings = useCallback(async () => {
     setMessage("");
@@ -82,6 +99,7 @@ function Settings({ onLogout }) {
 
       setUsername(profileData.username || "");
       setLocationVisibility(profileData.locationVisibility || "visible");
+      setShowOthersLocations(profileData.showOthersLocations !== false);
       setNotificationPreferences({
         swapRequestEmail: profileData.notificationPreferences?.swapRequestEmail ?? true,
         swapConfirmedEmail: profileData.notificationPreferences?.swapConfirmedEmail ?? true,
@@ -109,7 +127,6 @@ function Settings({ onLogout }) {
 
   async function handleSaveUsername(e) {
     e.preventDefault();
-    setMessage("");
 
     const token = localStorage.getItem("token");
     if (!token) {
@@ -118,7 +135,7 @@ function Settings({ onLogout }) {
     }
 
     if (!username.trim()) {
-      setMessage("Username is required.");
+      showMessage("Username is required.");
       return;
     }
 
@@ -146,9 +163,9 @@ function Settings({ onLogout }) {
         localStorage.setItem("user", JSON.stringify({ ...parsed, username: data.username || username.trim() }));
       }
 
-      setMessage("Username updated.");
+      showMessage("Username updated.");
     } catch (e) {
-      setMessage(e.message || "Error updating username.");
+      showMessage(e.message || "Error updating username.");
     } finally {
       setActions((prev) => ({ ...prev, savingUsername: false }));
     }
@@ -156,7 +173,6 @@ function Settings({ onLogout }) {
 
   async function handleLogoutClick() {
     setActions((prev) => ({ ...prev, loggingOut: true }));
-    setMessage("");
 
     try {
       await withMinimumDelay(async () => {
@@ -170,8 +186,6 @@ function Settings({ onLogout }) {
   }
 
   async function handleSaveLocationVisibility() {
-    setMessage("");
-
     const token = localStorage.getItem("token");
     if (!token) {
       navigate("/");
@@ -187,7 +201,7 @@ function Settings({ onLogout }) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ locationVisibility }),
+          body: JSON.stringify({ locationVisibility, showOthersLocations }),
         });
 
         const payload = await res.json().catch(() => ({}));
@@ -196,16 +210,15 @@ function Settings({ onLogout }) {
         }
       });
 
-      setMessage("Location visibility updated.");
+      showMessage("Location privacy settings updated.");
     } catch (e) {
-      setMessage(e.message || "Error updating location visibility.");
+      showMessage(e.message || "Error updating location privacy settings.");
     } finally {
       setActions((prev) => ({ ...prev, savingVisibility: false }));
     }
   }
 
   async function handleUnblockUser(blockedUserId) {
-    setMessage("");
 
     const token = localStorage.getItem("token");
     if (!token) {
@@ -234,17 +247,15 @@ function Settings({ onLogout }) {
       });
 
       setBlockedUsers((prev) => prev.filter((user) => user._id !== blockedUserId));
-      setMessage("User unblocked.");
+      showMessage("User unblocked.");
     } catch (e) {
-      setMessage(e.message || "Error unblocking user.");
+      showMessage(e.message || "Error unblocking user.");
     } finally {
       setActions((prev) => ({ ...prev, unblockingUserId: "" }));
     }
   }
 
   async function handleSaveNotificationPreferences() {
-    setMessage("");
-
     const token = localStorage.getItem("token");
     if (!token) {
       navigate("/");
@@ -270,16 +281,15 @@ function Settings({ onLogout }) {
         }
       });
 
-      setMessage("Notification preferences updated.");
+      showMessage("Notification preferences updated.");
     } catch (e) {
-      setMessage(e.message || "Error updating notification preferences.");
+      showMessage(e.message || "Error updating notification preferences.");
     } finally {
       setActions((prev) => ({ ...prev, savingNotifications: false }));
     }
   }
 
   async function handleChangePassword() {
-    setMessage("");
 
     const token = localStorage.getItem("token");
     if (!token) {
@@ -288,7 +298,7 @@ function Settings({ onLogout }) {
     }
 
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
-      setMessage("Please complete all password fields.");
+      showMessage("Please complete all password fields.");
       return;
     }
 
@@ -316,9 +326,9 @@ function Settings({ onLogout }) {
         newPassword: "",
         confirmPassword: "",
       });
-      setMessage("Password updated.");
+      showMessage("Password updated.");
     } catch (e) {
-      setMessage(e.message || "Error updating password.");
+      showMessage(e.message || "Error updating password.");
     } finally {
       setActions((prev) => ({ ...prev, changingPassword: false }));
     }
@@ -330,16 +340,14 @@ function Settings({ onLogout }) {
     const userId = parsedUser?.id || parsedUser?._id;
 
     if (!userId) {
-      setMessage("Unable to identify account to delete.");
+      showMessage("Unable to identify account to delete.");
       return;
     }
 
     if (deleteConfirmation.trim() !== username.trim()) {
-      setMessage("Type your username exactly to confirm account deletion.");
+      showMessage("Type your username exactly to confirm account deletion.");
       return;
     }
-
-    setMessage("");
     setActions((prev) => ({ ...prev, deletingAccount: true }));
 
     try {
@@ -360,7 +368,7 @@ function Settings({ onLogout }) {
       onLogout();
       navigate("/");
     } catch (e) {
-      setMessage(e.message || "Error deleting account.");
+      showMessage(e.message || "Error deleting account.");
     } finally {
       setActions((prev) => ({ ...prev, deletingAccount: false }));
     }
@@ -394,6 +402,11 @@ function Settings({ onLogout }) {
 
   return (
     <>
+      {message && (
+        <div className="settings-banner">
+          {message}
+        </div>
+      )}
       <div className="settings-page">
         <h1 className="settings-title">Settings</h1>
         <p className="settings-subtitle">Manage your account</p>
@@ -433,7 +446,7 @@ function Settings({ onLogout }) {
 
             <div className="settings-row">
               <div className="settings-field">
-                <div className="settings-label">Location visibility</div>
+                <div className="settings-label">Your location shown to others</div>
                 <select
                   className="settings-input"
                   value={locationVisibility}
@@ -445,12 +458,25 @@ function Settings({ onLogout }) {
                 </select>
               </div>
 
+              <div className="settings-field">
+                <div className="settings-label">See other users' locations</div>
+                <select
+                  className="settings-input"
+                  value={showOthersLocations ? "visible" : "hidden"}
+                  onChange={(e) => setShowOthersLocations(e.target.value === "visible")}
+                  disabled={isAnyBlockingAction}
+                >
+                  <option value="visible">Show locations in Browse and For You</option>
+                  <option value="hidden">Hide locations in Browse and For You</option>
+                </select>
+              </div>
+
               <button
                 className="settings-btn-primary"
                 onClick={handleSaveLocationVisibility}
                 disabled={isAnyBlockingAction}
               >
-                {actions.savingVisibility ? "Saving..." : "Save Visibility"}
+                {actions.savingVisibility ? "Saving..." : "Save Privacy"}
               </button>
             </div>
 
@@ -586,7 +612,6 @@ function Settings({ onLogout }) {
             </div>
           </div>
 
-          {message && <div className="settings-message">{message}</div>}
           <button
             className="settings-logout"
             onClick={handleLogoutClick}

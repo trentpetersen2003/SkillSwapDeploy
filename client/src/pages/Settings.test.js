@@ -23,6 +23,7 @@ const defaultProfile = {
   username: "testuser",
   email: "test@example.com",
   locationVisibility: "visible",
+  showOthersLocations: true,
   notificationPreferences: {
     swapRequestEmail: true,
     swapConfirmedEmail: true,
@@ -63,7 +64,7 @@ function setupFetch({ profile = defaultProfile, blockedUsers = [] } = {}) {
     if (url.endsWith("/api/users/location-visibility") && options.method === "PUT") {
       return {
         ok: true,
-        json: async () => ({ locationVisibility: "hidden" }),
+        json: async () => ({ locationVisibility: "hidden", showOthersLocations: false }),
       };
     }
 
@@ -163,6 +164,36 @@ describe("Settings Page", () => {
     });
 
     expect(await screen.findByText("Notification preferences updated.")).toBeInTheDocument();
+  });
+
+  test("saves location privacy settings for self and others visibility", async () => {
+    setupFetch();
+
+    render(<Settings onLogout={jest.fn()} />);
+
+    expect(await screen.findByText("Settings")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByDisplayValue("Visible in Browse and For You"), {
+      target: { value: "hidden" },
+    });
+
+    fireEvent.change(screen.getByDisplayValue("Show locations in Browse and For You"), {
+      target: { value: "hidden" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Privacy" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "http://localhost:3001/api/users/location-visibility",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ locationVisibility: "hidden", showOthersLocations: false }),
+        })
+      );
+    });
+
+    expect(await screen.findByText("Location privacy settings updated.")).toBeInTheDocument();
   });
 
   test("validates password form before submit", async () => {

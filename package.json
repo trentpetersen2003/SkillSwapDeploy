@@ -2,5 +2,8 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "react-calendar": "^6.0.0"
+  },
+  "devDependencies": {
+    "baseline-browser-mapping": "^2.10.13"
   }
 }

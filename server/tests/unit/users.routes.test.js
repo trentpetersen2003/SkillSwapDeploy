@@ -121,6 +121,24 @@ describe("Users Routes", () => {
       expect(response.body.locationVisibility).toBe("hidden");
     });
 
+    test("updates both location privacy settings", async () => {
+      User.findByIdAndUpdate.mockReturnValue(
+        makeSelectQuery({ locationVisibility: "hidden", showOthersLocations: false })
+      );
+
+      const response = await request(app)
+        .put("/api/users/location-visibility")
+        .send({ locationVisibility: "hidden", showOthersLocations: false });
+
+      expect(response.status).toBe(200);
+      expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
+        AUTH_USER_ID,
+        { $set: { locationVisibility: "hidden", showOthersLocations: false } },
+        { new: true, runValidators: true }
+      );
+      expect(response.body).toEqual({ locationVisibility: "hidden", showOthersLocations: false });
+    });
+
     test("rejects invalid location visibility values", async () => {
       const response = await request(app)
         .put("/api/users/location-visibility")
@@ -128,6 +146,15 @@ describe("Users Routes", () => {
 
       expect(response.status).toBe(400);
       expect(response.body.message).toBe("locationVisibility must be 'visible' or 'hidden'");
+    });
+
+    test("rejects empty location privacy updates", async () => {
+      const response = await request(app)
+        .put("/api/users/location-visibility")
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe("At least one location privacy setting is required");
     });
 
     test("returns blocked users list", async () => {

@@ -81,6 +81,10 @@ const userSchema = new mongoose.Schema(
       enum: ["visible", "hidden"],
       default: "visible",
     },
+    showOthersLocations: {
+      type: Boolean,
+      default: true,
+    },
     phoneNumber: {
       type: String,
       trim: true,

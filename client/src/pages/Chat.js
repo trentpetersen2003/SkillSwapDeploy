@@ -469,18 +469,21 @@ function Chat() {
     setLoadError("");
 
     try {
-      const [usersRes, conversationsRes] = await Promise.all([
-        fetchWithAuth(`${API_URL}/api/users`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }),
-        fetchWithAuth(`${API_URL}/api/messages/conversations`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }),
-      ]);
+      const { usersRes, conversationsRes } = await withMinimumDelay(async () => {
+        const [usersRes, conversationsRes] = await Promise.all([
+          fetchWithAuth(`${API_URL}/api/users`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          fetchWithAuth(`${API_URL}/api/messages/conversations`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ]);
+        return { usersRes, conversationsRes };
+      });
 
       const usersData = await usersRes.json().catch(() => []);
       const conversationsData = await conversationsRes.json().catch(() => []);

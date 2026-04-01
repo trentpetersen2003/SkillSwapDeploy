@@ -5,11 +5,12 @@ const auth = require("../middleware/auth");
 
 const router = express.Router();
 
-function sanitizePublicUser(userDoc) {
+function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
   const user = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
 
-  if (user.locationVisibility === "hidden") {
+  if (!viewerAllowsLocations || user.locationVisibility === "hidden") {
     user.city = "";
+    user.locationVisibility = "hidden";
   }
 
   return user;
@@ -17,10 +18,11 @@ function sanitizePublicUser(userDoc) {
 
 router.get("/", auth, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.userId).select("blockedUsers");
+    const currentUser = await User.findById(req.userId).select("blockedUsers showOthersLocations");
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
+    const viewerAllowsLocations = currentUser.showOthersLocations !== false;
 
     const usersWhoBlockedCurrent = await User.find({ blockedUsers: req.userId }).select("_id");
     const excludedIds = [
@@ -33,7 +35,7 @@ router.get("/", auth, async (req, res) => {
       _id: { $nin: excludedIds },
     }).select("name username city locationVisibility timeZone bio availability skills skillsWanted");
 
-    res.json(users.map(sanitizePublicUser));
+    res.json(users.map((user) => sanitizePublicUser(user, { viewerAllowsLocations })));
   } catch (err) {
     console.error("Error in GET /api/for-you:", err);
     res.status(500).json({ message: "Error loading users" });

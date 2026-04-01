@@ -3,6 +3,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../config";
 import fetchWithAuth from "../utils/api";
+import LoadingState from "../components/LoadingState";
+import { withMinimumDelay } from "../utils/loading";
 import "./Profile.css";
 
 const TIMEZONES = [
@@ -123,14 +125,17 @@ function Profile({ onLogout }) {
       return;
     }
 
+    setLoading(true);
     try {
-      const res = await fetchWithAuth(API_URL + "/api/users/profile", {
-        headers: { Authorization: `Bearer ${token}` },
+      const data = await withMinimumDelay(async () => {
+        const res = await fetchWithAuth(API_URL + "/api/users/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch profile");
+
+        return await res.json();
       });
-
-      if (!res.ok) throw new Error("Failed to fetch profile");
-
-      const data = await res.json();
 
       setProfile({
         // IMPORTANT: username is intentionally NOT editable on Profile.
@@ -431,12 +436,7 @@ function Profile({ onLogout }) {
   }
 
   if (loading) {
-    return (
-      <div className="profile-page">
-        <h1 className="profile-title">Profile</h1>
-        <p>Loading...</p>
-      </div>
-    );
+    return <LoadingState message="Loading profile..." />;
   }
 
   return (

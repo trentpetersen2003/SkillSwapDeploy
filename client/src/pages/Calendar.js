@@ -107,11 +107,12 @@ function CalendarPage() {
     }
   }
 
-  // Get swaps for a specific date
+  // Get swaps for a specific date (excluding cancelled swaps)
   function getSwapsForDate(date) {
     return swaps.filter((swap) => {
       const swapDate = new Date(swap.scheduledDate);
       return (
+        swap.status !== "cancelled" &&
         swapDate.getDate() === date.getDate() &&
         swapDate.getMonth() === date.getMonth() &&
         swapDate.getFullYear() === date.getFullYear()

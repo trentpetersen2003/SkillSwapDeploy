@@ -8,11 +8,12 @@ const auth = require("../middleware/auth");
 const router = express.Router();
 const PASSWORD_MIN_LENGTH = 8;
 
-function sanitizePublicUser(userDoc) {
+function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
   const user = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
 
-  if (user.locationVisibility === "hidden") {
+  if (!viewerAllowsLocations || user.locationVisibility === "hidden") {
     user.city = "";
+    user.locationVisibility = "hidden";
   }
 
   return user;
@@ -22,10 +23,11 @@ function sanitizePublicUser(userDoc) {
 router.get("/", auth, async (req, res) => {
   try {
     const { search, category } = req.query;
-    const currentUser = await User.findById(req.userId).select("blockedUsers");
+    const currentUser = await User.findById(req.userId).select("blockedUsers showOthersLocations");
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
+    const viewerAllowsLocations = currentUser.showOthersLocations !== false;
 
     const usersWhoBlockedCurrent = await User.find({ blockedUsers: req.userId }).select("_id");
     const excludedIds = [
@@ -65,7 +67,7 @@ router.get("/", auth, async (req, res) => {
       .select("-passwordHash -blockedUsers")
       .sort({ createdAt: 1 });
 
-    res.json(users.map(sanitizePublicUser));
+    res.json(users.map((user) => sanitizePublicUser(user, { viewerAllowsLocations })));
   } catch (err) {
     console.error("Error fetching users:", err);
     res.status(500).json({ message: "Error fetching users" });
@@ -136,6 +138,12 @@ router.get("/profile", auth, async (req, res) => {
 
     // Migrate old firstName/lastName to name if needed
     const userData = user.toObject();
+    
+    // Ensure showOthersLocations is always a boolean (default to true if not set)
+    if (userData.showOthersLocations === undefined || userData.showOthersLocations === null) {
+      userData.showOthersLocations = true;
+    }
+    
     if (!userData.name && (userData.firstName || userData.lastName)) {
       userData.name = `${userData.firstName || ""} ${userData.lastName || ""}`.trim();
       delete userData.firstName;
@@ -241,24 +249,39 @@ router.put("/username", auth, async (req, res) => {
   }
 });
 
-// PUT /api/users/location-visibility - update location visibility setting
+// PUT /api/users/location-visibility - update location privacy settings
 router.put("/location-visibility", auth, async (req, res) => {
   try {
-    const { locationVisibility } = req.body;
+    const { locationVisibility, showOthersLocations } = req.body;
+    const updates = {};
 
-    if (!["visible", "hidden"].includes(locationVisibility)) {
-      return res.status(400).json({ message: "locationVisibility must be 'visible' or 'hidden'" });
+    if (locationVisibility !== undefined) {
+      if (!["visible", "hidden"].includes(locationVisibility)) {
+        return res.status(400).json({ message: "locationVisibility must be 'visible' or 'hidden'" });
+      }
+      updates.locationVisibility = locationVisibility;
+    }
+
+    if (showOthersLocations !== undefined) {
+      updates.showOthersLocations = Boolean(showOthersLocations);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "At least one location privacy setting is required" });
     }
 
     const user = await User.findByIdAndUpdate(
       req.userId,
-      { $set: { locationVisibility } },
+      { $set: updates },
       { new: true, runValidators: true }
-    ).select("locationVisibility");
+    ).select("locationVisibility showOthersLocations");
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.json({ locationVisibility: user.locationVisibility });
+    res.json({
+      locationVisibility: user.locationVisibility,
+      showOthersLocations: user.showOthersLocations !== false,
+    });
   } catch (err) {
     console.error("Error updating location visibility:", err);
     res.status(500).json({ message: "Error updating location visibility" });
