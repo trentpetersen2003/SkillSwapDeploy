@@ -5,6 +5,8 @@ const Message = require("../models/Message");
 const User = require("../models/User");
 
 const router = express.Router();
+const DEFAULT_THREAD_PAGE_LIMIT = 30;
+const MAX_THREAD_PAGE_LIMIT = 100;
 
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
@@ -43,6 +45,14 @@ async function hasBlockedRelationship(currentUserId, otherUserId) {
     currentUserBlocked.has(otherUserId) ||
     otherUserBlocked.has(currentUserId)
   );
+}
+
+function normalizeThreadPageLimit(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return DEFAULT_THREAD_PAGE_LIMIT;
+  }
+  return Math.min(parsed, MAX_THREAD_PAGE_LIMIT);
 }
 
 // GET /api/messages/conversations - list latest DM threads for current user
@@ -120,6 +130,78 @@ router.get("/conversations", auth, async (req, res) => {
 });
 
 // GET /api/messages/:userId - fetch thread between current user and :userId
+router.get("/:userId/history", auth, async (req, res) => {
+  try {
+    const currentUserId = String(req.userId);
+    const { userId } = req.params;
+    const { beforeMessageId } = req.query;
+    const limit = normalizeThreadPageLimit(req.query.limit);
+
+    if (!isValidObjectId(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    if (userId === currentUserId) {
+      return res.status(400).json({ message: "Cannot open a chat with yourself" });
+    }
+
+    if (beforeMessageId && !isValidObjectId(beforeMessageId)) {
+      return res.status(400).json({ message: "Invalid beforeMessageId" });
+    }
+
+    const otherUser = await User.findById(userId).select("_id");
+    if (!otherUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isBlocked = await hasBlockedRelationship(currentUserId, userId);
+    if (isBlocked) {
+      return res.status(403).json({ message: "Cannot chat with a blocked user" });
+    }
+
+    await Message.updateMany(
+      {
+        sender: userId,
+        recipient: currentUserId,
+        readAt: null,
+      },
+      {
+        $set: { readAt: new Date() },
+      }
+    );
+
+    const filter = {
+      $or: [
+        { sender: currentUserId, recipient: userId },
+        { sender: userId, recipient: currentUserId },
+      ],
+    };
+
+    if (beforeMessageId) {
+      filter._id = { $lt: beforeMessageId };
+    }
+
+    const results = await Message.find(filter)
+      .populate("sender", "name username")
+      .populate("recipient", "name username")
+      .sort({ _id: -1 })
+      .limit(limit + 1);
+
+    const hasMoreOlder = results.length > limit;
+    const page = hasMoreOlder ? results.slice(0, limit) : results;
+    const messages = page.reverse();
+
+    return res.json({
+      messages,
+      hasMoreOlder,
+    });
+  } catch (error) {
+    console.error("Error fetching paginated message thread:", error);
+    return res.status(500).json({ message: "Error fetching messages" });
+  }
+});
+
+// GET /api/messages/:userId - fetch full thread between current user and :userId
 router.get("/:userId", auth, async (req, res) => {
   try {
     const currentUserId = String(req.userId);
