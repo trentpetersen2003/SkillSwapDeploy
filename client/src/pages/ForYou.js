@@ -9,19 +9,129 @@ import { withMinimumDelay } from "../utils/loading";
 import "./Foryou.css";
 import "../SwapRequestModal.css";
 
+function getStoredDismissedNotifications(userId) {
+  if (!userId) {
+    return [];
+  }
+
+  try {
+    const stored = localStorage.getItem(`dismissedNotifications:${userId}`);
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error("Unable to parse dismissed notifications:", error);
+    return [];
+  }
+}
+
+function buildNotifications(swaps, currentUserId) {
+  if (!currentUserId) {
+    return [];
+  }
+
+  return swaps
+    .flatMap((swap) => {
+      const requesterId = swap.requester?._id;
+      const recipientId = swap.recipient?._id;
+      const isRequester = requesterId === currentUserId;
+      const isRecipient = recipientId === currentUserId;
+
+      if (!isRequester && !isRecipient) {
+        return [];
+      }
+
+      const scheduledDate = new Date(swap.scheduledDate);
+      const formattedDate = Number.isNaN(scheduledDate.getTime())
+        ? "an upcoming session"
+        : scheduledDate.toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          });
+
+      if (isRecipient && swap.status === "pending") {
+        return [{
+          id: `${swap._id}:incoming-request:${swap.status}`,
+          title: "Incoming swap request",
+          message: `${swap.requester?.name || "Another user"} requested a swap on ${formattedDate}.`,
+          timestamp: swap.scheduledDate,
+          actionable: true,
+          swapId: swap._id,
+        }];
+      }
+
+      if (isRequester && swap.status === "confirmed") {
+        return [{
+          id: `${swap._id}:outgoing-accepted:${swap.status}`,
+          title: "Swap request accepted",
+          message: `${swap.recipient?.name || "The other user"} accepted your swap request for ${formattedDate}.`,
+          timestamp: swap.scheduledDate,
+          actionable: false,
+        }];
+      }
+
+      if (isRequester && swap.status === "cancelled") {
+        return [{
+          id: `${swap._id}:outgoing-declined:${swap.status}`,
+          title: "Swap request declined",
+          message: `${swap.recipient?.name || "The other user"} declined or cancelled your request for ${formattedDate}.`,
+          timestamp: swap.scheduledDate,
+          actionable: false,
+        }];
+      }
+
+      if (isRecipient && swap.status === "cancelled") {
+        return [{
+          id: `${swap._id}:swap-cancelled:${swap.status}`,
+          title: "Swap cancelled",
+          message: `${swap.requester?.name || "The other user"} cancelled a swap scheduled for ${formattedDate}.`,
+          timestamp: swap.scheduledDate,
+          actionable: false,
+        }];
+      }
+
+      return [];
+    })
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+}
 
 function ForYouPage() {
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentUserId = currentUser.id || currentUser._id || "";
   const [users, setUsers] = useState([]);
+  const [swaps, setSwaps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
+  const [showSwapSuccessPopup, setShowSwapSuccessPopup] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [dismissedNotifications, setDismissedNotifications] = useState(() =>
+    getStoredDismissedNotifications(currentUserId)
+  );
   const [expandedUser, setExpandedUser] = useState(null);
   const [selectedUserForSwap, setSelectedUserForSwap] = useState(null);
   const [blockingUserId, setBlockingUserId] = useState("");
   const [messageAction, setMessageAction] = useState(null);
   const navigate = useNavigate();
 
-  const loadUsers = useCallback(async () => {
+  useEffect(() => {
+    setDismissedNotifications(getStoredDismissedNotifications(currentUserId));
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      return;
+    }
+
+    localStorage.setItem(
+      `dismissedNotifications:${currentUserId}`,
+      JSON.stringify(dismissedNotifications)
+    );
+  }, [currentUserId, dismissedNotifications]);
+
+  const loadPageData = useCallback(async () => {
     const token = localStorage.getItem("token");
     if (!token) {
       navigate("/");
@@ -32,33 +142,58 @@ function ForYouPage() {
     setLoadError("");
 
     try {
-      const data = await withMinimumDelay(async () => {
-        const res = await fetchWithAuth(API_URL + "/api/for-you", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+      const { usersData, swapsData } = await withMinimumDelay(async () => {
+        const [usersRes, swapsRes] = await Promise.all([
+          fetchWithAuth(API_URL + "/api/for-you", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          fetchWithAuth(API_URL + "/api/swaps", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ]);
 
-        if (!res.ok) {
-          const payload = await res.json().catch(() => ({}));
+        if (!usersRes.ok) {
+          const payload = await usersRes.json().catch(() => ({}));
           throw new Error(payload.message || "Failed to load users");
         }
 
-        return res.json();
+        if (!swapsRes.ok) {
+          const payload = await swapsRes.json().catch(() => ({}));
+          throw new Error(payload.message || "Failed to load swaps");
+        }
+
+        const [usersPayload, swapsPayload] = await Promise.all([
+          usersRes.json(),
+          swapsRes.json(),
+        ]);
+
+        return {
+          usersData: usersPayload,
+          swapsData: swapsPayload,
+        };
       });
 
-      setUsers(data);
+      setUsers(usersData);
+      setSwaps(swapsData);
     } catch (err) {
-      console.error("Error loading users:", err);
-      setLoadError(err.message || "Something went wrong loading users.");
+      console.error("Error loading page data:", err);
+      setLoadError(err.message || "Something went wrong loading page data.");
     } finally {
       setLoading(false);
     }
   }, [navigate]);
 
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    loadPageData();
+  }, [loadPageData]);
+
+  const notifications = buildNotifications(swaps, currentUserId).filter(
+    (notification) => !dismissedNotifications.includes(notification.id)
+  );
 
   function toggleExpand(userId) {
     setExpandedUser(expandedUser === userId ? null : userId);
@@ -72,17 +207,53 @@ function ForYouPage() {
     setSelectedUserForSwap(null);
   }
 
-  function handleSwapSuccess(swap) {
-    setMessage(`Swap request sent to ${selectedUserForSwap.name}!`);
+  function handleSwapSuccess() {
     setMessageAction(null);
     setSelectedUserForSwap(null);
-    setTimeout(() => {
-      navigate("/calendar");
-    }, 2000);
+    setShowSwapSuccessPopup(true);
+  }
+
+  function handleCloseSwapSuccessPopup() {
+    setShowSwapSuccessPopup(false);
+  }
+
+  function handleGoToCalendar() {
+    setShowSwapSuccessPopup(false);
+    navigate("/calendar");
   }
 
   function handleManageBlockedUsers() {
     navigate("/settings#blocked-users");
+  }
+
+  function handleToggleNotifications() {
+    setShowNotifications((prev) => !prev);
+  }
+
+  function handleDismissNotification(notificationId) {
+    setDismissedNotifications((prev) =>
+      prev.includes(notificationId) ? prev : [...prev, notificationId]
+    );
+  }
+
+  function handleClearAllNotifications() {
+    setDismissedNotifications((prev) => [
+      ...new Set([...prev, ...notifications.map((notification) => notification.id)]),
+    ]);
+  }
+
+  function handleNotificationClick(notification) {
+    if (!notification.actionable || !notification.swapId) {
+      return;
+    }
+
+    setShowNotifications(false);
+    navigate("/calendar", {
+      state: {
+        focusSwapId: notification.swapId,
+        focusView: "list",
+      },
+    });
   }
 
   async function handleBlockUser(user) {
@@ -94,6 +265,7 @@ function ForYouPage() {
 
     setMessage("");
     setMessageAction(null);
+    setShowSwapSuccessPopup(false);
     setBlockingUserId(user._id);
 
     try {
@@ -163,7 +335,7 @@ function ForYouPage() {
         type: "manage",
         label: "Manage blocked users",
       });
-      loadUsers();
+      loadPageData();
     } catch (err) {
       console.error("Error unblocking user:", err);
       setMessage(err.message || "Unable to unblock user.");
@@ -179,7 +351,7 @@ function ForYouPage() {
   }
 
   if (loadError) {
-    return <LoadingState message={loadError} onRetry={loadUsers} />;
+    return <LoadingState message={loadError} onRetry={loadPageData} />;
   }
 
   return (
@@ -192,15 +364,146 @@ function ForYouPage() {
               Connect with people and exchange skills
             </p>
           </div>
-          <button
-            type="button"
-            className="for-you-manage-blocked"
-            onClick={handleManageBlockedUsers}
-          >
-            Blocked users
-          </button>
+          <div className="for-you-notifications">
+            <button
+              type="button"
+              className="for-you-notification-bell"
+              onClick={handleToggleNotifications}
+              aria-label="Open notifications"
+              aria-expanded={showNotifications}
+            >
+              <span className="for-you-notification-bell__icon" aria-hidden="true">
+                &#128276;
+              </span>
+              {notifications.length > 0 && (
+                <span className="for-you-notification-badge">
+                  {notifications.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
+
+      {showNotifications && (
+        <>
+          <button
+            type="button"
+            className="for-you-notifications-backdrop"
+            onClick={handleToggleNotifications}
+            aria-label="Close notifications"
+          />
+          <div className="for-you-notifications-menu" role="dialog" aria-label="Notifications">
+            <div className="for-you-notifications-menu__header">
+              <h2 className="for-you-notifications-menu__title">Notifications</h2>
+              <button
+                type="button"
+                className="for-you-notifications-menu__close"
+                onClick={handleToggleNotifications}
+                aria-label="Close notifications menu"
+              >
+                x
+              </button>
+            </div>
+
+            {notifications.length === 0 ? (
+              <p className="for-you-notifications-menu__empty">
+                No notifications right now.
+              </p>
+            ) : (
+              <>
+                <div className="for-you-notifications-menu__list">
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`for-you-notification-item ${
+                        notification.actionable
+                          ? "for-you-notification-item--actionable"
+                          : ""
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        className="for-you-notification-item__content"
+                        onClick={() => handleNotificationClick(notification)}
+                        disabled={!notification.actionable}
+                        aria-label={
+                          notification.actionable
+                            ? `Open ${notification.title}`
+                            : undefined
+                        }
+                      >
+                        <p className="for-you-notification-item__title">
+                          {notification.title}
+                        </p>
+                        <p className="for-you-notification-item__message">
+                          {notification.message}
+                        </p>
+                        {notification.actionable && (
+                          <span className="for-you-notification-item__hint">
+                            View on Calendar
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="for-you-notification-item__dismiss"
+                        onClick={() => handleDismissNotification(notification.id)}
+                        aria-label={`Dismiss ${notification.title}`}
+                      >
+                        x
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="for-you-notifications-menu__footer">
+                  <button
+                    type="button"
+                    className="for-you-notifications-menu__clear"
+                    onClick={handleClearAllNotifications}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {showSwapSuccessPopup && (
+        <div
+          className="swap-success-popup"
+          role="alertdialog"
+          aria-labelledby="swap-success-title"
+          aria-describedby="swap-success-description"
+        >
+          <button
+            type="button"
+            className="swap-success-popup__close"
+            onClick={handleCloseSwapSuccessPopup}
+            aria-label="Close notification"
+          >
+            x
+          </button>
+          <p id="swap-success-title" className="swap-success-popup__title">
+            Swap Request Sent
+          </p>
+          <p
+            id="swap-success-description"
+            className="swap-success-popup__description"
+          >
+            Your request has been sent successfully.
+          </p>
+          <button
+            type="button"
+            className="swap-success-popup__action"
+            onClick={handleGoToCalendar}
+          >
+            Go to Calendar
+          </button>
+        </div>
+      )}
 
       {message && (
         <p className="for-you-message">
@@ -209,7 +512,7 @@ function ForYouPage() {
             <button
               type="button"
               className="for-you-message-action"
-              onClick={messageAction.type === "undo" ? handleUndoBlock : handleManageBlockedUsers}
+            onClick={messageAction.type === "undo" ? handleUndoBlock : handleManageBlockedUsers}
             >
               {messageAction.label}
             </button>
