@@ -124,6 +124,12 @@
   font-style: italic;
 }
 
+.milestone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .form-error {
   padding: 12px;
   background-color: #fee;

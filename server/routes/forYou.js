@@ -2,6 +2,7 @@
 const express = require("express");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
+const { getReliabilityByUserIds } = require("../services/reliability");
 
 const router = express.Router();
 
@@ -35,7 +36,19 @@ router.get("/", auth, async (req, res) => {
       _id: { $nin: excludedIds },
     }).select("name username city locationVisibility timeZone bio availability skills skillsWanted");
 
-    res.json(users.map((user) => sanitizePublicUser(user, { viewerAllowsLocations })));
+    const reliabilityByUserId = await getReliabilityByUserIds(
+      users.map((user) => user._id)
+    );
+
+    res.json(
+      users.map((user) => {
+        const publicUser = sanitizePublicUser(user, { viewerAllowsLocations });
+        return {
+          ...publicUser,
+          reliability: reliabilityByUserId[String(user._id)] || null,
+        };
+      })
+    );
   } catch (err) {
     console.error("Error in GET /api/for-you:", err);
     res.status(500).json({ message: "Error loading users" });

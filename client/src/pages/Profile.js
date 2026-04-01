@@ -1,5 +1,5 @@
 // client/src/pages/Profile.js
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../config";
 import fetchWithAuth from "../utils/api";
@@ -69,8 +69,67 @@ const SKILL_CATEGORIES = [
 
 const SKILL_LEVELS = ["Novice", "Proficient", "Expert"];
 
+function buildAnalytics(swaps, currentUserId) {
+  const mySwaps = (swaps || []).filter((swap) => {
+    const requesterId = swap.requester?._id || swap.requester;
+    const recipientId = swap.recipient?._id || swap.recipient;
+    return String(requesterId) === currentUserId || String(recipientId) === currentUserId;
+  });
+
+  const totalSwaps = mySwaps.length;
+  const completedSwaps = mySwaps.filter((swap) => swap.status === "completed").length;
+  const cancelledSwaps = mySwaps.filter((swap) => swap.status === "cancelled").length;
+  const confirmedSwaps = mySwaps.filter((swap) => swap.status === "confirmed").length;
+
+  const totalMilestones = mySwaps.reduce(
+    (sum, swap) => sum + (Array.isArray(swap.milestones) ? swap.milestones.length : 0),
+    0
+  );
+  const completedMilestones = mySwaps.reduce(
+    (sum, swap) =>
+      sum +
+      (Array.isArray(swap.milestones)
+        ? swap.milestones.filter((milestone) => milestone.completed).length
+        : 0),
+    0
+  );
+
+  const confirmationsGiven = mySwaps.reduce((sum, swap) => {
+    const requesterId = String(swap.requester?._id || swap.requester || "");
+    const isRequester = requesterId === currentUserId;
+    const hasConfirmed = isRequester ? swap.requesterConfirmedAt : swap.recipientConfirmedAt;
+    return sum + (hasConfirmed ? 1 : 0);
+  }, 0);
+
+  const reviewsGiven = mySwaps.reduce((sum, swap) => {
+    const requesterId = String(swap.requester?._id || swap.requester || "");
+    const isRequester = requesterId === currentUserId;
+    return sum + (isRequester ? (swap.reviews?.requesterReview ? 1 : 0) : (swap.reviews?.recipientReview ? 1 : 0));
+  }, 0);
+
+  const completionRate = totalSwaps ? Math.round((completedSwaps / totalSwaps) * 100) : 0;
+  const milestoneRate = totalMilestones
+    ? Math.round((completedMilestones / totalMilestones) * 100)
+    : 0;
+
+  return {
+    totalSwaps,
+    completedSwaps,
+    cancelledSwaps,
+    confirmedSwaps,
+    totalMilestones,
+    completedMilestones,
+    confirmationsGiven,
+    reviewsGiven,
+    completionRate,
+    milestoneRate,
+  };
+}
+
 function Profile({ onLogout }) {
   const navigate = useNavigate();
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentUserId = String(currentUser.id || currentUser._id || "");
   const [profile, setProfile] = useState({
     name: "",
     email: "",
@@ -81,7 +140,9 @@ function Profile({ onLogout }) {
     availability: [],
     skills: [],
     skillsWanted: [],
+    reliability: null,
   });
+  const [swaps, setSwaps] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -111,6 +172,11 @@ function Profile({ onLogout }) {
     level: "Novice",
   });
 
+  const analytics = useMemo(
+    () => buildAnalytics(swaps, currentUserId),
+    [swaps, currentUserId]
+  );
+
   function timeToMinutes(hour, minute, period) {
     let hours = parseInt(hour, 10);
     if (period === "PM" && hours !== 12) hours += 12;
@@ -128,25 +194,42 @@ function Profile({ onLogout }) {
     setLoading(true);
     try {
       const data = await withMinimumDelay(async () => {
-        const res = await fetchWithAuth(API_URL + "/api/users/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const [profileRes, swapsRes] = await Promise.all([
+          fetchWithAuth(API_URL + "/api/users/profile", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetchWithAuth(API_URL + "/api/swaps", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
 
-        if (!res.ok) throw new Error("Failed to fetch profile");
+        if (!profileRes.ok) throw new Error("Failed to fetch profile");
+        if (!swapsRes.ok) throw new Error("Failed to fetch swaps");
 
-        return await res.json();
+        const [profilePayload, swapsPayload] = await Promise.all([
+          profileRes.json(),
+          swapsRes.json(),
+        ]);
+
+        return {
+          profilePayload,
+          swapsPayload,
+        };
       });
+
+      const userData = data.profilePayload;
+      setSwaps(Array.isArray(data.swapsPayload) ? data.swapsPayload : []);
 
       setProfile({
         // IMPORTANT: username is intentionally NOT editable on Profile.
         // We also do not store it in local state to avoid accidentally sending "" and failing validation.
-        name: data.name || "",
-        email: data.email || "",
-        city: data.city || "",
-        phoneNumber: data.phoneNumber || "",
-        timeZone: data.timeZone || "",
-        bio: data.bio || "",
-        availability: (data.availability || []).map((slot) => {
+        name: userData.name || "",
+        email: userData.email || "",
+        city: userData.city || "",
+        phoneNumber: userData.phoneNumber || "",
+        timeZone: userData.timeZone || "",
+        bio: userData.bio || "",
+        availability: (userData.availability || []).map((slot) => {
           const match = slot.timeRange.match(/(\d+):(\d+)\s*(AM|PM)/);
           if (match) {
             return {
@@ -156,8 +239,9 @@ function Profile({ onLogout }) {
           }
           return slot;
         }),
-        skills: data.skills || [],
-        skillsWanted: data.skillsWanted || [],
+        skills: userData.skills || [],
+        skillsWanted: userData.skillsWanted || [],
+        reliability: userData.reliability || null,
       });
     } catch (err) {
       console.error(err);
@@ -424,6 +508,7 @@ function Profile({ onLogout }) {
         availability: sortedAvailability,
         skills: data.skills || [],
         skillsWanted: data.skillsWanted || [],
+        reliability: data.reliability || profile.reliability || null,
       });
 
       setMessage("Profile updated successfully!");
@@ -442,6 +527,53 @@ function Profile({ onLogout }) {
   return (
     <div className="profile-page">
       <h1 className="profile-title">Profile</h1>
+
+      <section className="profile-analytics" aria-label="Profile analytics">
+        <div className="profile-analytics__header">
+          <h2>Progress Dashboard</h2>
+          <span>
+            {profile.reliability?.score === null || profile.reliability?.score === undefined
+              ? "Reliability: New"
+              : `Reliability: ${profile.reliability.score} (${profile.reliability.tier})`}
+          </span>
+        </div>
+
+        <div className="profile-analytics__grid">
+          <article className="analytics-card">
+            <h3>Swap Completion</h3>
+            <p className="analytics-card__value">{analytics.completionRate}%</p>
+            <p className="analytics-card__meta">
+              {analytics.completedSwaps}/{analytics.totalSwaps} completed
+            </p>
+          </article>
+
+          <article className="analytics-card">
+            <h3>Milestone Completion</h3>
+            <p className="analytics-card__value">{analytics.milestoneRate}%</p>
+            <p className="analytics-card__meta">
+              {analytics.completedMilestones}/{analytics.totalMilestones} goals done
+            </p>
+          </article>
+
+          <article className="analytics-card">
+            <h3>Confirmations Given</h3>
+            <p className="analytics-card__value">{analytics.confirmationsGiven}</p>
+            <p className="analytics-card__meta">Active swaps: {analytics.confirmedSwaps}</p>
+          </article>
+
+          <article className="analytics-card">
+            <h3>Ratings</h3>
+            <p className="analytics-card__value">
+              {profile.reliability?.averageRating
+                ? `${profile.reliability.averageRating}/5`
+                : "No ratings yet"}
+            </p>
+            <p className="analytics-card__meta">
+              Received: {profile.reliability?.ratingsReceivedCount || 0} • Given: {analytics.reviewsGiven}
+            </p>
+          </article>
+        </div>
+      </section>
 
       <form onSubmit={handleSave} className="profile-form">
         <input

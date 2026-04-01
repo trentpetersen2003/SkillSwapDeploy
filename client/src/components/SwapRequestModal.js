@@ -12,6 +12,8 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     scheduledDate: "",
     scheduledTime: "",
     duration: "60",
+    totalSessions: "1",
+    milestoneTitles: [""],
     location: "",
     notes: "",
   });
@@ -61,7 +63,40 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
 
   function handleChange(e) {
     const { name, value } = e.target;
+
+    if (name === "totalSessions") {
+      const parsed = parseInt(value, 10);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20) {
+        return;
+      }
+
+      setFormData((prev) => {
+        const nextMilestones = Array.from({ length: parsed }, (_, index) => {
+          return prev.milestoneTitles[index] || "";
+        });
+
+        return {
+          ...prev,
+          totalSessions: String(parsed),
+          milestoneTitles: nextMilestones,
+        };
+      });
+
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function handleMilestoneChange(index, value) {
+    setFormData((prev) => {
+      const nextMilestones = [...prev.milestoneTitles];
+      nextMilestones[index] = value;
+      return {
+        ...prev,
+        milestoneTitles: nextMilestones,
+      };
+    });
   }
 
   async function handleSubmit(e) {
@@ -75,6 +110,26 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
       !formData.scheduledTime
     ) {
       setError("Please fill in all required fields");
+      return;
+    }
+
+    const parsedTotalSessions = parseInt(formData.totalSessions, 10);
+    const normalizedMilestones = (formData.milestoneTitles || []).map((title) => title.trim());
+
+    if (
+      !Number.isInteger(parsedTotalSessions) ||
+      parsedTotalSessions < 1 ||
+      parsedTotalSessions > 20
+    ) {
+      setError("Total sessions must be between 1 and 20");
+      return;
+    }
+
+    if (
+      normalizedMilestones.length !== parsedTotalSessions ||
+      normalizedMilestones.some((title) => !title)
+    ) {
+      setError("Please add a goal for every session milestone");
       return;
     }
 
@@ -98,6 +153,8 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
             skillWanted: formData.skillWanted,
             scheduledDate: scheduledDateTime,
             duration: parseInt(formData.duration, 10),
+            totalSessions: parsedTotalSessions,
+            milestones: normalizedMilestones.map((title) => ({ title })),
             location: formData.location,
             notes: formData.notes,
           }),
@@ -237,6 +294,41 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
               <option value="90">1.5 hours</option>
               <option value="120">2 hours</option>
             </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="totalSessions">
+              Number of Sessions <span className="required">*</span>
+            </label>
+            <input
+              type="number"
+              id="totalSessions"
+              name="totalSessions"
+              value={formData.totalSessions}
+              onChange={handleChange}
+              min="1"
+              max="20"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>
+              Session Goals <span className="required">*</span>
+            </label>
+            <div className="milestone-list">
+              {formData.milestoneTitles.map((title, index) => (
+                <input
+                  key={`milestone-${index}`}
+                  type="text"
+                  value={title}
+                  onChange={(event) => handleMilestoneChange(index, event.target.value)}
+                  placeholder={`Milestone ${index + 1} goal`}
+                  required
+                />
+              ))}
+            </div>
+            <p className="form-hint">Add one concrete outcome for each session.</p>
           </div>
 
           <div className="form-group">

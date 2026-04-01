@@ -20,6 +20,8 @@ function CalendarPage() {
   const [message, setMessage] = useState("");
   const [view, setView] = useState("list"); 
   const [highlightedSwapId, setHighlightedSwapId] = useState("");
+  const [reviewDraftsBySwapId, setReviewDraftsBySwapId] = useState({});
+  const [submittingReviewForSwapId, setSubmittingReviewForSwapId] = useState("");
 
   useEffect(() => {
     loadSwaps();
@@ -116,6 +118,101 @@ function CalendarPage() {
       }
     } catch (err) {
       console.error("Error deleting swap:", err);
+      alert("Something went wrong");
+    }
+  }
+
+  async function handleConfirmSession(swapId) {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetchWithAuth(API_URL + `/api/swaps/${swapId}/confirm-session`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.ok) {
+        loadSwaps();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Failed to confirm session");
+      }
+    } catch (err) {
+      console.error("Error confirming session:", err);
+      alert("Something went wrong");
+    }
+  }
+
+  function handleReviewChange(swapId, field, value) {
+    setReviewDraftsBySwapId((prev) => ({
+      ...prev,
+      [swapId]: {
+        rating: prev[swapId]?.rating || "5",
+        comment: prev[swapId]?.comment || "",
+        [field]: value,
+      },
+    }));
+  }
+
+  async function handleSubmitReview(swapId) {
+    const token = localStorage.getItem("token");
+    const draft = reviewDraftsBySwapId[swapId] || { rating: "5", comment: "" };
+
+    setSubmittingReviewForSwapId(swapId);
+    try {
+      const res = await fetchWithAuth(API_URL + `/api/swaps/${swapId}/review`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          rating: parseInt(draft.rating, 10),
+          comment: draft.comment || "",
+        }),
+      });
+
+      if (res.ok) {
+        setReviewDraftsBySwapId((prev) => {
+          const next = { ...prev };
+          delete next[swapId];
+          return next;
+        });
+        loadSwaps();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Failed to submit review");
+      }
+    } catch (err) {
+      console.error("Error submitting review:", err);
+      alert("Something went wrong");
+    } finally {
+      setSubmittingReviewForSwapId("");
+    }
+  }
+
+  async function handleMilestoneComplete(swapId, milestoneId) {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetchWithAuth(
+        API_URL + `/api/swaps/${swapId}/milestones/${milestoneId}/complete`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (res.ok) {
+        loadSwaps();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Failed to update milestone");
+      }
+    } catch (err) {
+      console.error("Error updating milestone:", err);
       alert("Something went wrong");
     }
   }
@@ -303,6 +400,12 @@ function CalendarPage() {
                     currentUser={currentUser}
                     onStatusChange={handleStatusChange}
                     onDelete={handleDeleteSwap}
+                    onMilestoneComplete={handleMilestoneComplete}
+                    onConfirmSession={handleConfirmSession}
+                    onReviewChange={handleReviewChange}
+                    onSubmitReview={handleSubmitReview}
+                    reviewDraft={reviewDraftsBySwapId[swap._id]}
+                    isSubmittingReview={submittingReviewForSwapId === swap._id}
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
                   />
@@ -330,6 +433,12 @@ function CalendarPage() {
                     currentUser={currentUser}
                     onStatusChange={handleStatusChange}
                     onDelete={handleDeleteSwap}
+                    onMilestoneComplete={handleMilestoneComplete}
+                    onConfirmSession={handleConfirmSession}
+                    onReviewChange={handleReviewChange}
+                    onSubmitReview={handleSubmitReview}
+                    reviewDraft={reviewDraftsBySwapId[swap._id]}
+                    isSubmittingReview={submittingReviewForSwapId === swap._id}
                     formatDate={formatDate}
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
@@ -357,6 +466,12 @@ function CalendarPage() {
                     currentUser={currentUser}
                     onStatusChange={handleStatusChange}
                     onDelete={handleDeleteSwap}
+                    onMilestoneComplete={handleMilestoneComplete}
+                    onConfirmSession={handleConfirmSession}
+                    onReviewChange={handleReviewChange}
+                    onSubmitReview={handleSubmitReview}
+                    reviewDraft={reviewDraftsBySwapId[swap._id]}
+                    isSubmittingReview={submittingReviewForSwapId === swap._id}
                     formatDate={formatDate}
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
@@ -382,6 +497,12 @@ function CalendarPage() {
                     currentUser={currentUser}
                     onStatusChange={handleStatusChange}
                     onDelete={handleDeleteSwap}
+                    onMilestoneComplete={handleMilestoneComplete}
+                    onConfirmSession={handleConfirmSession}
+                    onReviewChange={handleReviewChange}
+                    onSubmitReview={handleSubmitReview}
+                    reviewDraft={reviewDraftsBySwapId[swap._id]}
+                    isSubmittingReview={submittingReviewForSwapId === swap._id}
                     formatDate={formatDate}
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
@@ -403,6 +524,12 @@ function SwapCard({
   currentUser,
   onStatusChange,
   onDelete,
+  onMilestoneComplete,
+  onConfirmSession,
+  onReviewChange,
+  onSubmitReview,
+  reviewDraft,
+  isSubmittingReview,
   formatDate,
   formatTime,
   getStatusColor,
@@ -410,8 +537,17 @@ function SwapCard({
   isHistory = false,
   isHighlighted = false,
 }) {
-  const isRequester = swap.requester._id === currentUser.id;
+  const currentUserId = currentUser.id || currentUser._id;
+  const isRequester = swap.requester._id === currentUserId;
   const otherUser = isRequester ? swap.recipient : swap.requester;
+  const milestones = Array.isArray(swap.milestones) ? swap.milestones : [];
+  const completedMilestoneCount = milestones.filter((milestone) => milestone.completed).length;
+  const hasConfirmed = Boolean(
+    isRequester ? swap.requesterConfirmedAt : swap.recipientConfirmedAt
+  );
+  const hasReviewed = Boolean(
+    isRequester ? swap.reviews?.requesterReview : swap.reviews?.recipientReview
+  );
 
   return (
     <div
@@ -486,6 +622,79 @@ function SwapCard({
         </div>
       )}
 
+      {milestones.length > 0 && (
+        <div className="swap-card__milestones">
+          <div className="milestones-header">
+            <strong>Session goals</strong>
+            <span>
+              {completedMilestoneCount}/{milestones.length} complete
+            </span>
+          </div>
+          <ul className="milestones-list">
+            {milestones.map((milestone, index) => (
+              <li key={milestone._id || `${swap._id}-milestone-${index}`}>
+                <span
+                  className={`milestone-title ${milestone.completed ? "is-complete" : ""}`}
+                >
+                  {milestone.title}
+                </span>
+                {!isHistory && !milestone.completed && swap.status === "confirmed" && (
+                  <button
+                    className="action-btn milestone-btn"
+                    onClick={() => onMilestoneComplete(swap._id, milestone._id)}
+                  >
+                    Complete Goal
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {swap.status === "confirmed" && (
+        <div className="swap-card__confirmation">
+          {hasConfirmed ? (
+            <span className="confirmation-note">Session confirmed by you. Waiting for partner.</span>
+          ) : (
+            <button className="action-btn confirm-btn" onClick={() => onConfirmSession(swap._id)}>
+              Confirm Session Done
+            </button>
+          )}
+        </div>
+      )}
+
+      {swap.status === "completed" && !hasReviewed && (
+        <div className="swap-card__review">
+          <strong>Rate this swap</strong>
+          <div className="swap-card__review-controls">
+            <select
+              value={reviewDraft?.rating || "5"}
+              onChange={(event) => onReviewChange(swap._id, "rating", event.target.value)}
+            >
+              <option value="5">5 - Excellent</option>
+              <option value="4">4 - Good</option>
+              <option value="3">3 - Okay</option>
+              <option value="2">2 - Poor</option>
+              <option value="1">1 - Very poor</option>
+            </select>
+            <input
+              type="text"
+              placeholder="Optional feedback"
+              value={reviewDraft?.comment || ""}
+              onChange={(event) => onReviewChange(swap._id, "comment", event.target.value)}
+            />
+            <button
+              className="action-btn complete-btn"
+              onClick={() => onSubmitReview(swap._id)}
+              disabled={isSubmittingReview}
+            >
+              {isSubmittingReview ? "Submitting..." : "Submit Review"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {!isPast && (
         <div className="swap-card__actions">
           {!isRequester && swap.status === "pending" && (
@@ -507,12 +716,6 @@ function SwapCard({
 
           {swap.status === "confirmed" && (
             <>
-              <button
-                className="action-btn complete-btn"
-                onClick={() => onStatusChange(swap._id, "completed")}
-              >
-                Mark Complete
-              </button>
               <button
                 className="action-btn cancel-btn"
                 onClick={() => {

@@ -3,11 +3,15 @@ const request = require("supertest");
 const bcrypt = require("bcryptjs");
 const User = require("../../models/User");
 const usersRoutes = require("../../routes/users");
+const { getReliabilityByUserIds } = require("../../services/reliability");
 
 const AUTH_USER_ID = "507f1f77bcf86cd799439011";
 
 jest.mock("../../models/User");
 jest.mock("bcryptjs");
+jest.mock("../../services/reliability", () => ({
+  getReliabilityByUserIds: jest.fn(),
+}));
 jest.mock("../../middleware/auth", () => (req, res, next) => {
   req.userId = "507f1f77bcf86cd799439011";
   next();
@@ -26,6 +30,7 @@ describe("Users Routes", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    getReliabilityByUserIds.mockResolvedValue({});
   });
 
   describe("PUT /api/users/notifications", () => {

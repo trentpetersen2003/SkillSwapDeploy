@@ -18,6 +18,70 @@
   margin-bottom: 1.25rem;
 }
 
+.profile-analytics {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  border: 1px solid #dbeafe;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.profile-analytics__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.8rem;
+}
+
+.profile-analytics__header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #1e3a8a;
+}
+
+.profile-analytics__header span {
+  font-size: 0.85rem;
+  color: #334155;
+  font-weight: 600;
+}
+
+.profile-analytics__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.analytics-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.65rem;
+}
+
+.analytics-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.analytics-card__value {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.analytics-card__meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
 .profile-form {
   background: var(--card);
   border-radius: var(--radius);
@@ -105,4 +169,16 @@
 
 .profile-logout-button:hover {
   background: #f3f4f8;
+}
+
+@media (max-width: 920px) {
+  .profile-analytics__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .profile-analytics__grid {
+    grid-template-columns: 1fr;
+  }
 }

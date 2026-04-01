@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
+const { getReliabilityByUserIds } = require("../services/reliability");
 
 const router = express.Router();
 const PASSWORD_MIN_LENGTH = 8;
@@ -67,7 +68,19 @@ router.get("/", auth, async (req, res) => {
       .select("-passwordHash -blockedUsers")
       .sort({ createdAt: 1 });
 
-    res.json(users.map((user) => sanitizePublicUser(user, { viewerAllowsLocations })));
+    const reliabilityByUserId = await getReliabilityByUserIds(
+      users.map((user) => user._id)
+    );
+
+    res.json(
+      users.map((user) => {
+        const publicUser = sanitizePublicUser(user, { viewerAllowsLocations });
+        return {
+          ...publicUser,
+          reliability: reliabilityByUserId[String(user._id)] || null,
+        };
+      })
+    );
   } catch (err) {
     console.error("Error fetching users:", err);
     res.status(500).json({ message: "Error fetching users" });
@@ -150,7 +163,12 @@ router.get("/profile", auth, async (req, res) => {
       delete userData.lastName;
     }
 
-    res.json(userData);
+    const reliabilityByUserId = await getReliabilityByUserIds([req.userId]);
+
+    res.json({
+      ...userData,
+      reliability: reliabilityByUserId[String(req.userId)] || null,
+    });
   } catch (err) {
     console.error("Error fetching profile:", err);
     res.status(500).json({ message: "Error fetching profile" });

@@ -20,6 +20,16 @@ const SKILL_CATEGORIES = [
   "Hobbies & Misc",
 ];
 
+function getReliabilityToneClass(score) {
+  if (score === null || score === undefined) {
+    return "browse-reliability--new";
+  }
+  if (score >= 85) return "browse-reliability--high";
+  if (score >= 70) return "browse-reliability--good";
+  if (score >= 50) return "browse-reliability--building";
+  return "browse-reliability--low";
+}
+
 function Browse() {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
@@ -321,6 +331,18 @@ function Browse() {
                   <div className="browse-name">{user.name || "Unnamed User"}</div>
                   <div className="browse-username">
                     @{user.username || "unknown"}
+                  </div>
+
+                  <div className={`browse-reliability ${getReliabilityToneClass(user.reliability?.score)}`}>
+                    <strong>{user.reliability?.tier || "New"}</strong>
+                    <span>
+                      {user.reliability?.score === null || user.reliability?.score === undefined
+                        ? "No completed swaps yet"
+                        : `Score ${user.reliability.score} • ${user.reliability.completedSwaps}/${user.reliability.totalSwaps} completed`}
+                    </span>
+                    {user.reliability?.averageRating ? (
+                      <span>{`Avg rating ${user.reliability.averageRating}/5 (${user.reliability.ratingsReceivedCount})`}</span>
+                    ) : null}
                   </div>
 
                   <div className="browse-location">

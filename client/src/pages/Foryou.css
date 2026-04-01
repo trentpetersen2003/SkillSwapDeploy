@@ -411,6 +411,55 @@
   margin: 0;
 }
 
+.reliability-pill {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.reliability-pill strong {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.reliability-pill span {
+  font-size: 0.74rem;
+}
+
+.reliability-pill--high {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+.reliability-pill--good {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e3a8a;
+}
+
+.reliability-pill--building {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.reliability-pill--low {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.reliability-pill--new {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
 .for-you.user-location {
   display: flex;
   align-items: center;

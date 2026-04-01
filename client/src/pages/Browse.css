@@ -200,6 +200,55 @@
   margin-bottom: 0.35rem;
 }
 
+.browse-reliability {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 10px;
+  margin-bottom: 0.5rem;
+  border: 1px solid transparent;
+}
+
+.browse-reliability strong {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.browse-reliability span {
+  font-size: 0.76rem;
+}
+
+.browse-reliability--high {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+.browse-reliability--good {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e3a8a;
+}
+
+.browse-reliability--building {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.browse-reliability--low {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.browse-reliability--new {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
 .browse-location {
   display: inline-flex;
   align-items: center;

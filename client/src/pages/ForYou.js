@@ -97,6 +97,16 @@ function buildNotifications(swaps, currentUserId) {
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 }
 
+function getReliabilityToneClass(score) {
+  if (score === null || score === undefined) {
+    return "reliability-pill--new";
+  }
+  if (score >= 85) return "reliability-pill--high";
+  if (score >= 70) return "reliability-pill--good";
+  if (score >= 50) return "reliability-pill--building";
+  return "reliability-pill--low";
+}
+
 function ForYouPage() {
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = currentUser.id || currentUser._id || "";
@@ -571,6 +581,17 @@ function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap, onBlockUser
         <div className="user-info">
           <h3 className="user-name">{user.name}</h3>
           <p className="user-username">@{user.username}</p>
+          <div className={`reliability-pill ${getReliabilityToneClass(user.reliability?.score)}`}>
+            <strong>{user.reliability?.tier || "New"}</strong>
+            <span>
+              {user.reliability?.score === null || user.reliability?.score === undefined
+                ? "No completed swaps yet"
+                : `Score ${user.reliability.score} • ${user.reliability.completedSwaps}/${user.reliability.totalSwaps} completed`}
+            </span>
+            {user.reliability?.averageRating ? (
+              <span>{`Avg rating ${user.reliability.averageRating}/5 (${user.reliability.ratingsReceivedCount})`}</span>
+            ) : null}
+          </div>
         </div>
         <div className="user-location">
           <span className="location-icon">📍</span>

@@ -1,6 +1,52 @@
 // server/models/Swap.js
 const mongoose = require("mongoose");
 
+const milestoneSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    dueDate: {
+      type: Date,
+    },
+    completed: {
+      type: Boolean,
+      default: false,
+    },
+    completedAt: {
+      type: Date,
+    },
+  },
+  {
+    _id: true,
+  }
+);
+
+const participantReviewSchema = new mongoose.Schema(
+  {
+    rating: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: true,
+    },
+    comment: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    submittedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
 const swapSchema = new mongoose.Schema(
   {
     // The user who initiated/requested the swap
@@ -41,6 +87,39 @@ const swapSchema = new mongoose.Schema(
     location: {
       type: String,
       trim: true,
+    },
+    // Structured swap plan metadata
+    totalSessions: {
+      type: Number,
+      default: 1,
+      min: 1,
+      max: 20,
+    },
+    milestones: {
+      type: [milestoneSchema],
+      default: [],
+    },
+    requesterConfirmedAt: {
+      type: Date,
+      default: null,
+    },
+    recipientConfirmedAt: {
+      type: Date,
+      default: null,
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+    reviews: {
+      requesterReview: {
+        type: participantReviewSchema,
+        default: null,
+      },
+      recipientReview: {
+        type: participantReviewSchema,
+        default: null,
+      },
     },
     // Status of the swap
     status: {

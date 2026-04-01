@@ -194,12 +194,77 @@ describe('SwapRequestModal Component', () => {
     fireEvent.change(container.querySelector('#scheduledTime'), {
       target: { value: '10:30' },
     });
+    fireEvent.change(container.querySelector('input[placeholder="Milestone 1 goal"]'), {
+      target: { value: 'Cover beginner chord transitions' },
+    });
 
     const submitButton = screen.getByRole('button', { name: 'Send Request' });
     fireEvent.click(submitButton);
 
     expect(screen.getByRole('button', { name: 'Sending...' })).toBeDisabled();
     expect(container.querySelector('.swap-request-fieldset')).toBeDisabled();
+  });
+
+  test('sends total sessions and milestones in request payload', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ skills: [{ skillName: 'Piano' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ _id: 'swap-1' }),
+      });
+
+    const { container } = render(
+      <SwapRequestModal
+        user={mockUser}
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+      />
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('.swap-request-form')).toBeInTheDocument();
+    });
+
+    fireEvent.change(container.querySelector('#skillOffered'), {
+      target: { value: 'Piano' },
+    });
+    fireEvent.change(container.querySelector('#skillWanted'), {
+      target: { value: 'Guitar' },
+    });
+    fireEvent.change(container.querySelector('#scheduledDate'), {
+      target: { value: '2030-01-01' },
+    });
+    fireEvent.change(container.querySelector('#scheduledTime'), {
+      target: { value: '10:30' },
+    });
+    fireEvent.change(container.querySelector('#totalSessions'), {
+      target: { value: '2' },
+    });
+
+    const milestoneInputs = container.querySelectorAll('.milestone-list input');
+    fireEvent.change(milestoneInputs[0], {
+      target: { value: 'Learn basic scales' },
+    });
+    fireEvent.change(milestoneInputs[1], {
+      target: { value: 'Practice one full song' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send Request' }));
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(mockOnSuccess).toHaveBeenCalled();
+    });
+
+    const secondCallBody = JSON.parse(fetch.mock.calls[1][1].body);
+    expect(secondCallBody.totalSessions).toBe(2);
+    expect(secondCallBody.milestones).toEqual([
+      { title: 'Learn basic scales' },
+      { title: 'Practice one full song' },
+    ]);
   });
 
   test('modal closes when overlay is clicked', () => {

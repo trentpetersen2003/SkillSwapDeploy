@@ -313,6 +313,100 @@
   margin-bottom: 0.75rem;
 }
 
+.swap-card__confirmation {
+  margin-bottom: 0.75rem;
+}
+
+.confirmation-note {
+  display: inline-block;
+  font-size: 0.82rem;
+  color: #1e3a8a;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+}
+
+.swap-card__review {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #dbeafe;
+  background: #f8fbff;
+  border-radius: 8px;
+}
+
+.swap-card__review-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.swap-card__review-controls select,
+.swap-card__review-controls input {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.84rem;
+}
+
+.swap-card__review-controls input {
+  min-width: 220px;
+  flex: 1;
+}
+
+.swap-card__milestones {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.milestones-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.milestones-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.milestones-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.milestone-title {
+  font-size: 0.875rem;
+  color: #1f2937;
+}
+
+.milestone-title.is-complete {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+.milestone-btn {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.milestone-btn:hover {
+  background: #c7d2fe;
+}
+
 .swap-card__actions {
   display: flex;
   gap: 0.5rem;
