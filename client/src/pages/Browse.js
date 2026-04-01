@@ -30,6 +30,7 @@ function Browse() {
   const [loadError, setLoadError] = useState("");
   const [selectedUserForSwap, setSelectedUserForSwap] = useState(null);
   const [blockingUserId, setBlockingUserId] = useState("");
+  const [messageAction, setMessageAction] = useState(null);
 
   const fetchUsers = useCallback(async (search = "", category = "") => {
     setLoading(true);
@@ -95,6 +96,10 @@ function Browse() {
     fetchUsers("", "");
   }
 
+  function handleManageBlockedUsers() {
+    navigate("/settings#blocked-users");
+  }
+
   function handleSwapRequest(user) {
     setSelectedUserForSwap(user);
   }
@@ -121,6 +126,7 @@ function Browse() {
     }
 
     setMessage("");
+    setMessageAction(null);
     setBlockingUserId(user._id);
 
     try {
@@ -142,11 +148,61 @@ function Browse() {
 
       setUsers((prev) => prev.filter((existingUser) => existingUser._id !== user._id));
       setMessage(`Blocked @${user.username || "user"}.`);
+      setMessageAction({
+        type: "undo",
+        label: "Undo block",
+        userId: user._id,
+        username: user.username || "user",
+      });
     } catch (err) {
       console.error(err);
       setMessage(err.message || "Unable to block user.");
+      if (/already blocked|blocked user/i.test(err.message || "")) {
+        setMessageAction({
+          type: "manage",
+          label: "Manage blocked users",
+        });
+      }
     } finally {
       setBlockingUserId("");
+    }
+  }
+
+  async function handleUndoBlock() {
+    const token = localStorage.getItem("token");
+    if (!token || !messageAction?.userId) {
+      return;
+    }
+
+    try {
+      const res = await fetchWithAuth(
+        `${API_URL}/api/users/blocked/${messageAction.userId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload.message || "Failed to unblock user");
+      }
+
+      setMessage(`Unblocked @${messageAction.username}.`);
+      setMessageAction({
+        type: "manage",
+        label: "Manage blocked users",
+      });
+      fetchUsers(searchTerm.trim(), selectedCategory);
+    } catch (err) {
+      console.error(err);
+      setMessage(err.message || "Unable to unblock user.");
+      setMessageAction({
+        type: "manage",
+        label: "Manage blocked users",
+      });
     }
   }
 
@@ -166,10 +222,21 @@ function Browse() {
   return (
     <div className="browse-page">
       <div className="browse-header">
-        <h1 className="browse-title">Browse Users</h1>
-        <p className="browse-subtitle">
-          Search and filter to find users with specific skills.
-        </p>
+        <div className="browse-header-row">
+          <div>
+            <h1 className="browse-title">Browse Users</h1>
+            <p className="browse-subtitle">
+              Search and filter to find users with specific skills.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="browse-manage-blocked"
+            onClick={handleManageBlockedUsers}
+          >
+            Blocked users
+          </button>
+        </div>
       </div>
 
       <div className="browse-filters">
@@ -212,7 +279,20 @@ function Browse() {
         </div>
       </div>
 
-      {message && <div className="browse-message">{message}</div>}
+      {message && (
+        <div className="browse-message">
+          <span>{message}</span>
+          {messageAction && (
+            <button
+              type="button"
+              className="browse-message-action"
+              onClick={messageAction.type === "undo" ? handleUndoBlock : handleManageBlockedUsers}
+            >
+              {messageAction.label}
+            </button>
+          )}
+        </div>
+      )}
 
       {users.length === 0 ? (
         <div className="browse-empty">No users found.</div>

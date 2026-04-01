@@ -1,6 +1,6 @@
 // client/src/pages/Settings.js
-import React, { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import API_URL from "../config";
 import fetchWithAuth from "../utils/api";
 import LoadingState, { BlockingLoader, InlineLoading } from "../components/LoadingState";
@@ -9,6 +9,8 @@ import "./Settings.css";
 
 function Settings({ onLogout }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const blockedSectionRef = useRef(null);
   const [username, setUsername] = useState("");
   const [locationVisibility, setLocationVisibility] = useState("visible");
   const [notificationPreferences, setNotificationPreferences] = useState({
@@ -96,6 +98,14 @@ function Settings({ onLogout }) {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  useEffect(() => {
+    if (location.hash !== "#blocked-users") {
+      return;
+    }
+
+    blockedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [location.hash, loadingSettings]);
 
   async function handleSaveUsername(e) {
     e.preventDefault();
@@ -418,7 +428,7 @@ function Settings({ onLogout }) {
             )}
           </div>
 
-          <div className="settings-section">
+          <div className="settings-section" id="blocked-users" ref={blockedSectionRef}>
             <h3>Privacy &amp; Safety</h3>
 
             <div className="settings-row">

@@ -18,6 +18,7 @@ function ForYouPage() {
   const [expandedUser, setExpandedUser] = useState(null);
   const [selectedUserForSwap, setSelectedUserForSwap] = useState(null);
   const [blockingUserId, setBlockingUserId] = useState("");
+  const [messageAction, setMessageAction] = useState(null);
   const navigate = useNavigate();
 
   const loadUsers = useCallback(async () => {
@@ -73,10 +74,15 @@ function ForYouPage() {
 
   function handleSwapSuccess(swap) {
     setMessage(`Swap request sent to ${selectedUserForSwap.name}!`);
+    setMessageAction(null);
     setSelectedUserForSwap(null);
     setTimeout(() => {
       navigate("/calendar");
     }, 2000);
+  }
+
+  function handleManageBlockedUsers() {
+    navigate("/settings#blocked-users");
   }
 
   async function handleBlockUser(user) {
@@ -87,6 +93,7 @@ function ForYouPage() {
     }
 
     setMessage("");
+    setMessageAction(null);
     setBlockingUserId(user._id);
 
     try {
@@ -109,11 +116,61 @@ function ForYouPage() {
       setUsers((prev) => prev.filter((existingUser) => existingUser._id !== user._id));
       setExpandedUser((prev) => (prev === user._id ? null : prev));
       setMessage(`Blocked @${user.username || "user"}.`);
+      setMessageAction({
+        type: "undo",
+        label: "Undo block",
+        userId: user._id,
+        username: user.username || "user",
+      });
     } catch (err) {
       console.error("Error blocking user:", err);
       setMessage(err.message || "Unable to block user.");
+      if (/already blocked|blocked user/i.test(err.message || "")) {
+        setMessageAction({
+          type: "manage",
+          label: "Manage blocked users",
+        });
+      }
     } finally {
       setBlockingUserId("");
+    }
+  }
+
+  async function handleUndoBlock() {
+    const token = localStorage.getItem("token");
+    if (!token || !messageAction?.userId) {
+      return;
+    }
+
+    try {
+      const res = await fetchWithAuth(
+        `${API_URL}/api/users/blocked/${messageAction.userId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload.message || "Failed to unblock user");
+      }
+
+      setMessage(`Unblocked @${messageAction.username}.`);
+      setMessageAction({
+        type: "manage",
+        label: "Manage blocked users",
+      });
+      loadUsers();
+    } catch (err) {
+      console.error("Error unblocking user:", err);
+      setMessage(err.message || "Unable to unblock user.");
+      setMessageAction({
+        type: "manage",
+        label: "Manage blocked users",
+      });
     }
   }
 
@@ -128,13 +185,37 @@ function ForYouPage() {
   return (
     <div className="for-you">
       <div className="for-you-header">
-        <h1 className="for-you-title">For You</h1>
-        <p className="for-you-subtitle">
-          Connect with people and exchange skills
-        </p>
+        <div className="for-you-header-row">
+          <div>
+            <h1 className="for-you-title">For You</h1>
+            <p className="for-you-subtitle">
+              Connect with people and exchange skills
+            </p>
+          </div>
+          <button
+            type="button"
+            className="for-you-manage-blocked"
+            onClick={handleManageBlockedUsers}
+          >
+            Blocked users
+          </button>
+        </div>
       </div>
 
-      {message && <p className="for-you-message">{message}</p>}
+      {message && (
+        <p className="for-you-message">
+          <span>{message}</span>
+          {messageAction && (
+            <button
+              type="button"
+              className="for-you-message-action"
+              onClick={messageAction.type === "undo" ? handleUndoBlock : handleManageBlockedUsers}
+            >
+              {messageAction.label}
+            </button>
+          )}
+        </p>
+      )}
 
       {users.length === 0 ? (
         <div className="for-you-empty">

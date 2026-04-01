@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import API_URL from "../config";
 import LoadingState, { Spinner } from "../components/LoadingState";
 import fetchWithAuth from "../utils/api";
@@ -163,6 +163,12 @@ function Chat() {
   const [searchError, setSearchError] = useState("");
   const [loadError, setLoadError] = useState("");
   const [messageError, setMessageError] = useState("");
+  const [blockRelationship, setBlockRelationship] = useState({
+    iBlocked: false,
+    blockedMe: false,
+    loading: false,
+  });
+  const [isUnblockingUser, setIsUnblockingUser] = useState(false);
   const [composerText, setComposerText] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [unreadOnlyFilter, setUnreadOnlyFilter] = useState(false);
@@ -181,6 +187,7 @@ function Chat() {
     return Array.isArray(stored) ? stored.map((id) => String(id)) : [];
   });
   const location = useLocation();
+  const navigate = useNavigate();
   const messagesContainerRef = useRef(null);
   const composerTextareaRef = useRef(null);
   const pendingScrollToBottomRef = useRef(false);
@@ -231,11 +238,13 @@ function Chat() {
       setLoadingOlderMessages(false);
       setNewMessagesBelowCount(0);
       setComposerText("");
+      setBlockRelationship({ iBlocked: false, blockedMe: false, loading: false });
       return;
     }
     setNewMessagesBelowCount(0);
     setComposerText(draftsByUserId[selectedUserId] || "");
     fetchThread(selectedUserId);
+    fetchBlockedRelationshipStatus(selectedUserId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUserId]);
 
@@ -718,6 +727,76 @@ function Chat() {
     }
   }
 
+  async function fetchBlockedRelationshipStatus(userId) {
+    if (!token || !userId) {
+      return;
+    }
+
+    setBlockRelationship((previous) => ({ ...previous, loading: true }));
+
+    try {
+      const res = await fetchWithAuth(
+        `${API_URL}/api/users/blocked/status?ids=${encodeURIComponent(userId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to load block status");
+      }
+
+      const status = data?.statuses?.[userId] || { iBlocked: false, blockedMe: false };
+      setBlockRelationship({
+        iBlocked: Boolean(status.iBlocked),
+        blockedMe: Boolean(status.blockedMe),
+        loading: false,
+      });
+    } catch (error) {
+      console.error("Error loading blocked status:", error);
+      setBlockRelationship({ iBlocked: false, blockedMe: false, loading: false });
+    }
+  }
+
+  async function handleUnblockSelectedUser() {
+    if (!selectedUserId || !token || isUnblockingUser) {
+      return;
+    }
+
+    setIsUnblockingUser(true);
+    setMessageError("");
+
+    try {
+      const res = await fetchWithAuth(`${API_URL}/api/users/blocked/${selectedUserId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(payload.message || "Failed to unblock user");
+      }
+
+      setBlockRelationship({ iBlocked: false, blockedMe: false, loading: false });
+      await fetchThread(selectedUserId, {
+        showLoading: false,
+        refreshConversation: true,
+        resetThread: true,
+      });
+    } catch (error) {
+      console.error("Error unblocking user from chat:", error);
+      setMessageError(error.message || "Failed to unblock user");
+      fetchBlockedRelationshipStatus(selectedUserId);
+    } finally {
+      setIsUnblockingUser(false);
+    }
+  }
+
   function commitRecentSearch(value) {
     const normalized = String(value || "").trim();
     if (!normalized) {
@@ -953,6 +1032,8 @@ function Chat() {
     composerText.length > 0 && composerRemainingCharacters <= MESSAGE_COUNTDOWN_THRESHOLD;
 
   const shouldShowSearchResults = searchTerm.trim().length > 0;
+  const isBlockedRelationshipError = /cannot chat with a blocked user/i.test(messageError);
+  const canUnblockFromChat = blockRelationship.iBlocked && !blockRelationship.blockedMe;
 
   if (loading) {
     return <LoadingState message="Loading chat..." />;
@@ -965,7 +1046,16 @@ function Chat() {
   return (
     <div className="chat-page">
       <aside className="chat-sidebar">
-        <h2 className="chat-sidebar__title">Conversations</h2>
+        <div className="chat-sidebar__title-row">
+          <h2 className="chat-sidebar__title">Conversations</h2>
+          <button
+            type="button"
+            className="chat-sidebar__manage-blocked"
+            onClick={() => navigate("/settings#blocked-users")}
+          >
+            Blocked users
+          </button>
+        </div>
         <div className="chat-search">
           <label htmlFor="chat-user-search" className="chat-search__label">
             Search users
@@ -1143,6 +1233,25 @@ function Chat() {
             <header className="chat-thread__header">
               <h1>Chat with {selectedUser.name}</h1>
               <p>@{selectedUser.username}</p>
+              <div className="chat-thread__status-row">
+                {blockRelationship.loading ? (
+                  <span className="chat-thread__status">Checking privacy status...</span>
+                ) : canUnblockFromChat ? (
+                  <>
+                    <span className="chat-thread__status">You blocked this account.</span>
+                    <button
+                      type="button"
+                      className="chat-thread__status-action"
+                      onClick={handleUnblockSelectedUser}
+                      disabled={isUnblockingUser}
+                    >
+                      {isUnblockingUser ? "Unblocking..." : "Unblock"}
+                    </button>
+                  </>
+                ) : blockRelationship.blockedMe ? (
+                  <span className="chat-thread__status">This account has blocked you.</span>
+                ) : null}
+              </div>
             </header>
 
             <div
@@ -1237,7 +1346,23 @@ function Chat() {
                 {composerRemainingCharacters} characters left
               </p>
             )}
-            {messageError && <p className="chat-error">{messageError}</p>}
+            {messageError && (
+              <div className="chat-error" role="alert">
+                <span>{messageError}</span>
+                {isBlockedRelationshipError && (
+                  <button
+                    type="button"
+                    className="chat-error__action"
+                    onClick={canUnblockFromChat ? handleUnblockSelectedUser : () => navigate("/settings#blocked-users")}
+                    disabled={isUnblockingUser}
+                  >
+                    {canUnblockFromChat
+                      ? (isUnblockingUser ? "Unblocking..." : "Unblock")
+                      : "Manage blocked users"}
+                  </button>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <div className="chat-thread__empty">

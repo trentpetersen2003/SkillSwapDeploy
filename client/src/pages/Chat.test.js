@@ -4,11 +4,13 @@ import "@testing-library/jest-dom";
 import Chat from "./Chat";
 
 const mockSearch = "";
+const mockNavigate = jest.fn();
 
 jest.mock(
   "react-router-dom",
   () => ({
     useLocation: () => ({ search: mockSearch }),
+    useNavigate: () => mockNavigate,
   }),
   { virtual: true }
 );
@@ -36,9 +38,14 @@ function isThreadHistoryUrl(url) {
   return url.startsWith("http://localhost:3001/api/messages/u2/history");
 }
 
+function isBlockStatusUrl(url) {
+  return url.startsWith("http://localhost:3001/api/users/blocked/status");
+}
+
 describe("Chat Page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockNavigate.mockReset();
     localStorage.clear();
     localStorage.setItem("token", "test-token");
     localStorage.setItem(
@@ -63,6 +70,13 @@ describe("Chat Page", () => {
         return {
           ok: true,
           json: async () => [buildConversation()],
+        };
+      }
+
+      if (isBlockStatusUrl(url)) {
+        return {
+          ok: true,
+          json: async () => ({ statuses: { u2: { iBlocked: false, blockedMe: false } } }),
         };
       }
 
@@ -94,7 +108,9 @@ describe("Chat Page", () => {
   });
 
   test("shows blocked-user message when thread fetch is forbidden", async () => {
-    global.fetch = jest.fn(async (url) => {
+    let isBlocked = true;
+
+    global.fetch = jest.fn(async (url, options = {}) => {
       if (url === "http://localhost:3001/api/users") {
         return {
           ok: true,
@@ -109,10 +125,39 @@ describe("Chat Page", () => {
         };
       }
 
+      if (isBlockStatusUrl(url)) {
+        return {
+          ok: true,
+          json: async () => ({
+            statuses: {
+              u2: {
+                iBlocked: isBlocked,
+                blockedMe: false,
+              },
+            },
+          }),
+        };
+      }
+
       if (isThreadHistoryUrl(url)) {
+        if (!isBlocked) {
+          return {
+            ok: true,
+            json: async () => ({ messages: [], hasMoreOlder: false }),
+          };
+        }
+
         return {
           ok: false,
           json: async () => ({ message: "Cannot chat with a blocked user" }),
+        };
+      }
+
+      if (url === "http://localhost:3001/api/users/blocked/u2" && options.method === "DELETE") {
+        isBlocked = false;
+        return {
+          ok: true,
+          json: async () => ({ message: "User unblocked" }),
         };
       }
 
@@ -133,6 +178,18 @@ describe("Chat Page", () => {
     expect(
       await screen.findByText("Cannot chat with a blocked user")
     ).toBeInTheDocument();
+
+    const unblockButtons = await screen.findAllByRole("button", {
+      name: "Unblock",
+    });
+    fireEvent.click(unblockButtons[0]);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "http://localhost:3001/api/users/blocked/u2",
+        expect.objectContaining({ method: "DELETE" })
+      );
+    });
   });
 
   test("shows blocked-user message when sending is forbidden", async () => {
@@ -148,6 +205,13 @@ describe("Chat Page", () => {
         return {
           ok: true,
           json: async () => [buildConversation()],
+        };
+      }
+
+      if (isBlockStatusUrl(url)) {
+        return {
+          ok: true,
+          json: async () => ({ statuses: { u2: { iBlocked: false, blockedMe: false } } }),
         };
       }
 
@@ -223,6 +287,13 @@ describe("Chat Page", () => {
         return {
           ok: true,
           json: async () => [buildConversation()],
+        };
+      }
+
+      if (isBlockStatusUrl(url)) {
+        return {
+          ok: true,
+          json: async () => ({ statuses: { u2: { iBlocked: false, blockedMe: false } } }),
         };
       }
 
@@ -304,6 +375,13 @@ describe("Chat Page", () => {
         return {
           ok: true,
           json: async () => [buildConversation()],
+        };
+      }
+
+      if (isBlockStatusUrl(url)) {
+        return {
+          ok: true,
+          json: async () => ({ statuses: { u2: { iBlocked: false, blockedMe: false } } }),
         };
       }
 
@@ -398,6 +476,13 @@ describe("Chat Page", () => {
         };
       }
 
+      if (isBlockStatusUrl(url)) {
+        return {
+          ok: true,
+          json: async () => ({ statuses: { u2: { iBlocked: false, blockedMe: false } } }),
+        };
+      }
+
       if (isThreadHistoryUrl(url)) {
         return {
           ok: true,
@@ -456,6 +541,13 @@ describe("Chat Page", () => {
         return {
           ok: true,
           json: async () => [buildConversation()],
+        };
+      }
+
+      if (isBlockStatusUrl(url)) {
+        return {
+          ok: true,
+          json: async () => ({ statuses: { u2: { iBlocked: false, blockedMe: false } } }),
         };
       }
 

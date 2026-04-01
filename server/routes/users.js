@@ -369,6 +369,53 @@ router.get("/blocked", auth, async (req, res) => {
   }
 });
 
+// GET /api/users/blocked/status?ids=<id1,id2,...> - get block relationship status for users
+router.get("/blocked/status", auth, async (req, res) => {
+  try {
+    const rawIds = String(req.query.ids || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    const targetIds = Array.from(new Set(rawIds)).filter((id) => (
+      mongoose.Types.ObjectId.isValid(id) && id !== req.userId
+    ));
+
+    if (targetIds.length === 0) {
+      return res.json({ statuses: {} });
+    }
+
+    const [currentUser, usersWhoBlockedCurrent] = await Promise.all([
+      User.findById(req.userId).select("blockedUsers"),
+      User.find({ _id: { $in: targetIds }, blockedUsers: req.userId }).select("_id"),
+    ]);
+
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const currentUserBlockedIds = new Set(
+      (currentUser.blockedUsers || []).map((id) => String(id))
+    );
+    const blockedMeIds = new Set(
+      usersWhoBlockedCurrent.map((user) => String(user._id))
+    );
+
+    const statuses = {};
+    targetIds.forEach((id) => {
+      statuses[id] = {
+        iBlocked: currentUserBlockedIds.has(id),
+        blockedMe: blockedMeIds.has(id),
+      };
+    });
+
+    res.json({ statuses });
+  } catch (err) {
+    console.error("Error loading blocked relationship statuses:", err);
+    res.status(500).json({ message: "Error loading blocked relationship statuses" });
+  }
+});
+
 // POST /api/users/blocked - block a user
 router.post("/blocked", auth, async (req, res) => {
   try {

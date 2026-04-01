@@ -144,6 +144,29 @@ describe("Users Routes", () => {
       expect(response.body).toEqual(blockedUsers);
     });
 
+    test("returns blocked relationship statuses for requested users", async () => {
+      const requestedId1 = "507f1f77bcf86cd799439012";
+      const requestedId2 = "507f1f77bcf86cd799439013";
+
+      User.findById.mockReturnValue(
+        makeSelectQuery({ blockedUsers: [requestedId1] })
+      );
+      User.find.mockReturnValue(
+        makeSelectQuery([{ _id: requestedId2 }])
+      );
+
+      const response = await request(app)
+        .get(`/api/users/blocked/status?ids=${requestedId1},${requestedId2}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        statuses: {
+          [requestedId1]: { iBlocked: true, blockedMe: false },
+          [requestedId2]: { iBlocked: false, blockedMe: true },
+        },
+      });
+    });
+
     test("blocks a valid target user", async () => {
       const targetUserId = "507f1f77bcf86cd799439012";
       User.findById.mockReturnValue(makeSelectQuery({ _id: targetUserId }));
