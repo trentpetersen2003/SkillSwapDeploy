@@ -1,5 +1,6 @@
 // client/src/pages/Calendar.js
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import ReactCalendar from "react-calendar";
 import API_URL from "../config";
 import fetchWithAuth from "../utils/api";
@@ -9,16 +10,28 @@ import "react-calendar/dist/Calendar.css";
 import "../pages/Calendar.css";
 
 function CalendarPage() {
+  const location = useLocation();
+  const focusSwapId = location.state?.focusSwapId || "";
+  const focusView = location.state?.focusView || "list";
   const [swaps, setSwaps] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
   const [view, setView] = useState("list"); 
+  const [highlightedSwapId, setHighlightedSwapId] = useState("");
 
   useEffect(() => {
     loadSwaps();
   }, []);
+
+  useEffect(() => {
+    if (!focusSwapId) {
+      return;
+    }
+
+    setView(focusView);
+  }, [focusSwapId, focusView]);
 
   async function loadSwaps() {
     const token = localStorage.getItem("token");
@@ -198,6 +211,36 @@ function CalendarPage() {
     }
   }
 
+  useEffect(() => {
+    if (!focusSwapId || swaps.length === 0) {
+      return;
+    }
+
+    const targetSwap = swaps.find((swap) => swap._id === focusSwapId);
+    if (!targetSwap) {
+      return;
+    }
+
+    setHighlightedSwapId(focusSwapId);
+    setSelectedDate(new Date(targetSwap.scheduledDate));
+
+    const frame = window.requestAnimationFrame(() => {
+      const targetElement = document.querySelector(`[data-swap-id="${focusSwapId}"]`);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+
+    const timeout = window.setTimeout(() => {
+      setHighlightedSwapId("");
+    }, 3000);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [focusSwapId, swaps, view]);
+
   if (loading) {
     return <LoadingState message="Loading calendar..." />;
   }
@@ -290,6 +333,7 @@ function CalendarPage() {
                     formatDate={formatDate}
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
+                    isHighlighted={swap._id === highlightedSwapId}
                   />
                 ))}
               </div>
@@ -316,6 +360,7 @@ function CalendarPage() {
                     formatDate={formatDate}
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
+                    isHighlighted={swap._id === highlightedSwapId}
                   />
                 ))}
               </div>
@@ -341,6 +386,7 @@ function CalendarPage() {
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
                     isHistory={true}
+                    isHighlighted={swap._id === highlightedSwapId}
                   />
                 ))}
               </div>
@@ -362,12 +408,17 @@ function SwapCard({
   getStatusColor,
   isPast = false,
   isHistory = false,
+  isHighlighted = false,
 }) {
   const isRequester = swap.requester._id === currentUser.id;
   const otherUser = isRequester ? swap.recipient : swap.requester;
 
   return (
-    <div className="swap-card" style={{ borderLeftColor: getStatusColor(swap.status) }}>
+    <div
+      className={`swap-card ${isHighlighted ? "swap-card--highlighted" : ""}`}
+      style={{ borderLeftColor: getStatusColor(swap.status) }}
+      data-swap-id={swap._id}
+    >
       <div className="swap-card__header">
         <div className="swap-card__user-info">
           <span className="user-label">{isRequester ? "With:" : "From:"}</span>
