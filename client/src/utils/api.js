@@ -12,6 +12,18 @@ export async function fetchWithAuth(url, options = {}) {
       throw new Error("Authentication failed. You have been logged out.");
     }
 
+    if (response.status === 404) {
+      const payload = await response
+        .clone()
+        .json()
+        .catch(() => null);
+
+      if (payload?.message && /user not found/i.test(payload.message)) {
+        handleAuthFailure();
+        throw new Error("Your account session is no longer valid. Please log in again.");
+      }
+    }
+
     return response;
   } catch (error) {
     throw error;

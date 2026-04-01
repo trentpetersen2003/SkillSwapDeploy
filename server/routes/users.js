@@ -5,6 +5,7 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
 const { getReliabilityByUserIds } = require("../services/reliability");
+const { rankCandidates } = require("../services/matching");
 
 const router = express.Router();
 const PASSWORD_MIN_LENGTH = 8;
@@ -23,8 +24,10 @@ function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
 // GET /api/users - list all users with search/filter
 router.get("/", auth, async (req, res) => {
   try {
-    const { search, category } = req.query;
-    const currentUser = await User.findById(req.userId).select("blockedUsers showOthersLocations");
+    const { search, category, sortBy } = req.query;
+    const currentUser = await User.findById(req.userId).select(
+      "blockedUsers showOthersLocations skills skillsWanted availability timeZone"
+    );
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -72,12 +75,17 @@ router.get("/", auth, async (req, res) => {
       users.map((user) => user._id)
     );
 
+    const withMatch = rankCandidates(currentUser, users, reliabilityByUserId);
+    const resultUsers = sortBy === "created" ? users : withMatch;
+
     res.json(
-      users.map((user) => {
+      resultUsers.map((user) => {
         const publicUser = sanitizePublicUser(user, { viewerAllowsLocations });
         return {
           ...publicUser,
-          reliability: reliabilityByUserId[String(user._id)] || null,
+          reliability: user.reliability || reliabilityByUserId[String(user._id)] || null,
+          matchScore: user.matchScore,
+          matchReasons: user.matchReasons,
         };
       })
     );

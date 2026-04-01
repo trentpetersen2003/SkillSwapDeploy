@@ -107,6 +107,16 @@ function getReliabilityToneClass(score) {
   return "reliability-pill--low";
 }
 
+function getMatchToneClass(score) {
+  if (score === null || score === undefined) {
+    return "match-pill--unknown";
+  }
+  if (score >= 80) return "match-pill--excellent";
+  if (score >= 65) return "match-pill--strong";
+  if (score >= 45) return "match-pill--moderate";
+  return "match-pill--weak";
+}
+
 function ForYouPage() {
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = currentUser.id || currentUser._id || "";
@@ -591,6 +601,18 @@ function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap, onBlockUser
             {user.reliability?.averageRating ? (
               <span>{`Avg rating ${user.reliability.averageRating}/5 (${user.reliability.ratingsReceivedCount})`}</span>
             ) : null}
+          </div>
+          <div className={`match-pill ${getMatchToneClass(user.matchScore)}`}>
+            <strong>
+              {user.matchScore === null || user.matchScore === undefined
+                ? "Match pending"
+                : `Match ${user.matchScore}%`}
+            </strong>
+            {Array.isArray(user.matchReasons) && user.matchReasons.length > 0 ? (
+              <span>{user.matchReasons[0]}</span>
+            ) : (
+              <span>Complete profile details to improve matching</span>
+            )}
           </div>
         </div>
         <div className="user-location">

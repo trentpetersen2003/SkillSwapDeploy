@@ -7,9 +7,8 @@ const mockNavigate = jest.fn();
 const mockSwapRequestModal = jest.fn();
 
 jest.mock("react-router-dom", () => ({
-  ...jest.requireActual("react-router-dom"),
   useNavigate: () => mockNavigate,
-}));
+}), { virtual: true });
 
 jest.mock("../utils/loading", () => ({
   withMinimumDelay: (taskOrPromise) =>
@@ -41,6 +40,9 @@ describe("ForYouPage", () => {
         username: "taylor",
         skills: [{ skillName: "Guitar" }],
         skillsWanted: [{ skillName: "Spanish" }],
+        matchScore: 92,
+        matchReasons: ["Teaches skills you want: Spanish"],
+        reliability: { score: 88, tier: "Reliable" },
       },
     ],
     swaps = [],
@@ -88,6 +90,9 @@ describe("ForYouPage", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Request Swap" })).toBeInTheDocument();
     });
+
+    expect(screen.getByText("Match 92%")).toBeInTheDocument();
+    expect(screen.getByText("Teaches skills you want: Spanish")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Request Swap" }));
     fireEvent.click(screen.getByRole("button", { name: "Complete Swap Request" }));

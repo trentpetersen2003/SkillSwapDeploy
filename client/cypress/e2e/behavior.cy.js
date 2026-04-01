@@ -33,6 +33,7 @@ describe("SkillSwap behavior tests", () => {
   });
 
   it("loads For You page and opens swap request modal", () => {
+    cy.intercept("GET", `${API_BASE}/api/messages/conversations`, { body: [] }).as("getConversations");
     cy.intercept("GET", `${API_BASE}/api/for-you`, {
       body: [
         {
@@ -43,6 +44,9 @@ describe("SkillSwap behavior tests", () => {
           skills: [{ skillName: "Guitar" }],
           skillsWanted: [{ skillName: "Spanish" }],
           bio: "Music teacher",
+          matchScore: 92,
+          matchReasons: ["Teaches skills you want: Spanish", "Availability overlap on 1 day"],
+          reliability: { score: 88, tier: "Reliable" },
         },
       ],
     }).as("getForYou");
@@ -50,18 +54,23 @@ describe("SkillSwap behavior tests", () => {
     cy.intercept("GET", `${API_BASE}/api/users/profile`, {
       body: { skills: [{ skillName: "Piano" }], skillsWanted: [] },
     }).as("getProfile");
+    cy.intercept("GET", `${API_BASE}/api/swaps`, { body: [] }).as("getSwaps");
 
     cy.visit(`${BASE_URL}/foryou`, { onBeforeLoad: setAuth });
     cy.wait("@getForYou");
+    cy.wait("@getSwaps");
 
-    cy.contains("For You").should("be.visible").click();
+    cy.contains("For You").should("be.visible");
     cy.contains("Alice").should("be.visible");
+    cy.contains("Match 92%").should("be.visible");
+    cy.contains("Teaches skills you want: Spanish").should("be.visible");
 
     cy.contains("Request Swap").should("be.visible").click();
     cy.contains("Request Swap with Alice").should("be.visible");
   });
 
   it("browses users and searches by name", () => {
+    cy.intercept("GET", `${API_BASE}/api/messages/conversations`, { body: [] }).as("getConversations");
     cy.intercept("GET", `${API_BASE}/api/users*`, (req) => {
       const search = req.query.search || "";
       if (search.toLowerCase().includes("ann")) {
@@ -74,6 +83,9 @@ describe("SkillSwap behavior tests", () => {
               city: "Seattle",
               skills: [{ skillName: "Python" }],
               skillsWanted: [{ skillName: "Guitar" }],
+                matchScore: 84,
+                matchReasons: ["Strong skill-family compatibility in your learning goals"],
+                reliability: { score: 91, tier: "Reliable" },
             },
           ],
         });
@@ -87,16 +99,19 @@ describe("SkillSwap behavior tests", () => {
               city: "Austin",
               skills: [{ skillName: "Excel" }],
               skillsWanted: [],
+                matchScore: 40,
+                matchReasons: ["Some category overlap in teach/learn preferences"],
+                reliability: { score: 72, tier: "Reliable" },
             },
           ],
         });
       }
     }).as("getUsers");
 
-    cy.visit(`${BASE_URL}/foryou`, { onBeforeLoad: setAuth });
-    cy.contains("Browse").should("be.visible").click();
+    cy.visit(`${BASE_URL}/browse`, { onBeforeLoad: setAuth });
     cy.wait("@getUsers");
     cy.contains("Browse Users").should("be.visible");
+    cy.contains("Match ").should("be.visible");
 
     cy.get("input[placeholder='Search by name, username, or skill...']")
       .should("be.visible")
@@ -105,15 +120,16 @@ describe("SkillSwap behavior tests", () => {
     cy.wait("@getUsers");
 
     cy.contains("Ann Lee").should("be.visible");
+    cy.contains("Match 84%").should("be.visible");
   });
 
   it("loads calendar and switches view", () => {
+    cy.intercept("GET", `${API_BASE}/api/messages/conversations`, { body: [] }).as("getConversations");
     cy.intercept("GET", `${API_BASE}/api/swaps`, {
       body: [],
     }).as("getSwaps");
 
-    cy.visit(`${BASE_URL}/foryou`, { onBeforeLoad: setAuth });
-    cy.contains("Calendar").should("be.visible").click();
+    cy.visit(`${BASE_URL}/calendar`, { onBeforeLoad: setAuth });
     cy.wait("@getSwaps");
     
     cy.contains("button", "Calendar View").should("be.visible").click();
@@ -121,12 +137,13 @@ describe("SkillSwap behavior tests", () => {
   });
 
   it("navigates to profile tab", () => {
-    cy.visit(`${BASE_URL}/foryou`, { onBeforeLoad: setAuth });
-    cy.contains("Profile").should("be.visible").click();
+    cy.intercept("GET", `${API_BASE}/api/messages/conversations`, { body: [] }).as("getConversations");
+    cy.visit(`${BASE_URL}/profile`, { onBeforeLoad: setAuth });
     cy.contains("Profile").should("be.visible");
   });
 
   it("manages settings notifications, security, and safety controls", () => {
+    cy.intercept("GET", `${API_BASE}/api/messages/conversations`, { body: [] }).as("getConversations");
     cy.intercept("GET", `${API_BASE}/api/users/profile`, {
       body: {
         _id: "u0",
@@ -175,7 +192,7 @@ describe("SkillSwap behavior tests", () => {
     cy.contains("Settings").should("be.visible");
 
     cy.get("select.settings-input").first().select("Hidden in Browse and For You");
-    cy.contains("button", "Save Visibility").click();
+    cy.contains("button", "Save Privacy").click();
     cy.wait("@saveVisibility");
 
     cy.contains("span", "Email me for new swap requests")

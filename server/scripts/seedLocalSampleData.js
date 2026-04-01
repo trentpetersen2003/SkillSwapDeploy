@@ -13,6 +13,24 @@ const DEFAULT_PASSWORD = "SkillSwap!123";
 const STRESS_MODE = process.argv.includes("--stress");
 const EDGE_MODE = process.argv.includes("--edge");
 
+const STRESS_SKILL_VARIANTS = [
+  { skillName: "JS", category: "Tech & Programming", level: "Proficient" },
+  { skillName: "JavaScript", category: "Tech & Programming", level: "Proficient" },
+  { skillName: "REST API Development", category: "Tech & Programming", level: "Novice" },
+  { skillName: "ML", category: "Tech & Programming", level: "Novice" },
+  { skillName: "Machine Learning Basics", category: "Tech & Programming", level: "Novice" },
+  { skillName: "React JS", category: "Tech & Programming", level: "Proficient" },
+  { skillName: "Node JS", category: "Tech & Programming", level: "Novice" },
+  { skillName: "Web Accessibility", category: "Tech & Programming", level: "Novice" },
+  { skillName: "A11y", category: "Tech & Programming", level: "Novice" },
+  { skillName: "Conversational Spanish", category: "Languages", level: "Novice" },
+  { skillName: "Resume Review", category: "Career & Professional", level: "Novice" },
+  { skillName: "Interview Preparation", category: "Career & Professional", level: "Novice" },
+  { skillName: "Roadmap Planning", category: "Career & Professional", level: "Novice" },
+  { skillName: "Product Discovery", category: "Career & Professional", level: "Novice" },
+  { skillName: "Zen Garden Design", category: "Hobbies & Misc", level: "Novice" },
+];
+
 const SAMPLE_USERS = [
   {
     key: "ava",
@@ -37,11 +55,12 @@ const SAMPLE_USERS = [
     ],
     skills: [
       { skillName: "React", category: "Tech & Programming", level: "Expert" },
+      { skillName: "Presentation Skills", category: "Career & Professional", level: "Proficient" },
       { skillName: "UI Design", category: "Creative & Arts", level: "Proficient" },
       { skillName: "Public Speaking", category: "Career & Professional", level: "Proficient" },
     ],
     skillsWanted: [
-      { skillName: "Spanish Conversation", category: "Languages", level: "Novice" },
+      { skillName: "Conversational Spanish", category: "Languages", level: "Novice" },
       { skillName: "Guitar", category: "Hobbies & Misc", level: "Novice" },
     ],
   },
@@ -72,8 +91,8 @@ const SAMPLE_USERS = [
       { skillName: "Spanish Conversation", category: "Languages", level: "Proficient" },
     ],
     skillsWanted: [
-      { skillName: "Strength Training", category: "Fitness & Wellness", level: "Novice" },
-      { skillName: "Python", category: "Tech & Programming", level: "Novice" },
+      { skillName: "Workout Coaching", category: "Fitness & Wellness", level: "Novice" },
+      { skillName: "Py", category: "Tech & Programming", level: "Novice" },
     ],
   },
   {
@@ -103,7 +122,7 @@ const SAMPLE_USERS = [
       { skillName: "Branding", category: "Career & Professional", level: "Proficient" },
     ],
     skillsWanted: [
-      { skillName: "Node.js", category: "Tech & Programming", level: "Novice" },
+      { skillName: "REST API Development", category: "Tech & Programming", level: "Novice" },
       { skillName: "System Design", category: "Tech & Programming", level: "Novice" },
     ],
   },
@@ -134,8 +153,8 @@ const SAMPLE_USERS = [
       { skillName: "Motivation Coaching", category: "Career & Professional", level: "Proficient" },
     ],
     skillsWanted: [
-      { skillName: "Accessibility", category: "Tech & Programming", level: "Novice" },
-      { skillName: "UX Writing", category: "Creative & Arts", level: "Novice" },
+      { skillName: "Web Accessibility", category: "Tech & Programming", level: "Novice" },
+      { skillName: "Content Design", category: "Creative & Arts", level: "Novice" },
     ],
   },
   {
@@ -161,7 +180,7 @@ const SAMPLE_USERS = [
     ],
     skills: [
       { skillName: "Calculus", category: "Academic & Tutoring", level: "Expert" },
-      { skillName: "Machine Learning", category: "Tech & Programming", level: "Proficient" },
+      { skillName: "Machine Learning Basics", category: "Tech & Programming", level: "Proficient" },
       { skillName: "Python", category: "Tech & Programming", level: "Expert" },
     ],
     skillsWanted: [
@@ -191,8 +210,8 @@ const SAMPLE_USERS = [
       { day: "Saturday", timeRange: "3:00 PM - 5:00 PM" },
     ],
     skills: [
-      { skillName: "Interview Prep", category: "Career & Professional", level: "Expert" },
-      { skillName: "Product Strategy", category: "Career & Professional", level: "Expert" },
+      { skillName: "Interview Coaching", category: "Career & Professional", level: "Expert" },
+      { skillName: "Product Roadmap", category: "Career & Professional", level: "Expert" },
       { skillName: "Agile Coaching", category: "Career & Professional", level: "Proficient" },
     ],
     skillsWanted: [
@@ -227,7 +246,7 @@ const SAMPLE_USERS = [
       { skillName: "Unity Basics", category: "Tech & Programming", level: "Proficient" },
     ],
     skillsWanted: [
-      { skillName: "Node.js", category: "Tech & Programming", level: "Novice" },
+      { skillName: "Game Dev", category: "Tech & Programming", level: "Novice" },
       { skillName: "API Testing", category: "Tech & Programming", level: "Novice" },
     ],
   },
@@ -253,12 +272,12 @@ const SAMPLE_USERS = [
       { day: "Saturday", timeRange: "1:00 PM - 3:00 PM" },
     ],
     skills: [
-      { skillName: "Node.js", category: "Tech & Programming", level: "Expert" },
-      { skillName: "System Design", category: "Tech & Programming", level: "Expert" },
+      { skillName: "Backend API Development", category: "Tech & Programming", level: "Expert" },
+      { skillName: "Systems Design", category: "Tech & Programming", level: "Expert" },
       { skillName: "API Testing", category: "Tech & Programming", level: "Proficient" },
     ],
     skillsWanted: [
-      { skillName: "Product Strategy", category: "Career & Professional", level: "Novice" },
+      { skillName: "Product Discovery", category: "Career & Professional", level: "Novice" },
       { skillName: "Guitar", category: "Hobbies & Misc", level: "Novice" },
     ],
   },
@@ -303,7 +322,10 @@ const EDGE_USERS = [
     },
     availability: [{ day: "Sunday", timeRange: "11:45 PM - 11:59 PM" }],
     skills: [{ skillName: "Timeboxing", category: "Life Skills", level: "Novice" }],
-    skillsWanted: [{ skillName: "Node.js", category: "Tech & Programming", level: "Novice" }],
+    skillsWanted: [
+      { skillName: "Backend API Development", category: "Tech & Programming", level: "Novice" },
+      { skillName: "Zen Garden Design", category: "Hobbies & Misc", level: "Novice" },
+    ],
   },
 ];
 
@@ -572,6 +594,9 @@ function buildStressSwapSeeds(userIds, userLookup) {
       wantedSkills.length > 0
         ? wantedSkills[index % wantedSkills.length]
         : fallbackWanted;
+    const offeredVariant = STRESS_SKILL_VARIANTS[index % STRESS_SKILL_VARIANTS.length];
+    const wantedVariant = STRESS_SKILL_VARIANTS[(index + 5) % STRESS_SKILL_VARIANTS.length];
+    const useVariantPair = index % 4 === 0;
     const status = statusCycle[index % statusCycle.length];
     const totalSessions = (index % 3) + 1;
 
@@ -592,8 +617,8 @@ function buildStressSwapSeeds(userIds, userLookup) {
     swaps.push({
       requester: userIds[requesterKey],
       recipient: userIds[recipientKey],
-      skillOffered: offeredSkill.skillName,
-      skillWanted: wantedSkill.skillName,
+      skillOffered: useVariantPair ? offeredVariant.skillName : offeredSkill.skillName,
+      skillWanted: useVariantPair ? wantedVariant.skillName : wantedSkill.skillName,
       scheduledDate:
         status === "completed" || status === "cancelled"
           ? daysAgo((index % 14) + 3)

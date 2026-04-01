@@ -30,6 +30,16 @@ function getReliabilityToneClass(score) {
   return "browse-reliability--low";
 }
 
+function getBrowseMatchToneClass(score) {
+  if (score === null || score === undefined) {
+    return "browse-match--unknown";
+  }
+  if (score >= 80) return "browse-match--excellent";
+  if (score >= 65) return "browse-match--strong";
+  if (score >= 45) return "browse-match--moderate";
+  return "browse-match--weak";
+}
+
 function Browse() {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
@@ -343,6 +353,19 @@ function Browse() {
                     {user.reliability?.averageRating ? (
                       <span>{`Avg rating ${user.reliability.averageRating}/5 (${user.reliability.ratingsReceivedCount})`}</span>
                     ) : null}
+                  </div>
+
+                  <div className={`browse-match ${getBrowseMatchToneClass(user.matchScore)}`}>
+                    <strong>
+                      {user.matchScore === null || user.matchScore === undefined
+                        ? "Match pending"
+                        : `Match ${user.matchScore}%`}
+                    </strong>
+                    {Array.isArray(user.matchReasons) && user.matchReasons.length > 0 ? (
+                      <span>{user.matchReasons[0]}</span>
+                    ) : (
+                      <span>Add teach/learn skills to improve ranking</span>
+                    )}
                   </div>
 
                   <div className="browse-location">

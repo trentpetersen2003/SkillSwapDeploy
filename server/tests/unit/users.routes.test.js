@@ -23,6 +23,14 @@ function makeSelectQuery(value) {
   };
 }
 
+function makeSelectSortQuery(value) {
+  return {
+    select: jest.fn().mockReturnValue({
+      sort: jest.fn().mockResolvedValue(value),
+    }),
+  };
+}
+
 describe("Users Routes", () => {
   const app = express();
   app.use(express.json());
@@ -31,6 +39,76 @@ describe("Users Routes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getReliabilityByUserIds.mockResolvedValue({});
+  });
+
+  describe("GET /api/users", () => {
+    test("returns ranked users with match metadata by default", async () => {
+      User.findById.mockReturnValue(
+        makeSelectQuery({
+          blockedUsers: [],
+          showOthersLocations: true,
+          skills: [{ skillName: "React", category: "Tech & Programming" }],
+          skillsWanted: [{ skillName: "Python", category: "Tech & Programming" }],
+          availability: [{ day: "Monday", timeRange: "6:00 PM - 8:00 PM" }],
+          timeZone: "UTC-05:00",
+        })
+      );
+      User.find.mockImplementation((query) => {
+        if (query && query.blockedUsers) {
+          return makeSelectQuery([]);
+        }
+
+        return makeSelectSortQuery([
+          {
+            _id: "u1",
+            name: "Taylor",
+            username: "taylor",
+            city: "Denver",
+            locationVisibility: "visible",
+            skills: [{ skillName: "Python", category: "Tech & Programming" }],
+            skillsWanted: [{ skillName: "React", category: "Tech & Programming" }],
+            availability: [{ day: "Monday", timeRange: "7:00 PM - 8:00 PM" }],
+            timeZone: "UTC-05:00",
+          },
+        ]);
+      });
+      getReliabilityByUserIds.mockResolvedValue({
+        u1: { score: 88, tier: "Reliable" },
+      });
+
+      const response = await request(app).get("/api/users");
+
+      expect(response.status).toBe(200);
+      expect(response.body[0]).toEqual(
+        expect.objectContaining({
+          name: "Taylor",
+          matchScore: expect.any(Number),
+          matchReasons: expect.any(Array),
+          reliability: expect.objectContaining({ score: 88, tier: "Reliable" }),
+        })
+      );
+    });
+
+    test("preserves created ordering when sortBy=created is requested", async () => {
+      User.findById.mockReturnValue(
+        makeSelectQuery({ blockedUsers: [], showOthersLocations: true, skills: [], skillsWanted: [] })
+      );
+      User.find.mockImplementation((query) => {
+        if (query && query.blockedUsers) {
+          return makeSelectQuery([]);
+        }
+
+        return makeSelectSortQuery([
+          { _id: "u2", name: "Zoe", username: "zoe", createdAt: new Date("2026-03-01") },
+          { _id: "u1", name: "Ava", username: "ava", createdAt: new Date("2026-02-01") },
+        ]);
+      });
+
+      const response = await request(app).get("/api/users?sortBy=created");
+
+      expect(response.status).toBe(200);
+      expect(response.body.map((user) => user.name)).toEqual(["Zoe", "Ava"]);
+    });
   });
 
   describe("PUT /api/users/notifications", () => {

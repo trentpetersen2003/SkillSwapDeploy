@@ -249,6 +249,55 @@
   color: #334155;
 }
 
+.browse-match {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 10px;
+  margin-bottom: 0.5rem;
+  border: 1px solid transparent;
+}
+
+.browse-match strong {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.browse-match span {
+  font-size: 0.76rem;
+}
+
+.browse-match--excellent {
+  background: #ecfeff;
+  border-color: #67e8f9;
+  color: #155e75;
+}
+
+.browse-match--strong {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e3a8a;
+}
+
+.browse-match--moderate {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.browse-match--weak {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.browse-match--unknown {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
 .browse-location {
   display: inline-flex;
   align-items: center;
