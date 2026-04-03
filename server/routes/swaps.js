@@ -72,7 +72,142 @@ function normalizeMilestones(rawMilestones = [], totalSessions = 1) {
 
   return { milestones: normalized, totalSessions: sessionCount };
 }
+// Availability helpers
+const DAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
+function parseUtcOffsetToMinutes(timeZone) {
+  if (typeof timeZone !== "string") return null;
+
+  const match = timeZone.match(/^UTC([+-])(\d{2}):(\d{2})$/i);
+  if (!match) return null;
+
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2]);
+  const minutes = Number(match[3]);
+
+  return sign * (hours * 60 + minutes);
+}
+
+function to24HourMinutes(hourStr, minuteStr, period) {
+  let hour = Number(hourStr);
+  const minute = Number(minuteStr);
+
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+
+  hour = hour % 12;
+  if (String(period).toUpperCase() === "PM") {
+    hour += 12;
+  }
+
+  return hour * 60 + minute;
+}
+
+function parseTimeRange(timeRange) {
+  if (typeof timeRange !== "string") return null;
+
+  const match = timeRange.match(
+    /(\d{1,2}):(\d{2})\s*(AM|PM)\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i
+  );
+
+  if (!match) return null;
+
+  const start = to24HourMinutes(match[1], match[2], match[3]);
+  const end = to24HourMinutes(match[4], match[5], match[6]);
+
+  if (start === null || end === null) return null;
+
+  return { start, end };
+}
+
+function getLocalDayAndMinutes(date, offsetMinutes) {
+  const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+
+  return {
+    day: DAYS[shifted.getUTCDay()],
+    minutes: shifted.getUTCHours() * 60 + shifted.getUTCMinutes(),
+  };
+}
+function formatMinutes(minutes) {
+  const normalized = ((minutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const hour24 = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+
+  return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
+}
+function describeLocalSession(date, timeZone, durationMinutes) {
+  const offsetMinutes = parseUtcOffsetToMinutes(timeZone);
+  if (offsetMinutes === null) {
+    return "invalid local time";
+  }
+
+  const localStart = getLocalDayAndMinutes(date, offsetMinutes);
+  const localEnd = localStart.minutes + durationMinutes;
+
+  return `${localStart.day} ${formatMinutes(localStart.minutes)} - ${formatMinutes(localEnd)} (${timeZone})`;
+}
+function formatAvailabilityForDay(availability = [], day, timeZone = "") {
+  const daySlots = (availability || []).filter((slot) => slot.day === day);
+
+  if (daySlots.length === 0) {
+    return `not available on ${day}${timeZone ? ` (${timeZone})` : ""}`;
+  }
+
+  const slotsText = daySlots.map((slot) => slot.timeRange).join(", ");
+  return `${day} ${slotsText}${timeZone ? ` (${timeZone})` : ""}`;
+}
+function validateUserAvailability(user, scheduledDate, durationMinutes) {
+  if (!user?.timeZone) {
+    return { ok: false, reason: "missing time zone" };
+  }
+
+  if (!Array.isArray(user.availability) || user.availability.length === 0) {
+    return { ok: false, reason: "missing availability" };
+  }
+
+  const offsetMinutes = parseUtcOffsetToMinutes(user.timeZone);
+  if (offsetMinutes === null) {
+    return { ok: false, reason: "invalid time zone" };
+  }
+
+  const localStart = getLocalDayAndMinutes(scheduledDate, offsetMinutes);
+  const localEndMinutes = localStart.minutes + durationMinutes;
+
+  if (localEndMinutes > 24 * 60) {
+    return { ok: false, reason: "session crosses into the next day" };
+  }
+
+  const fitsSlot = user.availability.some((slot) => {
+    if (slot.day !== localStart.day) return false;
+
+    const parsedRange = parseTimeRange(slot.timeRange);
+    if (!parsedRange) return false;
+
+    return (
+      localStart.minutes >= parsedRange.start &&
+      localEndMinutes <= parsedRange.end
+    );
+  });
+
+  if (!fitsSlot) {
+    return {
+      ok: false,
+      reason: `outside availability on ${localStart.day}`,
+    };
+  }
+
+  return { ok: true };
+}
 // Get all swaps for the authenticated user
 router.get("/", auth, async (req, res) => {
   try {
@@ -116,7 +251,6 @@ router.get("/range", auth, async (req, res) => {
     res.status(500).json({ message: "Error fetching swaps" });
   }
 });
-
 // Create a new swap
 router.post("/", auth, async (req, res) => {
   try {
@@ -137,7 +271,19 @@ router.post("/", auth, async (req, res) => {
         message: "Recipient, skills offered/wanted, and scheduled date are required",
       });
     }
+    const scheduledDateObj = new Date(scheduledDate);
+    if (Number.isNaN(scheduledDateObj.getTime())) {
+      return res.status(400).json({ message: "Invalid scheduled date" });
+    }
 
+    if (scheduledDateObj <= new Date()) {
+      return res.status(400).json({ message: "Scheduled date must be in the future" });
+    }
+
+    const durationMinutes = Number(duration || 60);
+    if (!Number.isInteger(durationMinutes) || durationMinutes < 15 || durationMinutes > 240) {
+      return res.status(400).json({ message: "Duration must be between 15 and 240 minutes" });
+    }
     const normalizedMilestones = normalizeMilestones(milestones, totalSessions || 1);
     if (normalizedMilestones.error) {
       return res.status(400).json({ message: normalizedMilestones.error });
@@ -149,8 +295,8 @@ router.post("/", auth, async (req, res) => {
     }
 
     const [requester, recipient] = await Promise.all([
-      User.findById(req.userId).select("blockedUsers"),
-      User.findById(recipientId).select("blockedUsers"),
+      User.findById(req.userId).select("blockedUsers availability timeZone"),
+      User.findById(recipientId).select("blockedUsers availability timeZone"),
     ]);
 
     if (!requester || !recipient) {
@@ -168,13 +314,79 @@ router.post("/", auth, async (req, res) => {
       return res.status(403).json({ message: "Cannot create swap with a blocked user" });
     }
 
+    if (!requester.timeZone || !recipient.timeZone) {
+      return res.status(400).json({
+        message: "Both users must have a time zone set before creating a swap request",
+      });
+    }
+
+    if (!Array.isArray(requester.availability) || requester.availability.length === 0) {
+      return res.status(400).json({
+        message: "You must set your availability before creating a swap request",
+      });
+    }
+
+    if (!Array.isArray(recipient.availability) || recipient.availability.length === 0) {
+      return res.status(400).json({
+        message: "This user has not set availability yet",
+      });
+    }
+
+    const requesterAvailabilityCheck = validateUserAvailability(
+      requester,
+      scheduledDateObj,
+      durationMinutes
+    );
+    if (!requesterAvailabilityCheck.ok) {
+      const requesterLocal = getLocalDayAndMinutes(
+        scheduledDateObj,
+        parseUtcOffsetToMinutes(requester.timeZone)
+      );
+
+      return res.status(400).json({
+        message: `That time is outside your availability. In your time, this request is ${describeLocalSession(
+          scheduledDateObj,
+          requester.timeZone,
+          durationMinutes
+        )}. You are only available ${formatAvailabilityForDay(
+          requester.availability,
+          requesterLocal.day,
+          requester.timeZone
+        )}.`,
+      });
+    }
+
+    const recipientAvailabilityCheck = validateUserAvailability(
+      recipient,
+      scheduledDateObj,
+      durationMinutes
+    );
+
+    if (!recipientAvailabilityCheck.ok) {
+      const recipientLocal = getLocalDayAndMinutes(
+        scheduledDateObj,
+        parseUtcOffsetToMinutes(recipient.timeZone)
+      );
+
+      return res.status(400).json({
+        message: `That time is outside this user's availability. In their time, this request is ${describeLocalSession(
+          scheduledDateObj,
+          recipient.timeZone,
+          durationMinutes
+        )}. They are only available ${formatAvailabilityForDay(
+          recipient.availability,
+          recipientLocal.day,
+          recipient.timeZone
+        )}.`,
+      });
+    }
     const newSwap = new Swap({
       requester: req.userId,
       recipient: recipientId,
       skillOffered,
       skillWanted,
-      scheduledDate: new Date(scheduledDate),
-      duration: duration || 60,
+      scheduledDate: scheduledDateObj,
+      duration: durationMinutes,
       location,
       notes,
       totalSessions: normalizedMilestones.totalSessions,

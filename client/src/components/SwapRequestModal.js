@@ -22,6 +22,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
   const [currentUserSkills, setCurrentUserSkills] = useState([]);
   const [detailsLoading, setDetailsLoading] = useState(true);
   const [detailsError, setDetailsError] = useState("");
+  const [currentUserTimeZone, setCurrentUserTimeZone] = useState("");
 
   useEffect(() => {
     fetchCurrentUserProfile();
@@ -53,6 +54,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
       });
 
       setCurrentUserSkills(data.skills || []);
+      setCurrentUserTimeZone(data.timeZone || "");
     } catch (err) {
       console.error("Error fetching current user profile:", err);
       setDetailsError(err.message || "Failed to load swap details.");
@@ -98,7 +100,32 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
       };
     });
   }
+  function parseUtcOffsetToMinutes(timeZone) {
+    if (typeof timeZone !== "string") return null;
 
+    const match = timeZone.match(/^UTC([+-])(\d{2}):(\d{2})$/i);
+    if (!match) return null;
+
+    const sign = match[1] === "-" ? -1 : 1;
+    const hours = Number(match[2]);
+    const minutes = Number(match[3]);
+
+    return sign * (hours * 60 + minutes);
+  }
+
+  function buildIsoFromProfileTimeZone(dateStr, timeStr, timeZone) {
+    const offsetMinutes = parseUtcOffsetToMinutes(timeZone);
+    if (offsetMinutes === null) {
+      throw new Error("Invalid profile time zone");
+    }
+
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const [hour, minute] = timeStr.split(":").map(Number);
+
+    const utcMillis = Date.UTC(year, month - 1, day, hour, minute) - offsetMinutes * 60 * 1000;
+
+    return new Date(utcMillis).toISOString();
+  }
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -133,13 +160,22 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
       return;
     }
 
-    // Combine date and time
-    const scheduledDateTime = `${formData.scheduledDate}T${formData.scheduledTime}`;
+    // Build request time from user's profile timezone
+    if (!currentUserTimeZone) {
+      setError("Please set your profile time zone before requesting a swap");
+      return;
+    }
 
     setLoading(true);
     const token = localStorage.getItem("token");
 
     try {
+      const scheduledDateTime = buildIsoFromProfileTimeZone(
+        formData.scheduledDate,
+        formData.scheduledTime,
+        currentUserTimeZone
+      );
+
       const data = await withMinimumDelay(async () => {
         const res = await fetchWithAuth(API_URL + "/api/swaps", {
           method: "POST",
@@ -198,184 +234,184 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
         ) : detailsError ? (
           <LoadingState message={detailsError} compact onRetry={fetchCurrentUserProfile} />
         ) : (
-        <form onSubmit={handleSubmit} className="swap-request-form">
-          <fieldset className="swap-request-fieldset" disabled={loading}>
-          <div className="form-group">
-            <label htmlFor="skillOffered">
-              Skill You'll Teach <span className="required">*</span>
-            </label>
-            <select
-              id="skillOffered"
-              name="skillOffered"
-              value={formData.skillOffered}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select a skill...</option>
-              {currentUserSkills.map((skill, idx) => (
-                <option key={idx} value={skill.skillName}>
-                  {skill.skillName}
-                </option>
-              ))}
-            </select>
-            {currentUserSkills.length === 0 && (
-              <p className="form-hint">
-                Add skills to your profile to offer them in swaps
-              </p>
-            )}
-          </div>
+          <form onSubmit={handleSubmit} className="swap-request-form">
+            <fieldset className="swap-request-fieldset" disabled={loading}>
+              <div className="form-group">
+                <label htmlFor="skillOffered">
+                  Skill You'll Teach <span className="required">*</span>
+                </label>
+                <select
+                  id="skillOffered"
+                  name="skillOffered"
+                  value={formData.skillOffered}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select a skill...</option>
+                  {currentUserSkills.map((skill, idx) => (
+                    <option key={idx} value={skill.skillName}>
+                      {skill.skillName}
+                    </option>
+                  ))}
+                </select>
+                {currentUserSkills.length === 0 && (
+                  <p className="form-hint">
+                    Add skills to your profile to offer them in swaps
+                  </p>
+                )}
+              </div>
 
-          <div className="form-group">
-            <label htmlFor="skillWanted">
-              Skill You Want to Learn <span className="required">*</span>
-            </label>
-            <select
-              id="skillWanted"
-              name="skillWanted"
-              value={formData.skillWanted}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select a skill...</option>
-              {recipientSkills.map((skill, idx) => (
-                <option key={idx} value={skill}>
-                  {skill}
-                </option>
-              ))}
-            </select>
-            {recipientSkills.length === 0 && (
-              <p className="form-hint">
-                This user hasn't listed any skills yet
-              </p>
-            )}
-          </div>
+              <div className="form-group">
+                <label htmlFor="skillWanted">
+                  Skill You Want to Learn <span className="required">*</span>
+                </label>
+                <select
+                  id="skillWanted"
+                  name="skillWanted"
+                  value={formData.skillWanted}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select a skill...</option>
+                  {recipientSkills.map((skill, idx) => (
+                    <option key={idx} value={skill}>
+                      {skill}
+                    </option>
+                  ))}
+                </select>
+                {recipientSkills.length === 0 && (
+                  <p className="form-hint">
+                    This user hasn't listed any skills yet
+                  </p>
+                )}
+              </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="scheduledDate">
-                Date <span className="required">*</span>
-              </label>
-              <input
-                type="date"
-                id="scheduledDate"
-                name="scheduledDate"
-                value={formData.scheduledDate}
-                onChange={handleChange}
-                min={new Date().toISOString().split("T")[0]}
-                required
-              />
-            </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="scheduledDate">
+                    Date <span className="required">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    id="scheduledDate"
+                    name="scheduledDate"
+                    value={formData.scheduledDate}
+                    onChange={handleChange}
+                    min={new Date().toISOString().split("T")[0]}
+                    required
+                  />
+                </div>
 
-            <div className="form-group">
-              <label htmlFor="scheduledTime">
-                Time <span className="required">*</span>
-              </label>
-              <input
-                type="time"
-                id="scheduledTime"
-                name="scheduledTime"
-                value={formData.scheduledTime}
-                onChange={handleChange}
-                required
-              />
-            </div>
-          </div>
+                <div className="form-group">
+                  <label htmlFor="scheduledTime">
+                    Time <span className="required">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    id="scheduledTime"
+                    name="scheduledTime"
+                    value={formData.scheduledTime}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </div>
 
-          <div className="form-group">
-            <label htmlFor="duration">Duration (minutes)</label>
-            <select
-              id="duration"
-              name="duration"
-              value={formData.duration}
-              onChange={handleChange}
-            >
-              <option value="30">30 minutes</option>
-              <option value="60">1 hour</option>
-              <option value="90">1.5 hours</option>
-              <option value="120">2 hours</option>
-            </select>
-          </div>
+              <div className="form-group">
+                <label htmlFor="duration">Duration (minutes)</label>
+                <select
+                  id="duration"
+                  name="duration"
+                  value={formData.duration}
+                  onChange={handleChange}
+                >
+                  <option value="30">30 minutes</option>
+                  <option value="60">1 hour</option>
+                  <option value="90">1.5 hours</option>
+                  <option value="120">2 hours</option>
+                </select>
+              </div>
 
-          <div className="form-group">
-            <label htmlFor="totalSessions">
-              Number of Sessions <span className="required">*</span>
-            </label>
-            <input
-              type="number"
-              id="totalSessions"
-              name="totalSessions"
-              value={formData.totalSessions}
-              onChange={handleChange}
-              min="1"
-              max="20"
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>
-              Session Goals <span className="required">*</span>
-            </label>
-            <div className="milestone-list">
-              {formData.milestoneTitles.map((title, index) => (
+              <div className="form-group">
+                <label htmlFor="totalSessions">
+                  Number of Sessions <span className="required">*</span>
+                </label>
                 <input
-                  key={`milestone-${index}`}
-                  type="text"
-                  value={title}
-                  onChange={(event) => handleMilestoneChange(index, event.target.value)}
-                  placeholder={`Milestone ${index + 1} goal`}
+                  type="number"
+                  id="totalSessions"
+                  name="totalSessions"
+                  value={formData.totalSessions}
+                  onChange={handleChange}
+                  min="1"
+                  max="20"
                   required
                 />
-              ))}
-            </div>
-            <p className="form-hint">Add one concrete outcome for each session.</p>
-          </div>
+              </div>
 
-          <div className="form-group">
-            <label htmlFor="location">Location/Meeting Link</label>
-            <input
-              type="text"
-              id="location"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              placeholder="e.g., Zoom, Coffee Shop, etc."
-            />
-          </div>
+              <div className="form-group">
+                <label>
+                  Session Goals <span className="required">*</span>
+                </label>
+                <div className="milestone-list">
+                  {formData.milestoneTitles.map((title, index) => (
+                    <input
+                      key={`milestone-${index}`}
+                      type="text"
+                      value={title}
+                      onChange={(event) => handleMilestoneChange(index, event.target.value)}
+                      placeholder={`Milestone ${index + 1} goal`}
+                      required
+                    />
+                  ))}
+                </div>
+                <p className="form-hint">Add one concrete outcome for each session.</p>
+              </div>
 
-          <div className="form-group">
-            <label htmlFor="notes">Notes (optional)</label>
-            <textarea
-              id="notes"
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              placeholder="Any additional information..."
-              rows="3"
-            />
-          </div>
+              <div className="form-group">
+                <label htmlFor="location">Location/Meeting Link</label>
+                <input
+                  type="text"
+                  id="location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  placeholder="e.g., Zoom, Coffee Shop, etc."
+                />
+              </div>
 
-          {error && <div className="form-error">{error}</div>}
+              <div className="form-group">
+                <label htmlFor="notes">Notes (optional)</label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  placeholder="Any additional information..."
+                  rows="3"
+                />
+              </div>
 
-          <div className="modal-actions">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={onClose}
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={loading || currentUserSkills.length === 0 || recipientSkills.length === 0}
-            >
-              {loading ? "Sending..." : "Send Request"}
-            </button>
-          </div>
-          </fieldset>
-        </form>
+              {error && <div className="form-error">{error}</div>}
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={onClose}
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={loading || currentUserSkills.length === 0 || recipientSkills.length === 0}
+                >
+                  {loading ? "Sending..." : "Send Request"}
+                </button>
+              </div>
+            </fieldset>
+          </form>
         )}
       </div>
     </div>
