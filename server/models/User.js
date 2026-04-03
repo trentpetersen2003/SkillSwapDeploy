@@ -100,6 +100,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    swapMode: {
+      type: String,
+      enum: ["either", "online", "in-person"],
+      default: "either",
+    },
     availability: [availabilitySchema],
     skills: [skillSchema],
     skillsWanted: [skillWantedSchema],

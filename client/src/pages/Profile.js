@@ -137,6 +137,7 @@ function Profile({ onLogout }) {
     phoneNumber: "",
     timeZone: "",
     bio: "",
+    swapMode: "either",
     availability: [],
     skills: [],
     skillsWanted: [],
@@ -229,6 +230,7 @@ function Profile({ onLogout }) {
         phoneNumber: userData.phoneNumber || "",
         timeZone: userData.timeZone || "",
         bio: userData.bio || "",
+        swapMode: userData.swapMode || "either",
         availability: (userData.availability || []).map((slot) => {
           const match = slot.timeRange.match(/(\d+):(\d+)\s*(AM|PM)/);
           if (match) {
@@ -463,6 +465,7 @@ function Profile({ onLogout }) {
         phoneNumber: profile.phoneNumber,
         timeZone: profile.timeZone,
         bio: profile.bio,
+        swapMode: profile.swapMode,
         availability: cleanedAvailability,
         skills: profile.skills,
         skillsWanted: profile.skillsWanted,
@@ -505,6 +508,7 @@ function Profile({ onLogout }) {
         phoneNumber: data.phoneNumber || "",
         timeZone: data.timeZone || "",
         bio: data.bio || "",
+        swapMode: data.swapMode || profile.swapMode || "either",
         availability: sortedAvailability,
         skills: data.skills || [],
         skillsWanted: data.skillsWanted || [],
@@ -627,6 +631,17 @@ function Profile({ onLogout }) {
           onChange={handleChange}
           rows="4"
         />
+
+        <select
+          name="swapMode"
+          value={profile.swapMode}
+          onChange={handleChange}
+          style={{ padding: "8px", fontSize: "14px" }}
+        >
+          <option value="either">Open to either online or in-person</option>
+          <option value="online">Online only</option>
+          <option value="in-person">In-person only</option>
+        </select>
 
         <h3>Availability</h3>
         {profile.availability.length > 0 && (

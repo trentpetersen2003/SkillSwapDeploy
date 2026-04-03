@@ -9,6 +9,15 @@ const { rankCandidates } = require("../services/matching");
 
 const router = express.Router();
 const PASSWORD_MIN_LENGTH = 8;
+const DAYS_OF_WEEK = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
 
 function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
   const user = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
@@ -21,10 +30,65 @@ function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
   return user;
 }
 
+function parseMultiValueParam(value) {
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((entry) => String(entry).split(","))
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 // GET /api/users - list all users with search/filter
 router.get("/", auth, async (req, res) => {
   try {
-    const { search, category, sortBy } = req.query;
+    const {
+      search,
+      category,
+      sortBy,
+      location,
+      minRating,
+      availabilityDay,
+      swapMode,
+    } = req.query;
+    const requestedAvailabilityDays = parseMultiValueParam(availabilityDay);
+    const requestedSwapModes = parseMultiValueParam(swapMode);
+    const requestedCategories = parseMultiValueParam(category);
+    const requestedLocation = typeof location === "string" ? location.trim() : "";
+    const requestedMinRating =
+      minRating !== undefined && minRating !== null && minRating !== ""
+        ? Number(minRating)
+        : null;
+
+    if (
+      requestedAvailabilityDays.length > 0 &&
+      requestedAvailabilityDays.some((day) => !DAYS_OF_WEEK.includes(day))
+    ) {
+      return res.status(400).json({ message: "availabilityDay must be a valid weekday" });
+    }
+
+    if (requestedSwapModes.length > 0 && requestedSwapModes.some(
+      (mode) => !["online", "in-person", "either"].includes(mode)
+    )) {
+      return res.status(400).json({ message: "swapMode must be online, in-person, or either" });
+    }
+
+    if (
+      requestedMinRating !== null &&
+      (!Number.isFinite(requestedMinRating) || requestedMinRating < 1 || requestedMinRating > 5)
+    ) {
+      return res.status(400).json({ message: "minRating must be a number between 1 and 5" });
+    }
+
     const currentUser = await User.findById(req.userId).select(
       "blockedUsers showOthersLocations skills skillsWanted availability timeZone"
     );
@@ -40,31 +104,74 @@ router.get("/", auth, async (req, res) => {
       ...usersWhoBlockedCurrent.map((user) => user._id),
     ];
 
-    let query = {
+    const query = {
       _id: { $nin: excludedIds },
     };
 
+    const andConditions = [];
+
     if (search) {
-      query.$or = [
+      andConditions.push({
+        $or: [
         { name: { $regex: search, $options: "i" } },
         { username: { $regex: search, $options: "i" } },
         { "skills.skillName": { $regex: search, $options: "i" } },
         { "skillsWanted.skillName": { $regex: search, $options: "i" } },
-      ];
+        ],
+      });
     }
 
-    if (category) {
-      const categoryFilter = [
-        { "skills.category": category },
-        { "skillsWanted.category": category },
-      ];
+    if (requestedCategories.length > 0) {
+      andConditions.push({
+        $or: [
+          { "skills.category": { $in: requestedCategories } },
+          { "skillsWanted.category": { $in: requestedCategories } },
+        ],
+      });
+    }
 
-      if (query.$or) {
-        query.$and = [{ $or: query.$or }, { $or: categoryFilter }];
-        delete query.$or;
-      } else {
-        query.$or = categoryFilter;
+    if (requestedLocation && viewerAllowsLocations) {
+      andConditions.push({
+        city: { $regex: requestedLocation, $options: "i" },
+        locationVisibility: { $ne: "hidden" },
+      });
+    }
+
+    if (requestedAvailabilityDays.length > 0) {
+      andConditions.push({
+        availability: { $elemMatch: { day: { $in: requestedAvailabilityDays } } },
+      });
+    }
+
+    if (requestedSwapModes.length > 0) {
+      const allowedModes = new Set();
+      let includeLegacyMissingMode = false;
+
+      requestedSwapModes.forEach((mode) => {
+        if (mode === "online") {
+          allowedModes.add("online");
+          allowedModes.add("either");
+          includeLegacyMissingMode = true;
+        } else if (mode === "in-person") {
+          allowedModes.add("in-person");
+          allowedModes.add("either");
+          includeLegacyMissingMode = true;
+        } else if (mode === "either") {
+          allowedModes.add("either");
+          includeLegacyMissingMode = true;
+        }
+      });
+
+      const swapModeOr = [{ swapMode: { $in: Array.from(allowedModes) } }];
+      if (includeLegacyMissingMode) {
+        swapModeOr.push({ swapMode: { $exists: false } });
       }
+
+      andConditions.push({ $or: swapModeOr });
+    }
+
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
     }
 
     const users = await User.find(query)
@@ -78,8 +185,17 @@ router.get("/", auth, async (req, res) => {
     const withMatch = rankCandidates(currentUser, users, reliabilityByUserId);
     const resultUsers = sortBy === "created" ? users : withMatch;
 
+    const filteredUsers =
+      requestedMinRating === null
+        ? resultUsers
+        : resultUsers.filter((user) => {
+            const reliability = user.reliability || reliabilityByUserId[String(user._id)] || null;
+            const averageRating = Number(reliability?.averageRating || 0);
+            return Number.isFinite(averageRating) && averageRating >= requestedMinRating;
+          });
+
     res.json(
-      resultUsers.map((user) => {
+      filteredUsers.map((user) => {
         const publicUser = sanitizePublicUser(user, { viewerAllowsLocations });
         return {
           ...publicUser,
@@ -193,6 +309,7 @@ router.put("/profile", auth, async (req, res) => {
       phoneNumber,
       timeZone,
       bio,
+      swapMode,
       availability,
       skills,
       skillsWanted,
@@ -224,6 +341,15 @@ router.put("/profile", auth, async (req, res) => {
       skills,
       skillsWanted,
     };
+
+    if (swapMode !== undefined) {
+      if (!["either", "online", "in-person"].includes(swapMode)) {
+        return res
+          .status(400)
+          .json({ message: "swapMode must be either, online, or in-person" });
+      }
+      updateData.swapMode = swapMode;
+    }
 
     const user = await User.findByIdAndUpdate(
       req.userId,
