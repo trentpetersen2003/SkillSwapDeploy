@@ -109,6 +109,116 @@ describe("Users Routes", () => {
       expect(response.status).toBe(200);
       expect(response.body.map((user) => user.name)).toEqual(["Zoe", "Ava"]);
     });
+
+    test("supports location, availability, swap mode, and minRating filters together", async () => {
+      User.findById.mockReturnValue(
+        makeSelectQuery({ blockedUsers: [], showOthersLocations: true, skills: [], skillsWanted: [] })
+      );
+      User.find.mockImplementation((query) => {
+        if (query && query.blockedUsers) {
+          return makeSelectQuery([]);
+        }
+
+        return makeSelectSortQuery([
+          {
+            _id: "u1",
+            name: "Taylor",
+            username: "taylor",
+            city: "Denver",
+            locationVisibility: "visible",
+            availability: [{ day: "Monday", timeRange: "6:00 PM - 8:00 PM" }],
+            swapMode: "either",
+          },
+          {
+            _id: "u2",
+            name: "Sam",
+            username: "sam",
+            city: "Denver",
+            locationVisibility: "visible",
+            availability: [{ day: "Monday", timeRange: "6:00 PM - 8:00 PM" }],
+            swapMode: "online",
+          },
+        ]);
+      });
+      getReliabilityByUserIds.mockResolvedValue({
+        u1: { score: 80, tier: "Reliable", averageRating: 4.7 },
+        u2: { score: 75, tier: "Reliable", averageRating: 3.2 },
+      });
+
+      const response = await request(app).get(
+        "/api/users?location=den&availabilityDay=Monday&swapMode=online&minRating=4.5"
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0]).toEqual(expect.objectContaining({ _id: "u1" }));
+      expect(User.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          $and: expect.arrayContaining([
+            expect.objectContaining({ city: expect.any(Object), locationVisibility: { $ne: "hidden" } }),
+            { availability: { $elemMatch: { day: { $in: ["Monday"] } } } },
+            {
+              $or: [
+                { swapMode: { $in: ["online", "either"] } },
+                { swapMode: { $exists: false } },
+              ],
+            },
+          ]),
+        })
+      );
+    });
+
+    test("accepts multiple categories and availability days", async () => {
+      User.findById.mockReturnValue(
+        makeSelectQuery({ blockedUsers: [], showOthersLocations: true, skills: [], skillsWanted: [] })
+      );
+      User.find.mockImplementation((query) => {
+        if (query && query.blockedUsers) {
+          return makeSelectQuery([]);
+        }
+
+        return makeSelectSortQuery([
+          {
+            _id: "u3",
+            name: "Jordan",
+            username: "jordan",
+            skills: [{ skillName: "Python", category: "Tech & Programming" }],
+            availability: [{ day: "Monday", timeRange: "8:00 AM - 9:00 AM" }],
+            swapMode: "online",
+          },
+        ]);
+      });
+
+      const response = await request(app).get(
+        "/api/users?category=Tech%20%26%20Programming&category=Languages&availabilityDay=Monday&availabilityDay=Wednesday"
+      );
+
+      expect(response.status).toBe(200);
+      expect(User.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          $and: expect.arrayContaining([
+            {
+              $or: [
+                { "skills.category": { $in: ["Tech & Programming", "Languages"] } },
+                { "skillsWanted.category": { $in: ["Tech & Programming", "Languages"] } },
+              ],
+            },
+            { availability: { $elemMatch: { day: { $in: ["Monday", "Wednesday"] } } } },
+          ]),
+        })
+      );
+    });
+
+    test("returns 400 for invalid availabilityDay", async () => {
+      User.findById.mockReturnValue(
+        makeSelectQuery({ blockedUsers: [], showOthersLocations: true, skills: [], skillsWanted: [] })
+      );
+
+      const response = await request(app).get("/api/users?availabilityDay=Funday");
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe("availabilityDay must be a valid weekday");
+    });
   });
 
   describe("PUT /api/users/notifications", () => {

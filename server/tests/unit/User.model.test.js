@@ -31,6 +31,7 @@ describe("User Model", () => {
       expect(user.phoneNumber).toBe("");
       expect(user.timeZone).toBe("");
       expect(user.bio).toBe("");
+      expect(user.swapMode).toBe("either");
       expect(user.availability).toEqual([]);
       expect(user.skills).toEqual([]);
       expect(user.skillsWanted).toEqual([]);
@@ -64,6 +65,7 @@ describe("User Model", () => {
         phoneNumber: "555-1234",
         timeZone: "America/Denver",
         bio: "I love teaching!",
+        swapMode: "online",
       };
 
       const user = new User(userData);
@@ -71,6 +73,7 @@ describe("User Model", () => {
       expect(user.phoneNumber).toBe("555-1234");
       expect(user.timeZone).toBe("America/Denver");
       expect(user.bio).toBe("I love teaching!");
+      expect(user.swapMode).toBe("online");
     });
 
     test("should trim whitespace from string fields", () => {

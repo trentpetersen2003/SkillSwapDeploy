@@ -43,6 +43,7 @@ const SAMPLE_USERS = [
     bio: "Frontend developer who mentors beginners and wants to improve Spanish conversation skills.",
     locationVisibility: "visible",
     showOthersLocations: true,
+    swapMode: "online",
     notificationPreferences: {
       swapRequestEmail: true,
       swapConfirmedEmail: true,
@@ -75,6 +76,7 @@ const SAMPLE_USERS = [
     bio: "Data analyst who enjoys helping with SQL and wants to improve fitness planning.",
     locationVisibility: "visible",
     showOthersLocations: true,
+    swapMode: "either",
     notificationPreferences: {
       swapRequestEmail: true,
       swapConfirmedEmail: true,
@@ -106,6 +108,7 @@ const SAMPLE_USERS = [
     bio: "Graphic designer and illustrator; wants to become better at backend APIs.",
     locationVisibility: "visible",
     showOthersLocations: true,
+    swapMode: "in-person",
     notificationPreferences: {
       swapRequestEmail: true,
       swapConfirmedEmail: true,
@@ -137,6 +140,7 @@ const SAMPLE_USERS = [
     bio: "Personal trainer and nutrition coach learning web accessibility and UX writing.",
     locationVisibility: "visible",
     showOthersLocations: true,
+    swapMode: "in-person",
     notificationPreferences: {
       swapRequestEmail: true,
       swapConfirmedEmail: true,
@@ -168,6 +172,7 @@ const SAMPLE_USERS = [
     bio: "Graduate student who teaches calculus and machine learning basics.",
     locationVisibility: "hidden",
     showOthersLocations: true,
+    swapMode: "online",
     notificationPreferences: {
       swapRequestEmail: false,
       swapConfirmedEmail: true,
@@ -199,6 +204,7 @@ const SAMPLE_USERS = [
     bio: "Product manager who can coach interview prep and roadmap planning.",
     locationVisibility: "visible",
     showOthersLocations: false,
+    swapMode: "either",
     notificationPreferences: {
       swapRequestEmail: true,
       swapConfirmedEmail: false,
@@ -230,6 +236,7 @@ const SAMPLE_USERS = [
     bio: "Music teacher and hobby game dev who wants to improve backend scalability.",
     locationVisibility: "visible",
     showOthersLocations: true,
+    swapMode: "online",
     notificationPreferences: {
       swapRequestEmail: true,
       swapConfirmedEmail: true,
@@ -261,6 +268,7 @@ const SAMPLE_USERS = [
     bio: "Backend engineer mentoring API design and cloud basics.",
     locationVisibility: "visible",
     showOthersLocations: true,
+    swapMode: "either",
     notificationPreferences: {
       swapRequestEmail: true,
       swapConfirmedEmail: true,
@@ -281,6 +289,132 @@ const SAMPLE_USERS = [
       { skillName: "Guitar", category: "Hobbies & Misc", level: "Novice" },
     ],
   },
+  {
+    key: "ian",
+    name: "Ian Brooks",
+    username: "ianbrooks",
+    email: "ian@skillswap.local",
+    city: "Phoenix",
+    timeZone: "UTC-07:00",
+    phoneNumber: "602-555-0119",
+    bio: "Career mentor focused on resumes and networking; learning Python automation.",
+    locationVisibility: "visible",
+    showOthersLocations: true,
+    swapMode: "either",
+    notificationPreferences: {
+      swapRequestEmail: true,
+      swapConfirmedEmail: true,
+      swapCancelledEmail: true,
+    },
+    availability: [
+      { day: "Monday", timeRange: "7:00 AM - 9:00 AM" },
+      { day: "Wednesday", timeRange: "7:00 AM - 9:00 AM" },
+      { day: "Friday", timeRange: "7:00 AM - 9:00 AM" },
+    ],
+    skills: [
+      { skillName: "Resume Review", category: "Career & Professional", level: "Expert" },
+      { skillName: "Networking Strategy", category: "Career & Professional", level: "Proficient" },
+      { skillName: "Excel", category: "Career & Professional", level: "Proficient" },
+    ],
+    skillsWanted: [
+      { skillName: "Python", category: "Tech & Programming", level: "Novice" },
+      { skillName: "Spreadsheet Automation", category: "Tech & Programming", level: "Novice" },
+    ],
+  },
+  {
+    key: "jules",
+    name: "Jules Park",
+    username: "julespark",
+    email: "jules@skillswap.local",
+    city: "Vancouver",
+    timeZone: "UTC-08:00",
+    phoneNumber: "604-555-0120",
+    bio: "Data storyteller teaching dashboarding while learning speaking confidence.",
+    locationVisibility: "visible",
+    showOthersLocations: true,
+    swapMode: "online",
+    notificationPreferences: {
+      swapRequestEmail: true,
+      swapConfirmedEmail: true,
+      swapCancelledEmail: true,
+    },
+    availability: [
+      { day: "Tuesday", timeRange: "8:00 PM - 10:00 PM" },
+      { day: "Thursday", timeRange: "8:00 PM - 10:00 PM" },
+      { day: "Sunday", timeRange: "4:00 PM - 6:00 PM" },
+    ],
+    skills: [
+      { skillName: "Dashboard Design", category: "Career & Professional", level: "Proficient" },
+      { skillName: "Data Analysis", category: "Tech & Programming", level: "Proficient" },
+      { skillName: "Storytelling", category: "Creative & Arts", level: "Proficient" },
+    ],
+    skillsWanted: [
+      { skillName: "Public Speaking", category: "Career & Professional", level: "Novice" },
+      { skillName: "Interview Coaching", category: "Career & Professional", level: "Novice" },
+    ],
+  },
+  {
+    key: "kira",
+    name: "Kira Nwosu",
+    username: "kiranwosu",
+    email: "kira@skillswap.local",
+    city: "Atlanta",
+    timeZone: "UTC-05:00",
+    phoneNumber: "404-555-0121",
+    bio: "Yoga instructor and nutrition writer exploring digital illustration.",
+    locationVisibility: "visible",
+    showOthersLocations: true,
+    swapMode: "in-person",
+    notificationPreferences: {
+      swapRequestEmail: true,
+      swapConfirmedEmail: true,
+      swapCancelledEmail: true,
+    },
+    availability: [
+      { day: "Tuesday", timeRange: "6:00 AM - 8:00 AM" },
+      { day: "Thursday", timeRange: "6:00 AM - 8:00 AM" },
+      { day: "Saturday", timeRange: "11:00 AM - 1:00 PM" },
+    ],
+    skills: [
+      { skillName: "Yoga Fundamentals", category: "Fitness & Wellness", level: "Expert" },
+      { skillName: "Mindful Breathing", category: "Fitness & Wellness", level: "Proficient" },
+      { skillName: "Meal Prep Basics", category: "Life Skills", level: "Proficient" },
+    ],
+    skillsWanted: [
+      { skillName: "Digital Illustration", category: "Creative & Arts", level: "Novice" },
+      { skillName: "Color Theory", category: "Creative & Arts", level: "Novice" },
+    ],
+  },
+  {
+    key: "leo",
+    name: "Leo Martins",
+    username: "leomartins",
+    email: "leo@skillswap.local",
+    city: "Denver",
+    timeZone: "UTC-07:00",
+    phoneNumber: "720-555-0122",
+    bio: "New community member offering beginner Portuguese and learning coding basics.",
+    locationVisibility: "visible",
+    showOthersLocations: true,
+    swapMode: "either",
+    notificationPreferences: {
+      swapRequestEmail: true,
+      swapConfirmedEmail: true,
+      swapCancelledEmail: true,
+    },
+    availability: [
+      { day: "Monday", timeRange: "8:00 PM - 9:30 PM" },
+      { day: "Thursday", timeRange: "8:00 PM - 9:30 PM" },
+    ],
+    skills: [
+      { skillName: "Portuguese Conversation", category: "Languages", level: "Proficient" },
+      { skillName: "Travel Planning", category: "Life Skills", level: "Proficient" },
+    ],
+    skillsWanted: [
+      { skillName: "JavaScript Basics", category: "Tech & Programming", level: "Novice" },
+      { skillName: "Git Basics", category: "Tech & Programming", level: "Novice" },
+    ],
+  },
 ];
 
 const EDGE_USERS = [
@@ -295,6 +429,7 @@ const EDGE_USERS = [
     bio: "Edge case user with intentionally sparse profile data.",
     locationVisibility: "hidden",
     showOthersLocations: false,
+    swapMode: "either",
     notificationPreferences: {
       swapRequestEmail: false,
       swapConfirmedEmail: false,
@@ -315,6 +450,7 @@ const EDGE_USERS = [
     bio: "Edge case user with narrow availability and uncommon timezone.",
     locationVisibility: "visible",
     showOthersLocations: true,
+    swapMode: "online",
     notificationPreferences: {
       swapRequestEmail: true,
       swapConfirmedEmail: false,
@@ -563,6 +699,118 @@ function buildSwapSeeds(userIds) {
         },
       },
     },
+    {
+      requester: userIds.jules,
+      recipient: userIds.henry,
+      skillOffered: "Data Analysis",
+      skillWanted: "Backend API Development",
+      scheduledDate: daysAgo(14),
+      duration: 60,
+      location: "Zoom Workspace",
+      notes: "Analytics dashboard mentoring and API fundamentals exchange.",
+      totalSessions: 2,
+      milestones: [
+        { title: "Data cleanup walkthrough", completed: true, completedAt: daysAgo(15) },
+        { title: "Endpoint modeling basics", completed: true, completedAt: daysAgo(14) },
+      ],
+      status: "completed",
+      requesterConfirmedAt: daysAgo(14),
+      recipientConfirmedAt: daysAgo(14),
+      completedAt: daysAgo(14),
+      reviews: {
+        requesterReview: {
+          rating: 2,
+          comment: "Session felt rushed, but I learned a few practical steps.",
+          submittedAt: daysAgo(13),
+        },
+        recipientReview: {
+          rating: 3,
+          comment: "Good effort and solid data perspective.",
+          submittedAt: daysAgo(13),
+        },
+      },
+    },
+    {
+      requester: userIds.kira,
+      recipient: userIds.ava,
+      skillOffered: "Yoga Fundamentals",
+      skillWanted: "UI Design",
+      scheduledDate: daysAgo(9),
+      duration: 75,
+      location: "Community Studio",
+      notes: "In-person swap with UI basics follow-up.",
+      totalSessions: 2,
+      milestones: [
+        { title: "Breathing and posture drill", completed: true, completedAt: daysAgo(10) },
+        { title: "Intro wireframe critique", completed: true, completedAt: daysAgo(9) },
+      ],
+      status: "completed",
+      requesterConfirmedAt: daysAgo(9),
+      recipientConfirmedAt: daysAgo(9),
+      completedAt: daysAgo(9),
+      reviews: {
+        requesterReview: {
+          rating: 5,
+          comment: "Great design coaching and actionable tips.",
+          submittedAt: daysAgo(8),
+        },
+        recipientReview: {
+          rating: 4,
+          comment: "Excellent in-person guidance and pacing.",
+          submittedAt: daysAgo(8),
+        },
+      },
+    },
+    {
+      requester: userIds.ian,
+      recipient: userIds.ben,
+      skillOffered: "Resume Review",
+      skillWanted: "SQL",
+      scheduledDate: daysAgo(6),
+      duration: 60,
+      location: "Google Meet",
+      notes: "Resume formatting and SQL query optimization.",
+      totalSessions: 1,
+      milestones: [
+        { title: "Resume bullet rewrite and query tuning", completed: true, completedAt: daysAgo(6) },
+      ],
+      status: "completed",
+      requesterConfirmedAt: daysAgo(6),
+      recipientConfirmedAt: daysAgo(6),
+      completedAt: daysAgo(6),
+      reviews: {
+        requesterReview: {
+          rating: 3,
+          comment: "Helpful SQL pointers, could have used more examples.",
+          submittedAt: daysAgo(5),
+        },
+        recipientReview: {
+          rating: 2,
+          comment: "Feedback was okay but not very specific.",
+          submittedAt: daysAgo(5),
+        },
+      },
+    },
+    {
+      requester: userIds.leo,
+      recipient: userIds.grace,
+      skillOffered: "Portuguese Conversation",
+      skillWanted: "Unity Basics",
+      scheduledDate: daysFromNow(4, 20),
+      duration: 45,
+      location: "Discord Voice",
+      notes: "Starter swap for language and game dev concepts.",
+      totalSessions: 2,
+      milestones: [
+        { title: "Basic greetings and pronunciation", completed: false },
+        { title: "Unity scene setup", completed: false },
+      ],
+      status: "pending",
+      requesterConfirmedAt: null,
+      recipientConfirmedAt: null,
+      completedAt: null,
+      reviews: {},
+    },
   ];
 }
 
@@ -747,6 +995,41 @@ function buildMessages(userIds) {
       createdAt: withOffset(now, -3970),
       readAt: withOffset(now, -3950),
     },
+    {
+      sender: userIds.jules,
+      recipient: userIds.henry,
+      text: "Can we revisit API pagination with one more example?",
+      createdAt: withOffset(now, -1600),
+      readAt: withOffset(now, -1560),
+    },
+    {
+      sender: userIds.henry,
+      recipient: userIds.jules,
+      text: "Absolutely, I can share sample cursor-based responses.",
+      createdAt: withOffset(now, -1570),
+      readAt: withOffset(now, -1540),
+    },
+    {
+      sender: userIds.kira,
+      recipient: userIds.ava,
+      text: "Loved the wireframe tips. Want to book another in-person session?",
+      createdAt: withOffset(now, -1320),
+      readAt: withOffset(now, -1300),
+    },
+    {
+      sender: userIds.ian,
+      recipient: userIds.ben,
+      text: "Thanks again for helping me untangle nested SQL queries.",
+      createdAt: withOffset(now, -1080),
+      readAt: withOffset(now, -1040),
+    },
+    {
+      sender: userIds.leo,
+      recipient: userIds.grace,
+      text: "I can share beginner Portuguese phrases before our Unity intro.",
+      createdAt: withOffset(now, -320),
+      readAt: null,
+    },
   ];
 }
 
@@ -897,6 +1180,7 @@ async function createUsers(activeUsers) {
       skillsWanted: userData.skillsWanted,
       locationVisibility: userData.locationVisibility,
       showOthersLocations: userData.showOthersLocations,
+      swapMode: userData.swapMode,
       notificationPreferences: userData.notificationPreferences,
     });
 
