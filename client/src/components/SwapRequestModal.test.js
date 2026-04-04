@@ -195,6 +195,9 @@ describe('SwapRequestModal Component', () => {
     fireEvent.change(container.querySelector('#scheduledTime'), {
       target: { value: '10:30' },
     });
+    fireEvent.change(container.querySelector('#meetingLink'), {
+      target: { value: 'https://zoom.us/j/123456789' },
+    });
     fireEvent.change(container.querySelector('input[placeholder="Milestone 1 goal"]'), {
       target: { value: 'Cover beginner chord transitions' },
     });
@@ -240,6 +243,9 @@ describe('SwapRequestModal Component', () => {
     });
     fireEvent.change(container.querySelector('#scheduledTime'), {
       target: { value: '10:30' },
+    });
+    fireEvent.change(container.querySelector('#meetingLink'), {
+      target: { value: 'https://zoom.us/j/987654321' },
     });
     fireEvent.change(container.querySelector('#totalSessions'), {
       target: { value: '2' },

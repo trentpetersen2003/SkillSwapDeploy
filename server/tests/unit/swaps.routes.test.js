@@ -107,6 +107,8 @@ describe("Swaps Routes", () => {
         skillOffered: "Piano",
         skillWanted: "Spanish",
         scheduledDate: "2030-01-01T10:00:00.000Z",
+        meetingType: "virtual",
+        meetingLink: "https://zoom.us/j/123456789",
         totalSessions: 2,
         milestones: [{ title: "Session one" }, { title: "Session two" }],
       });

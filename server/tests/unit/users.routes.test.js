@@ -146,7 +146,7 @@ describe("Users Routes", () => {
       });
 
       const response = await request(app).get(
-        "/api/users?location=den&availabilityDay=Monday&swapMode=online&minRating=4.5"
+        "/api/users?location=den&availabilityDay=Monday&swapMode=online&minRating=4.5&sortBy=created"
       );
 
       expect(response.status).toBe(200);
