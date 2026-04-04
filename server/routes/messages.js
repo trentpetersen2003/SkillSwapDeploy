@@ -3,10 +3,13 @@ const mongoose = require("mongoose");
 const auth = require("../middleware/auth");
 const Message = require("../models/Message");
 const User = require("../models/User");
+const { isProfileSetupComplete } = require("../services/profileSetup");
 
 const router = express.Router();
 const DEFAULT_THREAD_PAGE_LIMIT = 30;
 const MAX_THREAD_PAGE_LIMIT = 100;
+const PROFILE_SETUP_REQUIRED_MESSAGE =
+  "Finish your profile setup before you use chat.";
 
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
@@ -55,10 +58,32 @@ function normalizeThreadPageLimit(value) {
   return Math.min(parsed, MAX_THREAD_PAGE_LIMIT);
 }
 
+async function enforceProfileSetupComplete(userId, res) {
+  const currentUser = await User.findById(userId).select(
+    "name email city state timeZone availability skills skillsWanted"
+  );
+
+  if (!currentUser) {
+    res.status(404).json({ message: "User not found" });
+    return null;
+  }
+
+  if (!isProfileSetupComplete(currentUser)) {
+    res.status(403).json({ message: PROFILE_SETUP_REQUIRED_MESSAGE });
+    return null;
+  }
+
+  return currentUser;
+}
+
 // GET /api/messages/conversations - list latest DM threads for current user
 router.get("/conversations", auth, async (req, res) => {
   try {
     const currentUserId = String(req.userId);
+    const setupReadyUser = await enforceProfileSetupComplete(currentUserId, res);
+    if (!setupReadyUser) {
+      return;
+    }
 
     const [currentUser, usersWhoBlockedCurrent] = await Promise.all([
       User.findById(currentUserId).select("blockedUsers"),
@@ -133,6 +158,11 @@ router.get("/conversations", auth, async (req, res) => {
 router.get("/:userId/history", auth, async (req, res) => {
   try {
     const currentUserId = String(req.userId);
+    const setupReadyUser = await enforceProfileSetupComplete(currentUserId, res);
+    if (!setupReadyUser) {
+      return;
+    }
+
     const { userId } = req.params;
     const { beforeMessageId } = req.query;
     const limit = normalizeThreadPageLimit(req.query.limit);
@@ -205,6 +235,11 @@ router.get("/:userId/history", auth, async (req, res) => {
 router.get("/:userId", auth, async (req, res) => {
   try {
     const currentUserId = String(req.userId);
+    const setupReadyUser = await enforceProfileSetupComplete(currentUserId, res);
+    if (!setupReadyUser) {
+      return;
+    }
+
     const { userId } = req.params;
 
     if (!isValidObjectId(userId)) {
@@ -257,6 +292,11 @@ router.get("/:userId", auth, async (req, res) => {
 router.post("/:userId", auth, async (req, res) => {
   try {
     const currentUserId = String(req.userId);
+    const setupReadyUser = await enforceProfileSetupComplete(currentUserId, res);
+    if (!setupReadyUser) {
+      return;
+    }
+
     const { userId } = req.params;
     const { text } = req.body;
 

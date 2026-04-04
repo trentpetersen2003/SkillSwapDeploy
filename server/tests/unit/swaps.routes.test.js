@@ -28,6 +28,22 @@ function makePopulateQuery(value) {
   };
 }
 
+function makeSetupReadyUser(id, overrides = {}) {
+  return {
+    _id: id,
+    name: "Test User",
+    email: `${id}@example.com`,
+    city: "Boston",
+    state: "MA",
+    timeZone: "UTC-04:00",
+    availability: [{ day: "Tuesday", timeRange: "5:00 AM - 9:00 AM" }],
+    skills: [{ skillName: "Piano" }],
+    skillsWanted: [{ skillName: "Spanish" }],
+    blockedUsers: [],
+    ...overrides,
+  };
+}
+
 describe("Swaps Routes", () => {
   const app = express();
   app.use(express.json());
@@ -40,10 +56,10 @@ describe("Swaps Routes", () => {
   test("creates a swap with milestones", async () => {
     User.findById.mockImplementation((id) => {
       if (id === AUTH_USER_ID) {
-        return makeSelectQuery({ blockedUsers: [] });
+        return makeSelectQuery(makeSetupReadyUser(AUTH_USER_ID));
       }
       if (id === RECIPIENT_ID) {
-        return makeSelectQuery({ blockedUsers: [] });
+        return makeSelectQuery(makeSetupReadyUser(RECIPIENT_ID));
       }
       return makeSelectQuery(null);
     });
@@ -88,6 +104,13 @@ describe("Swaps Routes", () => {
   });
 
   test("prevents marking swap completed when milestones remain", async () => {
+    User.findById.mockImplementation((id) => {
+      if (id === AUTH_USER_ID) {
+        return makeSelectQuery(makeSetupReadyUser(AUTH_USER_ID));
+      }
+      return makeSelectQuery(null);
+    });
+
     const save = jest.fn();
     Swap.findById.mockResolvedValue({
       _id: "swap-1",
@@ -108,6 +131,13 @@ describe("Swaps Routes", () => {
   });
 
   test("marks a milestone complete for a participant", async () => {
+    User.findById.mockImplementation((id) => {
+      if (id === AUTH_USER_ID) {
+        return makeSelectQuery(makeSetupReadyUser(AUTH_USER_ID));
+      }
+      return makeSelectQuery(null);
+    });
+
     const save = jest.fn().mockResolvedValue();
     const milestone = {
       completed: false,
@@ -145,6 +175,13 @@ describe("Swaps Routes", () => {
   });
 
   test("confirms a session and auto-completes when both users confirmed", async () => {
+    User.findById.mockImplementation((id) => {
+      if (id === AUTH_USER_ID) {
+        return makeSelectQuery(makeSetupReadyUser(AUTH_USER_ID));
+      }
+      return makeSelectQuery(null);
+    });
+
     const save = jest.fn().mockResolvedValue();
     const swapDoc = {
       _id: "swap-1",
@@ -178,6 +215,13 @@ describe("Swaps Routes", () => {
   });
 
   test("submits a review for completed swap", async () => {
+    User.findById.mockImplementation((id) => {
+      if (id === AUTH_USER_ID) {
+        return makeSelectQuery(makeSetupReadyUser(AUTH_USER_ID));
+      }
+      return makeSelectQuery(null);
+    });
+
     const save = jest.fn().mockResolvedValue();
     const swapDoc = {
       _id: "swap-1",

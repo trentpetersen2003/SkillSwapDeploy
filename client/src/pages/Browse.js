@@ -1,6 +1,7 @@
 // client/src/pages/Browse.js
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ProfileSetupModal from "../components/ProfileSetupModal";
 import SwapRequestModal from "../components/SwapRequestModal";
 import LoadingState from "../components/LoadingState";
 import API_URL from "../config";
@@ -78,6 +79,15 @@ function getSwapModeLabel(value) {
   if (value === "online") return "Online";
   if (value === "in-person") return "In Person";
   return "Open to Either";
+}
+
+function formatUserLocation(user) {
+  if (user.locationVisibility === "hidden") {
+    return "Location hidden";
+  }
+
+  const locationParts = [user.city, user.state].filter(Boolean);
+  return locationParts.length > 0 ? locationParts.join(", ") : "Location not set";
 }
 
 function getFilterRelaxLabel(key, filters) {
@@ -296,7 +306,7 @@ function getComparableFilters(filters) {
   };
 }
 
-function Browse() {
+function Browse({ isProfileComplete = true, onOpenSetup }) {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -314,6 +324,7 @@ function Browse() {
     availabilityDays: {},
     swapModes: {},
   });
+  const [setupBlockCopy, setSetupBlockCopy] = useState(null);
   const requestVersionRef = useRef(0);
 
   const hasPendingFilterChanges =
@@ -538,10 +549,26 @@ function Browse() {
   }
 
   function handleSwapRequest(user) {
+    if (!isProfileComplete) {
+      setSetupBlockCopy({
+        title: "Finish your profile first",
+        description: "You can't request a swap yet. Finish your profile setup first.",
+      });
+      return;
+    }
+
     setSelectedUserForSwap(user);
   }
 
   function handleOpenChat(userId) {
+    if (!isProfileComplete) {
+      setSetupBlockCopy({
+        title: "Finish your profile first",
+        description: "You can't message people yet. Finish your profile setup first.",
+      });
+      return;
+    }
+
     navigate(`/chat?userId=${userId}`);
   }
 
@@ -989,9 +1016,7 @@ function Browse() {
                   <div className="browse-location">
                     <span>📍</span>
                     <span>
-                      {user.locationVisibility === "hidden"
-                        ? "Location hidden"
-                        : user.city || "Location not set"}
+                      {formatUserLocation(user)}
                     </span>
                   </div>
 
@@ -999,8 +1024,6 @@ function Browse() {
                     <span>↔</span>
                     <span>{getSwapModeLabel(user.swapMode)}</span>
                   </div>
-
-                  {user.bio && <p className="browse-bio">{user.bio}</p>}
 
                   <div className="browse-skills">
                     <strong>Offering:</strong> {offeredSkills}
@@ -1051,6 +1074,23 @@ function Browse() {
           onSuccess={handleSwapSuccess}
         />
       )}
+
+      <ProfileSetupModal
+        open={Boolean(setupBlockCopy)}
+        title={setupBlockCopy?.title || "Finish your profile first"}
+        description={
+          setupBlockCopy?.description ||
+          "You can't use that yet. Finish your profile setup first."
+        }
+        primaryLabel="Go to setup"
+        secondaryLabel="Maybe later"
+        onPrimary={() => {
+          setSetupBlockCopy(null);
+          onOpenSetup?.();
+        }}
+        onSecondary={() => setSetupBlockCopy(null)}
+        onClose={() => setSetupBlockCopy(null)}
+      />
     </div>
   );
 }

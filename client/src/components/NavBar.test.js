@@ -7,6 +7,8 @@ jest.mock(
   'react-router-dom',
   () => ({
     NavLink: ({ to, children }) => <a href={to}>{children}</a>,
+    useLocation: () => ({ pathname: '/browse' }),
+    useNavigate: () => jest.fn(),
   }),
   { virtual: true }
 );

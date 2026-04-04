@@ -7,7 +7,7 @@ export async function fetchWithAuth(url, options = {}) {
   try {
     const response = await fetch(url, options);
 
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       handleAuthFailure();
       throw new Error("Authentication failed. You have been logged out.");
     }

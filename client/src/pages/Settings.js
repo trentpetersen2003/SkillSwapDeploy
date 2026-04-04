@@ -7,7 +7,7 @@ import LoadingState, { BlockingLoader, InlineLoading } from "../components/Loadi
 import { withMinimumDelay } from "../utils/loading";
 import "./Settings.css";
 
-function Settings({ onLogout }) {
+function Settings({ onLogout, setupRequired = false }) {
   const navigate = useNavigate();
   const location = useLocation();
   const blockedSectionRef = useRef(null);
@@ -411,6 +411,22 @@ function Settings({ onLogout }) {
         <h1 className="settings-title">Settings</h1>
         <p className="settings-subtitle">Manage your account</p>
         <div className="settings-card">
+          {setupRequired && (
+            <div className="settings-section settings-section--setup">
+              <h3>Finish Profile Setup</h3>
+              <p className="settings-muted">
+                Your account still needs profile details before swaps, chat, and calendar unlock.
+              </p>
+              <button
+                className="settings-btn-primary"
+                onClick={() => navigate("/profile?setup=1")}
+                disabled={isAnyBlockingAction}
+              >
+                Open Profile Setup
+              </button>
+            </div>
+          )}
+
           <div className="settings-section">
             <h3>Account</h3>
 

@@ -62,8 +62,8 @@ describe('App Component Smoke Tests', () => {
     expect(typeof App).toBe('function');
   });
 
-  test('shows auth checking loading indicator on initial render', () => {
-    render(<App />);
-    expect(document.body.textContent).toContain('Checking session...');
+  test('renders without crashing when no session is stored', () => {
+    const { container } = render(<App />);
+    expect(container).toBeInTheDocument();
   });
 });

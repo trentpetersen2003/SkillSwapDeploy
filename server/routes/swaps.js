@@ -4,6 +4,10 @@ const router = express.Router();
 const Swap = require("../models/Swap");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
+const { isProfileSetupComplete } = require("../services/profileSetup");
+
+const PROFILE_SETUP_REQUIRED_MESSAGE =
+  "Finish your profile setup before you use swaps.";
 
 function isParticipant(swap, userId) {
   return swap.requester.toString() === userId || swap.recipient.toString() === userId;
@@ -208,9 +212,32 @@ function validateUserAvailability(user, scheduledDate, durationMinutes) {
 
   return { ok: true };
 }
+
+async function enforceProfileSetupComplete(userId, res) {
+  const currentUser = await User.findById(userId).select(
+    "name email city state timeZone availability skills skillsWanted"
+  );
+
+  if (!currentUser) {
+    res.status(404).json({ message: "User not found" });
+    return null;
+  }
+
+  if (!isProfileSetupComplete(currentUser)) {
+    res.status(403).json({ message: PROFILE_SETUP_REQUIRED_MESSAGE });
+    return null;
+  }
+
+  return currentUser;
+}
 // Get all swaps for the authenticated user
 router.get("/", auth, async (req, res) => {
   try {
+    const currentUser = await enforceProfileSetupComplete(req.userId, res);
+    if (!currentUser) {
+      return;
+    }
+
     const swaps = await Swap.find({
       $or: [{ requester: req.userId }, { recipient: req.userId }],
     })
@@ -228,6 +255,11 @@ router.get("/", auth, async (req, res) => {
 // Get swaps for a specific date range
 router.get("/range", auth, async (req, res) => {
   try {
+    const currentUser = await enforceProfileSetupComplete(req.userId, res);
+    if (!currentUser) {
+      return;
+    }
+
     const { startDate, endDate } = req.query;
 
     if (!startDate || !endDate) {
@@ -254,6 +286,11 @@ router.get("/range", auth, async (req, res) => {
 // Create a new swap
 router.post("/", auth, async (req, res) => {
   try {
+    const setupReadyUser = await enforceProfileSetupComplete(req.userId, res);
+    if (!setupReadyUser) {
+      return;
+    }
+
     const {
       recipientId,
       skillOffered,
@@ -410,6 +447,11 @@ router.post("/", auth, async (req, res) => {
 // Update swap status
 router.patch("/:id/status", auth, async (req, res) => {
   try {
+    const currentUser = await enforceProfileSetupComplete(req.userId, res);
+    if (!currentUser) {
+      return;
+    }
+
     const { id } = req.params;
     const { status } = req.body;
 
@@ -478,6 +520,11 @@ router.patch("/:id/status", auth, async (req, res) => {
 // Confirm a completed live session. When both users confirm, swap auto-completes.
 router.patch("/:id/confirm-session", auth, async (req, res) => {
   try {
+    const currentUser = await enforceProfileSetupComplete(req.userId, res);
+    if (!currentUser) {
+      return;
+    }
+
     const { id } = req.params;
     const swap = await Swap.findById(id);
 
@@ -532,6 +579,11 @@ router.patch("/:id/confirm-session", auth, async (req, res) => {
 // Submit a post-session rating for the other participant.
 router.patch("/:id/review", auth, async (req, res) => {
   try {
+    const currentUser = await enforceProfileSetupComplete(req.userId, res);
+    if (!currentUser) {
+      return;
+    }
+
     const { id } = req.params;
     const { rating, comment } = req.body;
 
@@ -589,6 +641,11 @@ router.patch("/:id/review", auth, async (req, res) => {
 // Mark a milestone as completed for an active swap
 router.patch("/:id/milestones/:milestoneId/complete", auth, async (req, res) => {
   try {
+    const currentUser = await enforceProfileSetupComplete(req.userId, res);
+    if (!currentUser) {
+      return;
+    }
+
     const { id, milestoneId } = req.params;
 
     const swap = await Swap.findById(id);
@@ -634,6 +691,11 @@ router.patch("/:id/milestones/:milestoneId/complete", auth, async (req, res) => 
 // Delete a swap
 router.delete("/:id", auth, async (req, res) => {
   try {
+    const currentUser = await enforceProfileSetupComplete(req.userId, res);
+    if (!currentUser) {
+      return;
+    }
+
     const { id } = req.params;
 
     const swap = await Swap.findById(id);

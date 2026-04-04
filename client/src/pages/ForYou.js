@@ -117,6 +117,15 @@ function getMatchToneClass(score) {
   return "match-pill--weak";
 }
 
+function formatUserLocation(user) {
+  if (user.locationVisibility === "hidden") {
+    return "Location hidden";
+  }
+
+  const locationParts = [user.city, user.state].filter(Boolean);
+  return locationParts.length > 0 ? locationParts.join(", ") : "Location not set";
+}
+
 function ForYouPage() {
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = currentUser.id || currentUser._id || "";
@@ -618,9 +627,7 @@ function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap, onBlockUser
         <div className="user-location">
           <span className="location-icon">📍</span>
           <span className="location-text">
-            {user.locationVisibility === "hidden"
-              ? "Location hidden"
-              : user.city || "Location not set"}
+            {formatUserLocation(user)}
           </span>
         </div>
       </div>
@@ -653,13 +660,6 @@ function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap, onBlockUser
       {/* Expanded Details */}
       {isExpanded && (
         <div className="user-card-details">
-          {user.bio && (
-            <div className="detail-section">
-              <h4 className="detail-title">About</h4>
-              <p className="detail-text">{user.bio}</p>
-            </div>
-          )}
-
           {skillsOffered.length > 0 && (
             <div className="detail-section">
               <h4 className="detail-title">Skills Offered</h4>

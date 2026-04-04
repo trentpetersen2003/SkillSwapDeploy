@@ -76,6 +76,12 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    state: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "",
+    },
     locationVisibility: {
       type: String,
       enum: ["visible", "hidden"],
@@ -91,11 +97,6 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
     timeZone: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    bio: {
       type: String,
       trim: true,
       default: "",

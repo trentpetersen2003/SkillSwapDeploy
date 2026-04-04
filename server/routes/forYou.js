@@ -36,6 +36,7 @@ function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
 
   if (!viewerAllowsLocations || user.locationVisibility === "hidden") {
     user.city = "";
+    user.state = "";
     user.locationVisibility = "hidden";
   }
 
@@ -61,7 +62,7 @@ router.get("/", auth, async (req, res) => {
 
     const users = await User.find({
       _id: { $nin: excludedIds },
-    }).select("name username city locationVisibility timeZone bio availability skills skillsWanted");
+    }).select("name username city state locationVisibility timeZone availability skills skillsWanted");
 
     const reliabilityByUserId = await getReliabilityByUserIds(
       users.map((user) => user._id)

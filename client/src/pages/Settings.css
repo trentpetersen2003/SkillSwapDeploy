@@ -35,6 +35,11 @@
   padding: 0.9rem 1rem;
 }
 
+.settings-section--setup {
+  background: linear-gradient(180deg, #eff6ff 0%, #f8fbff 100%);
+  border-color: #bfdbfe;
+}
+
 .settings-section h3 {
   margin: 0 0 0.75rem 0;
   font-size: 1.05rem;

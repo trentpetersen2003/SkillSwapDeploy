@@ -53,6 +53,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .nav-link:hover {
