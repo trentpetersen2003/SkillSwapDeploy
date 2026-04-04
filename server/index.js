@@ -16,6 +16,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Render sits behind a proxy; trust X-Forwarded-* for accurate client IP/protocol.
+app.set("trust proxy", 1);
+
 const productionEmailConfig = validateProductionEmailConfig();
 if (!productionEmailConfig.valid) {
   console.error(productionEmailConfig.message);
@@ -34,9 +37,20 @@ const allowedOrigins = [
   ...envAllowedOrigins,
 ].filter(Boolean);
 
+function normalizeOrigin(origin) {
+  return origin.trim().replace(/\/$/, "");
+}
+
+const allowedOriginSet = new Set(allowedOrigins.map(normalizeOrigin));
+
 app.use(cors({ 
   origin: function(origin, callback) {
-    if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (allowedOriginSet.has(normalizedOrigin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

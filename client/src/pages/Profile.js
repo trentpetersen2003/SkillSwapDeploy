@@ -44,10 +44,11 @@ const TIMEZONES = [
   { value: "UTC+13:00", label: "(GMT+13:00) Nuku'alofa" },
 ];
 
-const US_STATE_OPTIONS = [
+const STATE_PROVINCE_OPTIONS = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA",
   "ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK",
   "OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
+  "AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT",
 ];
 
 const DAYS_OF_WEEK = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -495,8 +496,8 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
             <label className="profile-field">
               <span className="profile-field__label">State</span>
               <select name="state" value={profile.state} onChange={handleChange} required>
-                <option value="">Select state</option>
-                {US_STATE_OPTIONS.map((stateCode) => (
+                <option value="">Select state/province</option>
+                {STATE_PROVINCE_OPTIONS.map((stateCode) => (
                   <option key={stateCode} value={stateCode}>{stateCode}</option>
                 ))}
               </select>
@@ -510,7 +511,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
               <select name="timeZone" value={profile.timeZone} onChange={handleChange} required>
                 <option value="">Select time zone</option>
                 {TIMEZONES.map((tz) => (
-                  <option key={tz.value} value={tz.value}>{tz.label}</option>
+                  <option key={`${tz.value}-${tz.label}`} value={tz.value}>{tz.label}</option>
                 ))}
               </select>
             </label>
