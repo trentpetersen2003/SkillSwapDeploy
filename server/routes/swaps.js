@@ -170,6 +170,86 @@ function formatAvailabilityForDay(availability = [], day, timeZone = "") {
   const slotsText = daySlots.map((slot) => slot.timeRange).join(", ");
   return `${day} ${slotsText}${timeZone ? ` (${timeZone})` : ""}`;
 }
+// Supported virtual meeting providers
+const RECOGNIZED_VIRTUAL_MEETING_HOSTS = [
+  "zoom.us",
+  "meet.google.com",
+  "teams.microsoft.com",
+  "teams.live.com",
+  "teams.microsoft.us",
+];
+
+function normalizeMeetingLink(rawLink = "") {
+  const trimmed = typeof rawLink === "string" ? rawLink.trim() : "";
+  if (!trimmed) {
+    return { error: "Meeting link is required for virtual swaps" };
+  }
+
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(withProtocol);
+  } catch (error) {
+    return { error: "Enter a valid meeting link URL" };
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    return { error: "Meeting link must use http or https" };
+  }
+
+  const hostname = parsedUrl.hostname.toLowerCase();
+  const recognizedHost = RECOGNIZED_VIRTUAL_MEETING_HOSTS.some(
+    (host) => hostname === host || hostname.endsWith(`.${host}`)
+  );
+
+  if (!recognizedHost) {
+    return {
+      error: "Use a recognized Zoom, Google Meet, or Microsoft Teams link",
+    };
+  }
+
+  return { value: parsedUrl.toString() };
+}
+// Normalize meeting fields and keep location populated for existing UI
+function normalizeMeetingDetails(meetingType, meetingLink, meetingAddress) {
+  const normalizedType =
+    typeof meetingType === "string" ? meetingType.trim() : "";
+
+  if (!["virtual", "inPerson"].includes(normalizedType)) {
+    return {
+      error: "Meeting type must be either virtual or in-person",
+    };
+  }
+
+  if (normalizedType === "virtual") {
+    const normalizedLink = normalizeMeetingLink(meetingLink);
+    if (normalizedLink.error) {
+      return { error: normalizedLink.error };
+    }
+
+    return {
+      meetingType: "virtual",
+      meetingLink: normalizedLink.value,
+      meetingAddress: "",
+      location: normalizedLink.value,
+    };
+  }
+
+  const cleanAddress =
+    typeof meetingAddress === "string" ? meetingAddress.trim() : "";
+
+  if (!cleanAddress) {
+    return { error: "Address is required for in-person swaps" };
+  }
+
+  return {
+    meetingType: "inPerson",
+    meetingLink: "",
+    meetingAddress: cleanAddress,
+    location: cleanAddress,
+  };
+}
 function validateUserAvailability(user, scheduledDate, durationMinutes) {
   if (!user?.timeZone) {
     return { ok: false, reason: "missing time zone" };
@@ -290,14 +370,15 @@ router.post("/", auth, async (req, res) => {
     if (!setupReadyUser) {
       return;
     }
-
     const {
       recipientId,
       skillOffered,
       skillWanted,
       scheduledDate,
       duration,
-      location,
+      meetingType,
+      meetingLink,
+      meetingAddress,
       notes,
       totalSessions,
       milestones,
@@ -325,7 +406,16 @@ router.post("/", auth, async (req, res) => {
     if (normalizedMilestones.error) {
       return res.status(400).json({ message: normalizedMilestones.error });
     }
+    // Validate meeting type details before creating the swap
+    const normalizedMeeting = normalizeMeetingDetails(
+      meetingType,
+      meetingLink,
+      meetingAddress
+    );
 
+    if (normalizedMeeting.error) {
+      return res.status(400).json({ message: normalizedMeeting.error });
+    }
     // Don't allow swapping with yourself
     if (recipientId === req.userId) {
       return res.status(400).json({ message: "Cannot create a swap with yourself" });
@@ -424,7 +514,10 @@ router.post("/", auth, async (req, res) => {
       skillWanted,
       scheduledDate: scheduledDateObj,
       duration: durationMinutes,
-      location,
+      location: normalizedMeeting.location,
+      meetingType: normalizedMeeting.meetingType,
+      meetingLink: normalizedMeeting.meetingLink,
+      meetingAddress: normalizedMeeting.meetingAddress,
       notes,
       totalSessions: normalizedMilestones.totalSessions,
       milestones: normalizedMilestones.milestones,

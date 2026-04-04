@@ -83,10 +83,28 @@ const swapSchema = new mongoose.Schema(
       type: Number,
       default: 60,
     },
-    // Location or meeting link
+    // Legacy display field used by existing UI
     location: {
       type: String,
       trim: true,
+    },
+   // Distinguishes virtual vs in-person swaps
+    meetingType: {
+      type: String,
+      enum: ["virtual", "inPerson"],
+      default: "virtual",
+    },
+    // Normalized meeting URL for virtual swaps
+    meetingLink: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    // Address for in-person swaps
+    meetingAddress: {
+      type: String,
+      trim: true,
+      default: "",
     },
     // Structured swap plan metadata
     totalSessions: {

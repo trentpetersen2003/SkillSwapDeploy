@@ -14,7 +14,9 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     duration: "60",
     totalSessions: "1",
     milestoneTitles: [""],
-    location: "",
+    meetingType: "virtual",
+    meetingLink: "",
+    meetingAddress: "",
     notes: "",
   });
   const [loading, setLoading] = useState(false);
@@ -126,6 +128,47 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
 
     return new Date(utcMillis).toISOString();
   }
+  // Accepted virtual meeting providers
+  const RECOGNIZED_VIRTUAL_MEETING_HOSTS = [
+    "zoom.us",
+    "meet.google.com",
+    "teams.microsoft.com",
+    "teams.live.com",
+    "teams.microsoft.us",
+  ];
+
+  function normalizeMeetingLink(rawLink = "") {
+    const trimmed = typeof rawLink === "string" ? rawLink.trim() : "";
+    if (!trimmed) {
+      return { error: "Meeting link is required for virtual swaps" };
+    }
+
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(withProtocol);
+    } catch (error) {
+      return { error: "Enter a valid meeting link URL" };
+    }
+
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      return { error: "Meeting link must use http or https" };
+    }
+
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const recognizedHost = RECOGNIZED_VIRTUAL_MEETING_HOSTS.some(
+      (host) => hostname === host || hostname.endsWith(`.${host}`)
+    );
+
+    if (!recognizedHost) {
+      return {
+        error: "Use a recognized Zoom, Google Meet, or Microsoft Teams link",
+      };
+    }
+
+    return { value: parsedUrl.toString() };
+  }
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -160,12 +203,33 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
       return;
     }
 
-    // Build request time from user's profile timezone
+    // Use the requester's saved timezone instead of the browser timezone
     if (!currentUserTimeZone) {
       setError("Please set your profile time zone before requesting a swap");
       return;
     }
+    // Validate meeting details before sending the request
+    let normalizedMeetingLink = "";
+    let normalizedMeetingAddress = "";
 
+    if (formData.meetingType === "virtual") {
+      const meetingLinkResult = normalizeMeetingLink(formData.meetingLink);
+      if (meetingLinkResult.error) {
+        setError(meetingLinkResult.error);
+        return;
+      }
+      normalizedMeetingLink = meetingLinkResult.value;
+    } else if (formData.meetingType === "inPerson") {
+      const cleanAddress = formData.meetingAddress.trim();
+      if (!cleanAddress) {
+        setError("Please enter an address for in-person swaps");
+        return;
+      }
+      normalizedMeetingAddress = cleanAddress;
+    } else {
+      setError("Please choose a meeting type");
+      return;
+    }
     setLoading(true);
     const token = localStorage.getItem("token");
 
@@ -191,7 +255,9 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
             duration: parseInt(formData.duration, 10),
             totalSessions: parsedTotalSessions,
             milestones: normalizedMilestones.map((title) => ({ title })),
-            location: formData.location,
+            meetingType: formData.meetingType,
+            meetingLink: normalizedMeetingLink,
+            meetingAddress: normalizedMeetingAddress,
             notes: formData.notes,
           }),
         });
@@ -368,17 +434,55 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
               </div>
 
               <div className="form-group">
-                <label htmlFor="location">Location/Meeting Link</label>
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location}
+                <label htmlFor="meetingType">
+                  Meeting Type <span className="required">*</span>
+                </label>
+                <select
+                  id="meetingType"
+                  name="meetingType"
+                  value={formData.meetingType}
                   onChange={handleChange}
-                  placeholder="e.g., Zoom, Coffee Shop, etc."
-                />
+                  required
+                >
+                  <option value="virtual">Virtual</option>
+                  <option value="inPerson">In-Person</option>
+                </select>
               </div>
 
+              {formData.meetingType === "virtual" ? (
+                <div className="form-group">
+                  <label htmlFor="meetingLink">
+                    Meeting Link <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="meetingLink"
+                    name="meetingLink"
+                    value={formData.meetingLink}
+                    onChange={handleChange}
+                    placeholder="Zoom, Google Meet, or Teams link"
+                    required
+                  />
+                  <p className="form-hint">
+                    Use a Zoom, Google Meet, or Microsoft Teams link.
+                  </p>
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label htmlFor="meetingAddress">
+                    Address <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="meetingAddress"
+                    name="meetingAddress"
+                    value={formData.meetingAddress}
+                    onChange={handleChange}
+                    placeholder="Enter the in-person meeting address"
+                    required
+                  />
+                </div>
+              )}
               <div className="form-group">
                 <label htmlFor="notes">Notes (optional)</label>
                 <textarea
