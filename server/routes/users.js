@@ -24,6 +24,7 @@ function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
 
   if (!viewerAllowsLocations || user.locationVisibility === "hidden") {
     user.city = "";
+    user.state = "";
     user.locationVisibility = "hidden";
   }
 
@@ -132,7 +133,10 @@ router.get("/", auth, async (req, res) => {
 
     if (requestedLocation && viewerAllowsLocations) {
       andConditions.push({
-        city: { $regex: requestedLocation, $options: "i" },
+        $or: [
+          { city: { $regex: requestedLocation, $options: "i" } },
+          { state: { $regex: requestedLocation, $options: "i" } },
+        ],
         locationVisibility: { $ne: "hidden" },
       });
     }
@@ -306,19 +310,19 @@ router.put("/profile", auth, async (req, res) => {
       name,
       email,
       city,
+      state,
       phoneNumber,
       timeZone,
-      bio,
       swapMode,
       availability,
       skills,
       skillsWanted,
     } = req.body;
 
-    if (!name || !email || !city || !timeZone) {
+    if (!name || !email || !city || !state || !timeZone) {
       return res
         .status(400)
-        .json({ message: "Name, email, city, and time zone are required" });
+        .json({ message: "Name, email, city, state, and time zone are required" });
     }
 
     // Email uniqueness check
@@ -334,9 +338,9 @@ router.put("/profile", auth, async (req, res) => {
       name,
       email,
       city,
+      state,
       phoneNumber,
       timeZone,
-      bio,
       availability,
       skills,
       skillsWanted,

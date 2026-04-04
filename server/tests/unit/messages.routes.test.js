@@ -30,6 +30,22 @@ function makeMessageFindQuery(value) {
   };
 }
 
+function makeSetupReadyUser(overrides = {}) {
+  return {
+    _id: AUTH_USER_ID,
+    name: "Test User",
+    email: "test@example.com",
+    city: "Boston",
+    state: "MA",
+    timeZone: "UTC-04:00",
+    availability: [{ day: "Monday", timeRange: "6:00 PM - 8:00 PM" }],
+    skills: [{ skillName: "Piano" }],
+    skillsWanted: [{ skillName: "Spanish" }],
+    blockedUsers: [],
+    ...overrides,
+  };
+}
+
 describe("Messages Routes", () => {
   const app = express();
   app.use(express.json());
@@ -42,9 +58,9 @@ describe("Messages Routes", () => {
   test("filters blocked users from conversations", async () => {
     User.findById.mockImplementation((id) => {
       if (id === AUTH_USER_ID) {
-        return makeSelectQuery({ blockedUsers: [OTHER_USER_ID] });
+        return makeSelectQuery(makeSetupReadyUser({ blockedUsers: [OTHER_USER_ID] }));
       }
-      return makeSelectQuery({ blockedUsers: [] });
+      return makeSelectQuery(makeSetupReadyUser({ _id: OTHER_USER_ID }));
     });
 
     User.find.mockReturnValue(makeSelectQuery([]));
@@ -71,10 +87,12 @@ describe("Messages Routes", () => {
   test("blocks thread fetch when either user is blocked", async () => {
     User.findById.mockImplementation((id) => {
       if (id === OTHER_USER_ID) {
-        return makeSelectQuery({ _id: OTHER_USER_ID, blockedUsers: [] });
+        return makeSelectQuery(makeSetupReadyUser({ _id: OTHER_USER_ID, blockedUsers: [] }));
       }
       if (id === AUTH_USER_ID) {
-        return makeSelectQuery({ _id: AUTH_USER_ID, blockedUsers: [OTHER_USER_ID] });
+        return makeSelectQuery(
+          makeSetupReadyUser({ _id: AUTH_USER_ID, blockedUsers: [OTHER_USER_ID] })
+        );
       }
       return makeSelectQuery(null);
     });
@@ -89,10 +107,12 @@ describe("Messages Routes", () => {
   test("blocks sending messages when either user is blocked", async () => {
     User.findById.mockImplementation((id) => {
       if (id === OTHER_USER_ID) {
-        return makeSelectQuery({ _id: OTHER_USER_ID, blockedUsers: [] });
+        return makeSelectQuery(makeSetupReadyUser({ _id: OTHER_USER_ID, blockedUsers: [] }));
       }
       if (id === AUTH_USER_ID) {
-        return makeSelectQuery({ _id: AUTH_USER_ID, blockedUsers: [OTHER_USER_ID] });
+        return makeSelectQuery(
+          makeSetupReadyUser({ _id: AUTH_USER_ID, blockedUsers: [OTHER_USER_ID] })
+        );
       }
       return makeSelectQuery(null);
     });

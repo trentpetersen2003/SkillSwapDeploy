@@ -1,19 +1,24 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import API_URL from '../config';
-import fetchWithAuth from '../utils/api';
-import './NavBar.css';
+import React, { useEffect, useMemo, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import API_URL from "../config";
+import fetchWithAuth from "../utils/api";
+import "./NavBar.css";
 
 const UNREAD_POLLING_INTERVAL_MS = 10000;
-const MUTED_CONVERSATIONS_STORAGE_KEY = 'chat-muted-conversations';
+const MUTED_CONVERSATIONS_STORAGE_KEY = "chat-muted-conversations";
 
-function NavBar() {
+function NavBar({
+  isProfileComplete = true,
+  onRequireProfileSetup,
+  onBeforeNavigate,
+}) {
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
-
-  const token = useMemo(() => localStorage.getItem('token'), []);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const token = useMemo(() => localStorage.getItem("token"), []);
 
   useEffect(() => {
-    if (!token) {
+    if (!token || !isProfileComplete) {
       setChatUnreadCount(0);
       return;
     }
@@ -46,7 +51,7 @@ function NavBar() {
 
         const totalUnread = Array.isArray(data)
           ? data.reduce((sum, conversation) => {
-              const conversationUserId = String(conversation?.user?._id || '');
+              const conversationUserId = String(conversation?.user?._id || "");
               if (mutedIds.includes(conversationUserId)) {
                 return sum;
               }
@@ -68,12 +73,44 @@ function NavBar() {
         clearInterval(intervalId);
       }
     };
-  }, [token]);
+  }, [isProfileComplete, token]);
+
+  function handleRestrictedNavigation(pathname, actionLabel) {
+    if (isProfileComplete) {
+      if (onBeforeNavigate) {
+        onBeforeNavigate(pathname);
+        return;
+      }
+      navigate(pathname);
+      return;
+    }
+
+    onRequireProfileSetup?.(actionLabel);
+  }
+
+  function handleNavClick(event, pathname) {
+    if (!onBeforeNavigate) {
+      return;
+    }
+
+    event.preventDefault();
+    onBeforeNavigate(pathname);
+  }
+
+  function getRestrictedNavClass(pathname) {
+    return location.pathname === pathname ? "nav-link active" : "nav-link";
+  }
 
   return (
     <nav className="navbar">
       <div className="navbar-container">
-        <NavLink to="/foryou" className="navbar-brand">
+        <NavLink
+          to={isProfileComplete ? "/foryou" : "/browse"}
+          className="navbar-brand"
+          onClick={(event) =>
+            handleNavClick(event, isProfileComplete ? "/foryou" : "/browse")
+          }
+        >
           <img
             className="navbar-brand-logo"
             src={`${process.env.PUBLIC_URL}/skillswap-logo.png`}
@@ -83,47 +120,53 @@ function NavBar() {
         </NavLink>
 
         <div className="navbar-links">
-        <NavLink 
-          to="/foryou" 
-          className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-        >
-          For You
-        </NavLink>
-        <NavLink 
-          to="/browse" 
-          className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-        >
-          Browse
-        </NavLink>
-        <NavLink 
-          to="/calendar" 
-          className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-        >
-          Calendar
-        </NavLink>
-        <NavLink
-          to="/chat"
-          className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}
-        >
-          Chat
-          {chatUnreadCount > 0 && (
-            <span className="nav-link__badge" aria-label={`${chatUnreadCount} unread chat messages`}>
-              {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
-            </span>
-          )}
-        </NavLink>
-        <NavLink 
-          to="/profile" 
-          className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-        >
-          Profile
-        </NavLink>
-        <NavLink 
-          to="/settings" 
-          className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-        >
-          Settings
-        </NavLink>
+          <button
+            type="button"
+            className={getRestrictedNavClass("/foryou")}
+            onClick={() => handleRestrictedNavigation("/foryou", "open For You")}
+          >
+            For You
+          </button>
+          <NavLink
+            to="/browse"
+            className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}
+            onClick={(event) => handleNavClick(event, "/browse")}
+          >
+            Browse
+          </NavLink>
+          <button
+            type="button"
+            className={getRestrictedNavClass("/calendar")}
+            onClick={() => handleRestrictedNavigation("/calendar", "open your swaps")}
+          >
+            Calendar
+          </button>
+          <button
+            type="button"
+            className={getRestrictedNavClass("/chat")}
+            onClick={() => handleRestrictedNavigation("/chat", "open chat")}
+          >
+            Chat
+            {isProfileComplete && chatUnreadCount > 0 && (
+              <span className="nav-link__badge" aria-label={`${chatUnreadCount} unread chat messages`}>
+                {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
+              </span>
+            )}
+          </button>
+          <NavLink
+            to="/profile"
+            className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}
+            onClick={(event) => handleNavClick(event, "/profile")}
+          >
+            Profile
+          </NavLink>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}
+            onClick={(event) => handleNavClick(event, "/settings")}
+          >
+            Settings
+          </NavLink>
         </div>
       </div>
     </nav>

@@ -1,15 +1,15 @@
-// client/src/App.js
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
+  useLocation,
   useNavigate,
   useParams,
-  useLocation,
 } from "react-router-dom";
 import NavBar from "./components/NavBar";
+import ProfileSetupModal from "./components/ProfileSetupModal";
 import ForYou from "./pages/ForYou";
 import Browse from "./pages/Browse";
 import Calendar from "./pages/Calendar";
@@ -17,13 +17,41 @@ import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import API_URL from "./config";
+import fetchWithAuth from "./utils/api";
 import LoadingState, { InlineLoading } from "./components/LoadingState";
 import { withMinimumDelay } from "./utils/loading";
+import {
+  getProfileSetupPromptStorageKey,
+  getProfileSetupStatus,
+} from "./utils/profileSetup";
 import "./App.css";
 
 const initialForm = { name: "", username: "", email: "", password: "" };
 const genericForgotPasswordMessage =
   "If an account exists for that email, a password reset link has been sent.";
+const restrictedRouteConfig = {
+  "/foryou": "open For You",
+  "/chat": "open chat",
+  "/calendar": "open your swaps",
+};
+const completeSetupModalCopy = {
+  title: "Finish your profile first",
+  description: "You can't use that yet. Finish your profile setup first.",
+  primaryLabel: "Go to setup",
+  secondaryLabel: "Maybe later",
+};
+
+function getDefaultProfileSetupState() {
+  return {
+    loading: false,
+    isComplete: true,
+    missingFields: [],
+  };
+}
+
+function isRestrictedRoute(pathname = "") {
+  return Object.prototype.hasOwnProperty.call(restrictedRouteConfig, pathname);
+}
 
 function LoginPage({ onLogin }) {
   const [mode, setMode] = useState("login");
@@ -61,20 +89,21 @@ function LoginPage({ onLogin }) {
       setMessage("Name is required to register.");
       return;
     }
-    if (mode === "register" && !form.username.trim()) { 
-      setMessage("Username is required to register."); 
-      return; 
+    if (mode === "register" && !form.username.trim()) {
+      setMessage("Username is required to register.");
+      return;
     }
 
     const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
     const body =
       mode === "login"
         ? { email: form.email.trim(), password: form.password }
-        : { 
+        : {
             name: form.name.trim(),
             username: form.username.trim(),
-            email: form.email.trim(), 
-            password: form.password };
+            email: form.email.trim(),
+            password: form.password,
+          };
 
     setSubmitting(true);
     try {
@@ -94,8 +123,8 @@ function LoginPage({ onLogin }) {
       }
 
       if (mode === "login") {
-        onLogin(data.user, data.token);
-        navigate("/foryou");
+        const nextPath = await onLogin(data.user, data.token);
+        navigate(nextPath || "/foryou");
       } else {
         setMessage("Account created. You can log in now.");
         setMode("login");
@@ -126,20 +155,20 @@ function LoginPage({ onLogin }) {
         <form onSubmit={handleSubmit} className="form">
           {mode === "register" && (
             <>
-            <input
-              name="name"
-              placeholder="Name"
-              value={form.name}
-              onChange={handleChange}
-              disabled={submitting}
-            />
-            <input
-              name="username"
-              placeholder="Username"
-              value={form.username}
-              onChange={handleChange}
-              disabled={submitting}
-            />
+              <input
+                name="name"
+                placeholder="Name"
+                value={form.name}
+                onChange={handleChange}
+                disabled={submitting}
+              />
+              <input
+                name="username"
+                placeholder="Username"
+                value={form.username}
+                onChange={handleChange}
+                disabled={submitting}
+              />
             </>
           )}
           <input
@@ -383,35 +412,248 @@ function ResetPasswordPage() {
   );
 }
 
+function AppShell({
+  user,
+  profileSetup,
+  showSetupPrompt,
+  blockedAction,
+  onDismissSetupPrompt,
+  onOpenSetup,
+  onCloseBlockedAction,
+  onProfileSaved,
+  onLogout,
+  onRequireProfileSetup,
+}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isProfileComplete = profileSetup.isComplete;
+  const [leaveGuard, setLeaveGuard] = useState(null);
+  const goToSetup = useCallback(() => {
+    onOpenSetup();
+    navigate("/profile?setup=1");
+  }, [navigate, onOpenSetup]);
+
+  const handleAppNavigation = useCallback((nextPath) => {
+    if (typeof leaveGuard === "function" && leaveGuard(nextPath)) {
+      return;
+    }
+
+    navigate(nextPath);
+  }, [leaveGuard, navigate]);
+
+  const handleRegisterLeaveGuard = useCallback((guard) => {
+    setLeaveGuard(() => guard);
+  }, []);
+
+  useEffect(() => {
+    if (!user || profileSetup.loading || isProfileComplete || !isRestrictedRoute(location.pathname)) {
+      return;
+    }
+
+    onRequireProfileSetup(restrictedRouteConfig[location.pathname] || "use that");
+    navigate("/browse", { replace: true });
+  }, [
+    user,
+    profileSetup.loading,
+    isProfileComplete,
+    location.pathname,
+    navigate,
+    onRequireProfileSetup,
+  ]);
+
+  const navbar = (
+    <NavBar
+      onLogout={onLogout}
+      isProfileComplete={isProfileComplete}
+      onRequireProfileSetup={onRequireProfileSetup}
+      onBeforeNavigate={handleAppNavigation}
+    />
+  );
+
+  return (
+    <>
+      <Routes>
+        <Route
+          path="/foryou"
+          element={isProfileComplete ? <>{navbar}<ForYou /></> : <Navigate to="/browse" replace />}
+        />
+        <Route
+          path="/browse"
+          element={
+            <>
+              {navbar}
+              <Browse
+                isProfileComplete={isProfileComplete}
+                onOpenSetup={goToSetup}
+              />
+            </>
+          }
+        />
+        <Route
+          path="/chat"
+          element={isProfileComplete ? <>{navbar}<Chat /></> : <Navigate to="/browse" replace />}
+        />
+        <Route
+          path="/calendar"
+          element={isProfileComplete ? <>{navbar}<Calendar /></> : <Navigate to="/browse" replace />}
+        />
+        <Route
+          path="/profile"
+          element={
+            <>
+              {navbar}
+              <Profile
+                onLogout={onLogout}
+                setupRequired={!isProfileComplete}
+                missingSetupFields={profileSetup.missingFields}
+                onProfileSaved={onProfileSaved}
+                onRegisterLeaveGuard={handleRegisterLeaveGuard}
+              />
+            </>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <>
+              {navbar}
+              <Settings
+                onLogout={onLogout}
+                setupRequired={!isProfileComplete}
+              />
+            </>
+          }
+        />
+      </Routes>
+
+      <ProfileSetupModal
+        open={showSetupPrompt}
+        title="Set up your profile"
+        description="Finish your profile before you start swapping."
+        hint="Add your time zone, availability, and skills when you're ready."
+        primaryLabel="Finish setup"
+        secondaryLabel="Skip for now"
+        onPrimary={goToSetup}
+        onSecondary={onDismissSetupPrompt}
+      />
+
+      <ProfileSetupModal
+        open={Boolean(blockedAction)}
+        title={blockedAction?.title || completeSetupModalCopy.title}
+        description={blockedAction?.description || completeSetupModalCopy.description}
+        primaryLabel={blockedAction?.primaryLabel || completeSetupModalCopy.primaryLabel}
+        secondaryLabel={blockedAction?.secondaryLabel || completeSetupModalCopy.secondaryLabel}
+        onPrimary={goToSetup}
+        onSecondary={onCloseBlockedAction}
+        onClose={onCloseBlockedAction}
+      />
+    </>
+  );
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
+  const [profileSetup, setProfileSetup] = useState(() => ({
+    ...getDefaultProfileSetupState(),
+    loading: true,
+  }));
+  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
+  const [blockedAction, setBlockedAction] = useState(null);
+
+  const updateStoredUser = useCallback((nextUser) => {
+    setUser(nextUser);
+    localStorage.setItem("user", JSON.stringify(nextUser));
+  }, []);
+
+  const refreshProfileSetup = useCallback(async (token, nextUser = null) => {
+    if (!token) {
+      const defaultState = getDefaultProfileSetupState();
+      setProfileSetup(defaultState);
+      return defaultState;
+    }
+
+    setProfileSetup((prev) => ({ ...prev, loading: true }));
+
+    try {
+      const res = await fetchWithAuth(`${API_URL}/api/users/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(payload.message || "Failed to load profile");
+      }
+
+      const nextStatus = {
+        loading: false,
+        ...getProfileSetupStatus(payload),
+      };
+
+      setProfileSetup(nextStatus);
+
+      const baseUser = nextUser;
+      if (baseUser) {
+        const syncedUser = {
+          ...baseUser,
+          name: payload.name || baseUser.name || "",
+          email: payload.email || baseUser.email || "",
+          profileSetupComplete: nextStatus.isComplete,
+        };
+        updateStoredUser(syncedUser);
+      }
+
+      const userId = String(payload._id || nextUser?.id || nextUser?._id || "");
+      if (nextStatus.isComplete && userId) {
+        localStorage.removeItem(getProfileSetupPromptStorageKey(userId));
+      }
+
+      return nextStatus;
+    } catch (err) {
+      console.error("Error loading profile setup status:", err);
+      const fallbackState = getDefaultProfileSetupState();
+      setProfileSetup(fallbackState);
+      return fallbackState;
+    }
+  }, [updateStoredUser]);
 
   useEffect(() => {
     let isMounted = true;
 
     async function restoreSession() {
-      await withMinimumDelay(async () => {
-        const savedToken = localStorage.getItem("token");
-        const savedUser = localStorage.getItem("user");
+      const savedToken = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("user");
 
+      if (!savedToken || !savedUser) {
+        if (isMounted) {
+          setProfileSetup(getDefaultProfileSetupState());
+          setAuthChecking(false);
+        }
+        return;
+      }
+
+      try {
+        const parsedUser = JSON.parse(savedUser);
         if (!isMounted) {
           return;
         }
 
-        if (savedToken && savedUser) {
-          try {
-            setUser(JSON.parse(savedUser));
-          } catch (err) {
-            console.error("Unable to parse saved user", err);
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-          }
+        setUser(parsedUser);
+        await withMinimumDelay(() => refreshProfileSetup(savedToken, parsedUser));
+      } catch (err) {
+        console.error("Unable to restore saved session", err);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        if (isMounted) {
+          setUser(null);
+          setProfileSetup(getDefaultProfileSetupState());
         }
-      });
-
-      if (isMounted) {
-        setAuthChecking(false);
+      } finally {
+        if (isMounted) {
+          setAuthChecking(false);
+        }
       }
     }
 
@@ -420,20 +662,85 @@ function App() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [refreshProfileSetup]);
 
-  function handleLogin(userData, userToken) {
-    setUser(userData);
+  useEffect(() => {
+    if (!user || profileSetup.loading || profileSetup.isComplete) {
+      setShowSetupPrompt(false);
+      return;
+    }
+
+    const userId = String(user.id || user._id || "");
+    const hasDismissedPrompt = localStorage.getItem(
+      getProfileSetupPromptStorageKey(userId)
+    ) === "true";
+
+    setShowSetupPrompt(!hasDismissedPrompt);
+  }, [user, profileSetup.loading, profileSetup.isComplete]);
+
+  const handleLogin = useCallback(async (userData, userToken) => {
     localStorage.setItem("token", userToken);
-    localStorage.setItem("user", JSON.stringify(userData));
-  }
+    updateStoredUser(userData);
+    const nextStatus = await refreshProfileSetup(userToken, userData);
+    return nextStatus.isComplete ? "/foryou" : "/browse";
+  }, [refreshProfileSetup, updateStoredUser]);
 
-
-  function handleLogout() {
+  const handleLogout = useCallback(() => {
     setUser(null);
+    setProfileSetup(getDefaultProfileSetupState());
+    setShowSetupPrompt(false);
+    setBlockedAction(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-  }
+  }, []);
+
+  const handleDismissSetupPrompt = useCallback(() => {
+    const userId = String(user?.id || user?._id || "");
+    if (userId) {
+      localStorage.setItem(getProfileSetupPromptStorageKey(userId), "true");
+    }
+    setShowSetupPrompt(false);
+  }, [user]);
+
+  const handleOpenSetup = useCallback(() => {
+    const userId = String(user?.id || user?._id || "");
+    if (userId) {
+      localStorage.removeItem(getProfileSetupPromptStorageKey(userId));
+    }
+    setShowSetupPrompt(false);
+    setBlockedAction(null);
+  }, [user]);
+
+  const handleRequireProfileSetup = useCallback((actionLabel = "do that") => {
+    setBlockedAction({
+      title: "Finish your profile first",
+      description: `You can't ${actionLabel} yet. Finish your profile setup first.`,
+      primaryLabel: "Go to setup",
+      secondaryLabel: "Maybe later",
+    });
+  }, []);
+
+  const handleProfileSaved = useCallback((savedProfile) => {
+    const nextStatus = {
+      loading: false,
+      ...getProfileSetupStatus(savedProfile),
+    };
+    setProfileSetup(nextStatus);
+
+    if (user) {
+      const userId = String(user.id || user._id || "");
+      if (nextStatus.isComplete && userId) {
+        localStorage.removeItem(getProfileSetupPromptStorageKey(userId));
+      }
+
+      updateStoredUser({
+        ...user,
+        name: savedProfile.name || user.name || "",
+        email: savedProfile.email || user.email || "",
+        profileSetupComplete: nextStatus.isComplete,
+      });
+    }
+  }, [updateStoredUser, user]);
 
   if (authChecking) {
     return <LoadingState message="Checking session..." />;
@@ -457,78 +764,21 @@ function App() {
           element={user ? <Navigate to="/foryou" replace /> : <ResetPasswordPage />}
         />
         <Route
-          path="/foryou"
+          path="*"
           element={
             user ? (
-              <>
-                <NavBar onLogout={handleLogout} />
-                <ForYou />
-              </>
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        <Route
-          path="/browse"
-          element={
-            user ? (
-              <>
-                <NavBar onLogout={handleLogout} />
-                <Browse />
-              </>
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        <Route
-          path="/chat"
-          element={
-            user ? (
-              <>
-                <NavBar onLogout={handleLogout} />
-                <Chat />
-              </>
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        <Route
-          path="/calendar"
-          element={
-            user ? (
-              <>
-                <NavBar onLogout={handleLogout} />
-                <Calendar />
-              </>
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            user ? (
-              <>
-                <NavBar onLogout={handleLogout} />
-                <Profile onLogout={handleLogout} />
-              </>
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            user ? (
-              <>
-                <NavBar onLogout={handleLogout} />
-                <Settings onLogout={handleLogout} />
-              </>
+              <AppShell
+                user={user}
+                profileSetup={profileSetup}
+                showSetupPrompt={showSetupPrompt}
+                blockedAction={blockedAction}
+                onDismissSetupPrompt={handleDismissSetupPrompt}
+                onOpenSetup={handleOpenSetup}
+                onCloseBlockedAction={() => setBlockedAction(null)}
+                onProfileSaved={handleProfileSaved}
+                onLogout={handleLogout}
+                onRequireProfileSetup={handleRequireProfileSetup}
+              />
             ) : (
               <Navigate to="/" replace />
             )

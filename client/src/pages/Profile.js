@@ -1,10 +1,11 @@
-// client/src/pages/Profile.js
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../config";
 import fetchWithAuth from "../utils/api";
 import LoadingState from "../components/LoadingState";
+import ProfileSetupModal from "../components/ProfileSetupModal";
 import { withMinimumDelay } from "../utils/loading";
+import { getProfileSetupStatus } from "../utils/profileSetup";
 import "./Profile.css";
 
 const TIMEZONES = [
@@ -43,140 +44,136 @@ const TIMEZONES = [
   { value: "UTC+13:00", label: "(GMT+13:00) Nuku'alofa" },
 ];
 
-const DAYS_OF_WEEK = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
+const US_STATE_OPTIONS = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA",
+  "ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK",
+  "OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
 ];
 
-const HOURS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
-const MINUTES = ["00", "15", "30", "45"];
-
+const DAYS_OF_WEEK = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const HOURS = ["1","2","3","4","5","6","7","8","9","10","11","12"];
+const MINUTES = ["00","15","30","45"];
 const SKILL_CATEGORIES = [
-  "Academic & Tutoring",
-  "Tech & Programming",
-  "Languages",
-  "Creative & Arts",
-  "Career & Professional",
-  "Life Skills",
-  "Fitness & Wellness",
-  "Hobbies & Misc",
+  "Academic & Tutoring","Tech & Programming","Languages","Creative & Arts",
+  "Career & Professional","Life Skills","Fitness & Wellness","Hobbies & Misc",
 ];
-
 const SKILL_LEVELS = ["Novice", "Proficient", "Expert"];
 
 function buildAnalytics(swaps, currentUserId) {
-  const mySwaps = (swaps || []).filter((swap) => {
+  const mine = (swaps || []).filter((swap) => {
     const requesterId = swap.requester?._id || swap.requester;
     const recipientId = swap.recipient?._id || swap.recipient;
     return String(requesterId) === currentUserId || String(recipientId) === currentUserId;
   });
 
-  const totalSwaps = mySwaps.length;
-  const completedSwaps = mySwaps.filter((swap) => swap.status === "completed").length;
-  const cancelledSwaps = mySwaps.filter((swap) => swap.status === "cancelled").length;
-  const confirmedSwaps = mySwaps.filter((swap) => swap.status === "confirmed").length;
-
-  const totalMilestones = mySwaps.reduce(
+  const totalSwaps = mine.length;
+  const completedSwaps = mine.filter((swap) => swap.status === "completed").length;
+  const totalMilestones = mine.reduce(
     (sum, swap) => sum + (Array.isArray(swap.milestones) ? swap.milestones.length : 0),
     0
   );
-  const completedMilestones = mySwaps.reduce(
+  const completedMilestones = mine.reduce(
     (sum, swap) =>
-      sum +
-      (Array.isArray(swap.milestones)
+      sum + (Array.isArray(swap.milestones)
         ? swap.milestones.filter((milestone) => milestone.completed).length
         : 0),
     0
   );
-
-  const confirmationsGiven = mySwaps.reduce((sum, swap) => {
+  const confirmedSwaps = mine.filter((swap) => swap.status === "confirmed").length;
+  const confirmationsGiven = mine.reduce((sum, swap) => {
     const requesterId = String(swap.requester?._id || swap.requester || "");
     const isRequester = requesterId === currentUserId;
-    const hasConfirmed = isRequester ? swap.requesterConfirmedAt : swap.recipientConfirmedAt;
-    return sum + (hasConfirmed ? 1 : 0);
+    return sum + (isRequester ? !!swap.requesterConfirmedAt : !!swap.recipientConfirmedAt);
   }, 0);
-
-  const reviewsGiven = mySwaps.reduce((sum, swap) => {
+  const reviewsGiven = mine.reduce((sum, swap) => {
     const requesterId = String(swap.requester?._id || swap.requester || "");
     const isRequester = requesterId === currentUserId;
-    return sum + (isRequester ? (swap.reviews?.requesterReview ? 1 : 0) : (swap.reviews?.recipientReview ? 1 : 0));
+    return sum + (isRequester ? !!swap.reviews?.requesterReview : !!swap.reviews?.recipientReview);
   }, 0);
-
-  const completionRate = totalSwaps ? Math.round((completedSwaps / totalSwaps) * 100) : 0;
-  const milestoneRate = totalMilestones
-    ? Math.round((completedMilestones / totalMilestones) * 100)
-    : 0;
 
   return {
     totalSwaps,
     completedSwaps,
-    cancelledSwaps,
-    confirmedSwaps,
     totalMilestones,
     completedMilestones,
+    confirmedSwaps,
     confirmationsGiven,
     reviewsGiven,
-    completionRate,
-    milestoneRate,
+    completionRate: totalSwaps ? Math.round((completedSwaps / totalSwaps) * 100) : 0,
+    milestoneRate: totalMilestones ? Math.round((completedMilestones / totalMilestones) * 100) : 0,
   };
 }
 
-function Profile({ onLogout }) {
+function SectionHeader({ eyebrow, title, copy }) {
+  return (
+    <div className="profile-section__header">
+      <div>
+        <p className="profile-section__eyebrow">{eyebrow}</p>
+        <h2 className="profile-section__title">{title}</h2>
+      </div>
+      <p className="profile-section__copy">{copy}</p>
+    </div>
+  );
+}
+
+function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }) {
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = String(currentUser.id || currentUser._id || "");
   const [profile, setProfile] = useState({
-    name: "",
-    email: "",
-    city: "",
-    phoneNumber: "",
-    timeZone: "",
-    bio: "",
-    swapMode: "either",
-    availability: [],
-    skills: [],
-    skillsWanted: [],
-    reliability: null,
+    name: "", email: "", city: "", state: "", phoneNumber: "", timeZone: "",
+    swapMode: "either", availability: [], skills: [], skillsWanted: [], reliability: null,
   });
   const [swaps, setSwaps] = useState([]);
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [availabilityError, setAvailabilityError] = useState("");
   const [skillError, setSkillError] = useState("");
-
+  const [pendingNavigationPath, setPendingNavigationPath] = useState("");
   const [newAvailability, setNewAvailability] = useState({
-    selectedDays: [],
-    startHour: "9",
-    startMinute: "00",
-    startPeriod: "AM",
-    endHour: "5",
-    endMinute: "00",
-    endPeriod: "PM",
+    selectedDays: [], startHour: "9", startMinute: "00", startPeriod: "AM",
+    endHour: "5", endMinute: "00", endPeriod: "PM",
   });
+  const [newSkill, setNewSkill] = useState({ skillName: "", category: "", level: "Novice" });
+  const [newSkillWanted, setNewSkillWanted] = useState({ skillName: "", category: "", level: "Novice" });
 
-  const [newSkill, setNewSkill] = useState({
-    skillName: "",
-    category: "",
-    level: "Novice",
-  });
+  const analytics = useMemo(() => buildAnalytics(swaps, currentUserId), [swaps, currentUserId]);
 
-  const [newSkillWanted, setNewSkillWanted] = useState({
-    skillName: "",
-    category: "",
-    level: "Novice",
-  });
+  const requestLeaveConfirmation = useCallback((nextPath) => {
+    if (!setupRequired || !nextPath || nextPath === "/profile") return false;
+    setPendingNavigationPath(nextPath);
+    return true;
+  }, [setupRequired]);
 
-  const analytics = useMemo(
-    () => buildAnalytics(swaps, currentUserId),
-    [swaps, currentUserId]
-  );
+  useEffect(() => {
+    onRegisterLeaveGuard?.(requestLeaveConfirmation);
+    return () => onRegisterLeaveGuard?.(null);
+  }, [onRegisterLeaveGuard, requestLeaveConfirmation]);
+
+  useEffect(() => {
+    if (!setupRequired) {
+      setPendingNavigationPath("");
+      return undefined;
+    }
+    function handleBeforeUnload(event) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [setupRequired]);
+
+  useEffect(() => {
+    if (!setupRequired) return undefined;
+    window.history.pushState({ profileSetupGuard: true }, "", window.location.href);
+    function handlePopState() {
+      setPendingNavigationPath("__back__");
+      window.history.pushState({ profileSetupGuard: true }, "", window.location.href);
+    }
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [setupRequired]);
 
   function timeToMinutes(hour, minute, period) {
     let hours = parseInt(hour, 10);
@@ -191,55 +188,38 @@ function Profile({ onLogout }) {
       navigate("/");
       return;
     }
-
     setLoading(true);
     try {
       const data = await withMinimumDelay(async () => {
-        const [profileRes, swapsRes] = await Promise.all([
-          fetchWithAuth(API_URL + "/api/users/profile", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetchWithAuth(API_URL + "/api/swaps", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
-
+        const profileRes = await fetchWithAuth(`${API_URL}/api/users/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!profileRes.ok) throw new Error("Failed to fetch profile");
-        if (!swapsRes.ok) throw new Error("Failed to fetch swaps");
-
-        const [profilePayload, swapsPayload] = await Promise.all([
-          profileRes.json(),
-          swapsRes.json(),
-        ]);
-
-        return {
-          profilePayload,
-          swapsPayload,
-        };
+        const profilePayload = await profileRes.json();
+        let swapsPayload = [];
+        if (!setupRequired) {
+          const swapsRes = await fetchWithAuth(`${API_URL}/api/swaps`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!swapsRes.ok) throw new Error("Failed to fetch swaps");
+          swapsPayload = await swapsRes.json();
+        }
+        return { profilePayload, swapsPayload };
       });
 
       const userData = data.profilePayload;
       setSwaps(Array.isArray(data.swapsPayload) ? data.swapsPayload : []);
-
       setProfile({
-        // IMPORTANT: username is intentionally NOT editable on Profile.
-        // We also do not store it in local state to avoid accidentally sending "" and failing validation.
         name: userData.name || "",
         email: userData.email || "",
         city: userData.city || "",
+        state: userData.state || "",
         phoneNumber: userData.phoneNumber || "",
         timeZone: userData.timeZone || "",
-        bio: userData.bio || "",
         swapMode: userData.swapMode || "either",
         availability: (userData.availability || []).map((slot) => {
           const match = slot.timeRange.match(/(\d+):(\d+)\s*(AM|PM)/);
-          if (match) {
-            return {
-              ...slot,
-              startMin: timeToMinutes(match[1], match[2], match[3]),
-            };
-          }
-          return slot;
+          return match ? { ...slot, startMin: timeToMinutes(match[1], match[2], match[3]) } : slot;
         }),
         skills: userData.skills || [],
         skillsWanted: userData.skillsWanted || [],
@@ -251,270 +231,179 @@ function Profile({ onLogout }) {
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, setupRequired]);
 
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
 
-  function handleChange(e) {
-    const { name, value } = e.target;
+  function handleChange(event) {
+    const { name, value } = event.target;
     setProfile((prev) => ({ ...prev, [name]: value }));
   }
 
-  function handleAvailabilityChange(e) {
-    const { name, value } = e.target;
+  function handleAvailabilityChange(event) {
+    const { name, value } = event.target;
     setNewAvailability((prev) => ({ ...prev, [name]: value }));
   }
 
   function handleDayToggle(day) {
-    setNewAvailability((prev) => {
-      const selectedDays = prev.selectedDays.includes(day)
-        ? prev.selectedDays.filter((d) => d !== day)
-        : [...prev.selectedDays, day];
-      return { ...prev, selectedDays };
-    });
+    setNewAvailability((prev) => ({
+      ...prev,
+      selectedDays: prev.selectedDays.includes(day)
+        ? prev.selectedDays.filter((entry) => entry !== day)
+        : [...prev.selectedDays, day],
+    }));
   }
 
-  function handleSkillChange(e) {
-    const { name, value } = e.target;
+  function handleSkillChange(event) {
+    const { name, value } = event.target;
     setNewSkill((prev) => ({ ...prev, [name]: value }));
   }
 
-  function handleSkillWantedChange(e) {
-    const { name, value } = e.target;
+  function handleSkillWantedChange(event) {
+    const { name, value } = event.target;
     setNewSkillWanted((prev) => ({ ...prev, [name]: value }));
   }
 
   function hasTimeConflict(day, startMin, endMin) {
     return profile.availability.some((slot) => {
       if (slot.day !== day) return false;
-
-      const match = slot.timeRange.match(
-        /(\d+):(\d+)\s*(AM|PM)\s*-\s*(\d+):(\d+)\s*(AM|PM)/
-      );
+      const match = slot.timeRange.match(/(\d+):(\d+)\s*(AM|PM)\s*-\s*(\d+):(\d+)\s*(AM|PM)/);
       if (!match) return false;
-
       const slotStart = timeToMinutes(match[1], match[2], match[3]);
       const slotEnd = timeToMinutes(match[4], match[5], match[6]);
-
       return startMin < slotEnd && endMin > slotStart;
     });
   }
 
   function addAvailability() {
     setAvailabilityError("");
-
     if (newAvailability.selectedDays.length === 0) {
       setAvailabilityError("Please select at least one day");
       return;
     }
-
-    const startMin = timeToMinutes(
-      newAvailability.startHour,
-      newAvailability.startMinute,
-      newAvailability.startPeriod
-    );
-    const endMin = timeToMinutes(
-      newAvailability.endHour,
-      newAvailability.endMinute,
-      newAvailability.endPeriod
-    );
-
+    const startMin = timeToMinutes(newAvailability.startHour, newAvailability.startMinute, newAvailability.startPeriod);
+    const endMin = timeToMinutes(newAvailability.endHour, newAvailability.endMinute, newAvailability.endPeriod);
     if (startMin >= endMin) {
-      setAvailabilityError(
-        "Invalid time format - End time must be after start time (e.g., 3:00 PM to 1:00 PM is invalid)"
-      );
+      setAvailabilityError("End time must be after start time");
       return;
     }
-
     for (const day of newAvailability.selectedDays) {
       if (hasTimeConflict(day, startMin, endMin)) {
-        setAvailabilityError(
-          `Time conflict detected for ${day} - This time overlaps with an existing time slot`
-        );
+        setAvailabilityError(`That time overlaps with an existing slot on ${day}`);
         return;
       }
     }
-
     const timeRange = `${newAvailability.startHour}:${newAvailability.startMinute} ${newAvailability.startPeriod} - ${newAvailability.endHour}:${newAvailability.endMinute} ${newAvailability.endPeriod}`;
-
-    const newSlots = newAvailability.selectedDays.map((day) => ({
-      day,
-      timeRange,
-      startMin,
-    }));
-
+    const newSlots = newAvailability.selectedDays.map((day) => ({ day, timeRange, startMin }));
     setProfile((prev) => ({
       ...prev,
       availability: [...prev.availability, ...newSlots].sort((a, b) => {
-        const dayCompare =
-          DAYS_OF_WEEK.indexOf(a.day) - DAYS_OF_WEEK.indexOf(b.day);
-        if (dayCompare !== 0) return dayCompare;
-
-        const aStart =
-          a.startMin !== undefined
-            ? a.startMin
-            : timeToMinutes(
-                ...a.timeRange.match(/(\d+):(\d+)\s*(AM|PM)/).slice(1)
-              );
-        const bStart =
-          b.startMin !== undefined
-            ? b.startMin
-            : timeToMinutes(
-                ...b.timeRange.match(/(\d+):(\d+)\s*(AM|PM)/).slice(1)
-              );
-        return aStart - bStart;
+        const dayCompare = DAYS_OF_WEEK.indexOf(a.day) - DAYS_OF_WEEK.indexOf(b.day);
+        return dayCompare !== 0 ? dayCompare : (a.startMin || 0) - (b.startMin || 0);
       }),
     }));
-
     setNewAvailability({
-      selectedDays: [],
-      startHour: "9",
-      startMinute: "00",
-      startPeriod: "AM",
-      endHour: "5",
-      endMinute: "00",
-      endPeriod: "PM",
+      selectedDays: [], startHour: "9", startMinute: "00", startPeriod: "AM",
+      endHour: "5", endMinute: "00", endPeriod: "PM",
     });
   }
 
   function removeAvailability(index) {
     setProfile((prev) => ({
       ...prev,
-      availability: prev.availability.filter((_, i) => i !== index),
+      availability: prev.availability.filter((_, currentIndex) => currentIndex !== index),
     }));
   }
 
   function addSkill() {
     setSkillError("");
-
     if (!newSkill.skillName.trim() || !newSkill.category) {
-      setSkillError("Please enter skill name and select a category");
+      setSkillError("Please enter a skill name and category");
       return;
     }
-
-    setProfile((prev) => ({
-      ...prev,
-      skills: [...prev.skills, { ...newSkill }],
-    }));
-
-    setNewSkill({
-      skillName: "",
-      category: "",
-      level: "Novice",
-    });
+    setProfile((prev) => ({ ...prev, skills: [...prev.skills, { ...newSkill }] }));
+    setNewSkill({ skillName: "", category: "", level: "Novice" });
   }
 
   function removeSkill(index) {
     setProfile((prev) => ({
       ...prev,
-      skills: prev.skills.filter((_, i) => i !== index),
+      skills: prev.skills.filter((_, currentIndex) => currentIndex !== index),
     }));
   }
 
   function addSkillWanted() {
     setSkillError("");
-
     if (!newSkillWanted.skillName.trim() || !newSkillWanted.category) {
-      setSkillError("Please enter skill name and select a category");
+      setSkillError("Please enter a skill name and category");
       return;
     }
-
-    setProfile((prev) => ({
-      ...prev,
-      skillsWanted: [...prev.skillsWanted, { ...newSkillWanted }],
-    }));
-
-    setNewSkillWanted({
-      skillName: "",
-      category: "",
-      level: "Novice",
-    });
+    setProfile((prev) => ({ ...prev, skillsWanted: [...prev.skillsWanted, { ...newSkillWanted }] }));
+    setNewSkillWanted({ skillName: "", category: "", level: "Novice" });
   }
 
   function removeSkillWanted(index) {
     setProfile((prev) => ({
       ...prev,
-      skillsWanted: prev.skillsWanted.filter((_, i) => i !== index),
+      skillsWanted: prev.skillsWanted.filter((_, currentIndex) => currentIndex !== index),
     }));
   }
 
-  async function handleSave(e) {
-    e.preventDefault();
+  async function handleSave(event) {
+    event.preventDefault();
     setMessage("");
-
-    if (!profile.name || !profile.email || !profile.city || !profile.timeZone) {
-      setMessage("Name, email, location, and time zone are required");
+    if (!profile.name || !profile.email || !profile.city || !profile.state || !profile.timeZone) {
+      setMessage("Name, email, city, state, and time zone are required");
       return;
     }
-
     setSaving(true);
     const token = localStorage.getItem("token");
-
     try {
-      const cleanedAvailability = profile.availability.map(({ day, timeRange }) => ({
-        day,
-        timeRange,
-      }));
-
       const payload = {
         name: profile.name,
         email: profile.email,
         city: profile.city,
+        state: profile.state,
         phoneNumber: profile.phoneNumber,
         timeZone: profile.timeZone,
-        bio: profile.bio,
         swapMode: profile.swapMode,
-        availability: cleanedAvailability,
+        availability: profile.availability.map(({ day, timeRange }) => ({ day, timeRange })),
         skills: profile.skills,
         skillsWanted: profile.skillsWanted,
       };
-
-      const res = await fetchWithAuth(API_URL + "/api/users/profile", {
+      const setupStatus = getProfileSetupStatus(payload);
+      if (setupRequired && !setupStatus.isComplete) {
+        setMessage("Finish the required setup details before leaving this page.");
+        setSaving(false);
+        return;
+      }
+      const res = await fetchWithAuth(`${API_URL}/api/users/profile`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to update profile");
-
-      const sortedAvailability = (data.availability || [])
-        .map((slot) => {
-          const match = slot.timeRange.match(/(\d+):(\d+)\s*(AM|PM)/);
-          if (match) {
-            return {
-              ...slot,
-              startMin: timeToMinutes(match[1], match[2], match[3]),
-            };
-          }
-          return slot;
-        })
-        .sort((a, b) => {
-          const dayCompare =
-            DAYS_OF_WEEK.indexOf(a.day) - DAYS_OF_WEEK.indexOf(b.day);
-          if (dayCompare !== 0) return dayCompare;
-          return (a.startMin || 0) - (b.startMin || 0);
-        });
-
-      setProfile({
+      setProfile((prev) => ({
+        ...prev,
         name: data.name || "",
         email: data.email || "",
         city: data.city || "",
+        state: data.state || "",
         phoneNumber: data.phoneNumber || "",
         timeZone: data.timeZone || "",
-        bio: data.bio || "",
-        swapMode: data.swapMode || profile.swapMode || "either",
-        availability: sortedAvailability,
+        swapMode: data.swapMode || prev.swapMode || "either",
+        availability: (data.availability || []).map((slot) => {
+          const match = slot.timeRange.match(/(\d+):(\d+)\s*(AM|PM)/);
+          return match ? { ...slot, startMin: timeToMinutes(match[1], match[2], match[3]) } : slot;
+        }),
         skills: data.skills || [],
         skillsWanted: data.skillsWanted || [],
-        reliability: data.reliability || profile.reliability || null,
-      });
-
+        reliability: data.reliability || prev.reliability || null,
+      }));
+      onProfileSaved?.(data);
       setMessage("Profile updated successfully!");
     } catch (err) {
       console.error(err);
@@ -524,53 +413,57 @@ function Profile({ onLogout }) {
     }
   }
 
-  if (loading) {
-    return <LoadingState message="Loading profile..." />;
-  }
+  if (loading) return <LoadingState message="Loading profile..." />;
 
   return (
     <div className="profile-page">
-      <h1 className="profile-title">Profile</h1>
+      <header className="profile-header">
+        <div>
+          <p className="profile-kicker">Your account</p>
+          <h1 className="profile-title">Profile</h1>
+          <p className="profile-subtitle">Keep your setup current so matching and scheduling stay accurate.</p>
+        </div>
+      </header>
+
+      {setupRequired && (
+        <section className="profile-setup-banner" aria-label="Profile setup required">
+          <p className="profile-setup-banner__eyebrow">Finish setup</p>
+          <h2 className="profile-setup-banner__title">Finish your profile to unlock swapping.</h2>
+          <p className="profile-setup-banner__description">
+            Add the basics below before you use swaps, chat, or your calendar.
+          </p>
+        </section>
+      )}
 
       <section className="profile-analytics" aria-label="Profile analytics">
         <div className="profile-analytics__header">
-          <h2>Progress Dashboard</h2>
+          <h2>Progress dashboard</h2>
           <span>
             {profile.reliability?.score === null || profile.reliability?.score === undefined
               ? "Reliability: New"
               : `Reliability: ${profile.reliability.score} (${profile.reliability.tier})`}
           </span>
         </div>
-
         <div className="profile-analytics__grid">
           <article className="analytics-card">
             <h3>Swap Completion</h3>
             <p className="analytics-card__value">{analytics.completionRate}%</p>
-            <p className="analytics-card__meta">
-              {analytics.completedSwaps}/{analytics.totalSwaps} completed
-            </p>
+            <p className="analytics-card__meta">{analytics.completedSwaps}/{analytics.totalSwaps} completed</p>
           </article>
-
           <article className="analytics-card">
             <h3>Milestone Completion</h3>
             <p className="analytics-card__value">{analytics.milestoneRate}%</p>
-            <p className="analytics-card__meta">
-              {analytics.completedMilestones}/{analytics.totalMilestones} goals done
-            </p>
+            <p className="analytics-card__meta">{analytics.completedMilestones}/{analytics.totalMilestones} goals done</p>
           </article>
-
           <article className="analytics-card">
             <h3>Confirmations Given</h3>
             <p className="analytics-card__value">{analytics.confirmationsGiven}</p>
             <p className="analytics-card__meta">Active swaps: {analytics.confirmedSwaps}</p>
           </article>
-
           <article className="analytics-card">
             <h3>Ratings</h3>
             <p className="analytics-card__value">
-              {profile.reliability?.averageRating
-                ? `${profile.reliability.averageRating}/5`
-                : "No ratings yet"}
+              {profile.reliability?.averageRating ? `${profile.reliability.averageRating}/5` : "No ratings yet"}
             </p>
             <p className="analytics-card__meta">
               Received: {profile.reliability?.ratingsReceivedCount || 0} • Given: {analytics.reviewsGiven}
@@ -580,405 +473,309 @@ function Profile({ onLogout }) {
       </section>
 
       <form onSubmit={handleSave} className="profile-form">
-        <input
-          name="name"
-          placeholder="Name *"
-          value={profile.name}
-          onChange={handleChange}
-          required
-        />
-        <input
-          name="email"
-          type="email"
-          placeholder="Email *"
-          value={profile.email}
-          onChange={handleChange}
-          required
-        />
-        <input
-          name="city"
-          placeholder="Location *"
-          value={profile.city}
-          onChange={handleChange}
-          required
-        />
-        <input
-          name="phoneNumber"
-          placeholder="Phone Number (optional)"
-          value={profile.phoneNumber}
-          onChange={handleChange}
-        />
+        <section className="profile-section">
+          <SectionHeader
+            eyebrow="Basics"
+            title="Account details"
+            copy="These details help people find you and line up sessions correctly."
+          />
+          <div className="profile-field-grid">
+            <label className="profile-field">
+              <span className="profile-field__label">Name</span>
+              <input name="name" placeholder="Your name" value={profile.name} onChange={handleChange} required />
+            </label>
+            <label className="profile-field">
+              <span className="profile-field__label">Email</span>
+              <input name="email" type="email" placeholder="you@example.com" value={profile.email} onChange={handleChange} required />
+            </label>
+            <label className="profile-field">
+              <span className="profile-field__label">City</span>
+              <input name="city" placeholder="City" value={profile.city} onChange={handleChange} required />
+            </label>
+            <label className="profile-field">
+              <span className="profile-field__label">State</span>
+              <select name="state" value={profile.state} onChange={handleChange} required>
+                <option value="">Select state</option>
+                {US_STATE_OPTIONS.map((stateCode) => (
+                  <option key={stateCode} value={stateCode}>{stateCode}</option>
+                ))}
+              </select>
+            </label>
+            <label className="profile-field">
+              <span className="profile-field__label">Phone</span>
+              <input name="phoneNumber" placeholder="Optional" value={profile.phoneNumber} onChange={handleChange} />
+            </label>
+            <label className="profile-field">
+              <span className="profile-field__label">Time zone</span>
+              <select name="timeZone" value={profile.timeZone} onChange={handleChange} required>
+                <option value="">Select time zone</option>
+                {TIMEZONES.map((tz) => (
+                  <option key={tz.value} value={tz.value}>{tz.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="profile-field profile-field--full">
+              <span className="profile-field__label">Swap mode</span>
+              <select name="swapMode" value={profile.swapMode} onChange={handleChange}>
+                <option value="either">Open to either online or in-person</option>
+                <option value="online">Online only</option>
+                <option value="in-person">In-person only</option>
+              </select>
+            </label>
+          </div>
+        </section>
 
-        <select
-          name="timeZone"
-          value={profile.timeZone}
-          onChange={handleChange}
-          required
-          style={{ padding: "8px", fontSize: "14px" }}
-        >
-          <option value="">Select Time Zone *</option>
-          {TIMEZONES.map((tz) => (
-            <option key={tz.value} value={tz.value}>
-              {tz.label}
-            </option>
-          ))}
-        </select>
+        <section className="profile-section">
+          <SectionHeader
+            eyebrow="Schedule"
+            title="Availability"
+            copy="Add the time windows you can realistically commit to each week."
+          />
+          {profile.availability.length > 0 && (
+            <div className="availability-list">
+              {DAYS_OF_WEEK.map((day) => {
+                const daySlots = profile.availability.filter((slot) => slot.day === day);
+                if (daySlots.length === 0) return null;
+                return (
+                  <div key={day} className="availability-item">
+                    <span className="availability-item__summary">
+                      <strong>{day}:</strong> {daySlots.map((slot) => slot.timeRange).join(", ")}
+                    </span>
+                    <div className="availability-item__actions">
+                      {daySlots.map((slot, index) => {
+                        const actualIndex = profile.availability.findIndex((entry) => entry === slot);
+                        return (
+                          <button
+                            key={`${day}-${index}`}
+                            type="button"
+                            className="profile-inline-button profile-inline-button--subtle"
+                            onClick={() => removeAvailability(actualIndex)}
+                          >
+                            Remove {index + 1}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
-        <textarea
-          name="bio"
-          placeholder="Short Bio (optional)"
-          value={profile.bio}
-          onChange={handleChange}
-          rows="4"
-        />
+          <div className="availability-input">
+            <div className="profile-input-group">
+              <strong className="profile-input-group__label">Select days</strong>
+              <div className="profile-day-grid">
+                {DAYS_OF_WEEK.map((day) => (
+                  <label key={day} className="profile-day-option">
+                    <input
+                      type="checkbox"
+                      checked={newAvailability.selectedDays.includes(day)}
+                      onChange={() => handleDayToggle(day)}
+                    />
+                    {day}
+                  </label>
+                ))}
+              </div>
+            </div>
 
-        <select
-          name="swapMode"
-          value={profile.swapMode}
-          onChange={handleChange}
-          style={{ padding: "8px", fontSize: "14px" }}
-        >
-          <option value="either">Open to either online or in-person</option>
-          <option value="online">Online only</option>
-          <option value="in-person">In-person only</option>
-        </select>
-
-        <h3>Availability</h3>
-        {profile.availability.length > 0 && (
-          <div className="availability-list">
-            {DAYS_OF_WEEK.map((day) => {
-              const daySlots = profile.availability.filter((slot) => slot.day === day);
-              if (daySlots.length === 0) return null;
-
-              return (
-                <div key={day} className="availability-item">
-                  <span>
-                    <strong>{day}:</strong>{" "}
-                    {daySlots.map((slot) => slot.timeRange).join(", ")}
-                  </span>
-
-                  {daySlots.map((slot, idx) => {
-                    const actualIndex = profile.availability.findIndex((s) => s === slot);
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => removeAvailability(actualIndex)}
-                        style={{ marginLeft: "5px" }}
-                      >
-                        Remove {idx + 1}
-                      </button>
-                    );
-                  })}
+            <div className="profile-time-grid">
+              <div className="profile-input-group">
+                <strong className="profile-input-group__label">Start time</strong>
+                <div className="profile-time-row">
+                  <select name="startHour" value={newAvailability.startHour} onChange={handleAvailabilityChange}>
+                    {HOURS.map((hour) => <option key={hour} value={hour}>{hour}</option>)}
+                  </select>
+                  <span className="profile-time-separator">:</span>
+                  <select name="startMinute" value={newAvailability.startMinute} onChange={handleAvailabilityChange}>
+                    {MINUTES.map((minute) => <option key={minute} value={minute}>{minute}</option>)}
+                  </select>
+                  <select name="startPeriod" value={newAvailability.startPeriod} onChange={handleAvailabilityChange}>
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
 
-        <div className="availability-input">
-          <div style={{ marginBottom: "10px" }}>
-            <strong>Select Days:</strong>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "5px" }}>
-              {DAYS_OF_WEEK.map((day) => (
-                <label key={day} style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={newAvailability.selectedDays.includes(day)}
-                    onChange={() => handleDayToggle(day)}
-                    style={{ marginRight: "5px" }}
-                  />
-                  {day}
-                </label>
-              ))}
+              <div className="profile-input-group">
+                <strong className="profile-input-group__label">End time</strong>
+                <div className="profile-time-row">
+                  <select name="endHour" value={newAvailability.endHour} onChange={handleAvailabilityChange}>
+                    {HOURS.map((hour) => <option key={hour} value={hour}>{hour}</option>)}
+                  </select>
+                  <span className="profile-time-separator">:</span>
+                  <select name="endMinute" value={newAvailability.endMinute} onChange={handleAvailabilityChange}>
+                    {MINUTES.map((minute) => <option key={minute} value={minute}>{minute}</option>)}
+                  </select>
+                  <select name="endPeriod" value={newAvailability.endPeriod} onChange={handleAvailabilityChange}>
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                </div>
+              </div>
             </div>
+
+            <button type="button" className="profile-inline-button" onClick={addAvailability}>
+              Add Availability
+            </button>
           </div>
-
-          <div style={{ marginBottom: "10px" }}>
-            <strong>Start Time:</strong>
-            <div style={{ display: "flex", gap: "5px", marginTop: "5px" }}>
-              <select
-                name="startHour"
-                value={newAvailability.startHour}
-                onChange={handleAvailabilityChange}
-                style={{ padding: "8px" }}
-              >
-                {HOURS.map((hour) => (
-                  <option key={hour} value={hour}>
-                    {hour}
-                  </option>
-                ))}
-              </select>
-
-              <span style={{ display: "flex", alignItems: "center" }}>:</span>
-
-              <select
-                name="startMinute"
-                value={newAvailability.startMinute}
-                onChange={handleAvailabilityChange}
-                style={{ padding: "8px" }}
-              >
-                {MINUTES.map((minute) => (
-                  <option key={minute} value={minute}>
-                    {minute}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                name="startPeriod"
-                value={newAvailability.startPeriod}
-                onChange={handleAvailabilityChange}
-                style={{ padding: "8px" }}
-              >
-                <option value="AM">AM</option>
-                <option value="PM">PM</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: "10px" }}>
-            <strong>End Time:</strong>
-            <div style={{ display: "flex", gap: "5px", marginTop: "5px" }}>
-              <select
-                name="endHour"
-                value={newAvailability.endHour}
-                onChange={handleAvailabilityChange}
-                style={{ padding: "8px" }}
-              >
-                {HOURS.map((hour) => (
-                  <option key={hour} value={hour}>
-                    {hour}
-                  </option>
-                ))}
-              </select>
-
-              <span style={{ display: "flex", alignItems: "center" }}>:</span>
-
-              <select
-                name="endMinute"
-                value={newAvailability.endMinute}
-                onChange={handleAvailabilityChange}
-                style={{ padding: "8px" }}
-              >
-                {MINUTES.map((minute) => (
-                  <option key={minute} value={minute}>
-                    {minute}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                name="endPeriod"
-                value={newAvailability.endPeriod}
-                onChange={handleAvailabilityChange}
-                style={{ padding: "8px" }}
-              >
-                <option value="AM">AM</option>
-                <option value="PM">PM</option>
-              </select>
-            </div>
-          </div>
-
-          <button type="button" onClick={addAvailability}>
-            Add Availability
-          </button>
-        </div>
+        </section>
 
         {availabilityError && (
-          <div
-            style={{
-              backgroundColor: "#fee",
-              border: "2px solid #c00",
-              color: "#c00",
-              padding: "12px",
-              borderRadius: "5px",
-              marginTop: "10px",
-              marginBottom: "15px",
-              fontWeight: "bold",
-            }}
-          >
-            ⚠️ {availabilityError}
-          </div>
+          <div className="profile-alert profile-alert--error">Warning: {availabilityError}</div>
         )}
 
-        <h3>Skills</h3>
-        {profile.skills.length > 0 && (
-          <div className="skills-list" style={{ marginBottom: "15px" }}>
-            {profile.skills.map((skill, index) => (
-              <div
-                key={index}
-                className="availability-item"
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "8px",
-                }}
-              >
-                <span>
-                  <strong>{skill.skillName}</strong> - {skill.category} ({skill.level})
-                </span>
-                <button type="button" onClick={() => removeSkill(index)}>
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="skill-input" style={{ marginBottom: "20px" }}>
-          <div style={{ marginBottom: "10px" }}>
-            <input
-              name="skillName"
-              placeholder="Skill Name (e.g., Python Programming)"
-              value={newSkill.skillName}
-              onChange={handleSkillChange}
-              style={{ width: "100%", padding: "8px", fontSize: "14px" }}
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-            <select
-              name="category"
-              value={newSkill.category}
-              onChange={handleSkillChange}
-              style={{ flex: 1, padding: "8px", fontSize: "14px" }}
-            >
-              <option value="">Select Category *</option>
-              {SKILL_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
+        <section className="profile-section">
+          <SectionHeader
+            eyebrow="Teach"
+            title="Skills you offer"
+            copy="Show what you can confidently help other people learn."
+          />
+          {profile.skills.length > 0 && (
+            <div className="skills-list">
+              {profile.skills.map((skill, index) => (
+                <div key={`${skill.skillName}-${index}`} className="profile-skill-card">
+                  <span className="profile-skill-card__text">
+                    <strong>{skill.skillName}</strong> - {skill.category} ({skill.level})
+                  </span>
+                  <button
+                    type="button"
+                    className="profile-inline-button profile-inline-button--subtle"
+                    onClick={() => removeSkill(index)}
+                  >
+                    Remove
+                  </button>
+                </div>
               ))}
-            </select>
+            </div>
+          )}
 
-            <select
-              name="level"
-              value={newSkill.level}
-              onChange={handleSkillChange}
-              style={{ flex: 1, padding: "8px", fontSize: "14px" }}
-            >
-              {SKILL_LEVELS.map((level) => (
-                <option key={level} value={level}>
-                  {level}
-                </option>
+          <div className="skill-input">
+            <div className="profile-input-group">
+              <input name="skillName" placeholder="Skill name" value={newSkill.skillName} onChange={handleSkillChange} />
+            </div>
+            <div className="profile-field-grid">
+              <label className="profile-field">
+                <span className="profile-field__label">Category</span>
+                <select name="category" value={newSkill.category} onChange={handleSkillChange}>
+                  <option value="">Select category</option>
+                  {SKILL_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="profile-field">
+                <span className="profile-field__label">Level</span>
+                <select name="level" value={newSkill.level} onChange={handleSkillChange}>
+                  {SKILL_LEVELS.map((level) => (
+                    <option key={level} value={level}>{level}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button type="button" className="profile-inline-button" onClick={addSkill}>
+              Add Skill
+            </button>
+          </div>
+        </section>
+
+        <section className="profile-section">
+          <SectionHeader
+            eyebrow="Learn"
+            title="Skills you want"
+            copy="Tell SkillSwap what you want help with so matching has something to work from."
+          />
+          {profile.skillsWanted.length > 0 && (
+            <div className="skills-list">
+              {profile.skillsWanted.map((skill, index) => (
+                <div key={`${skill.skillName}-${index}`} className="profile-skill-card">
+                  <span className="profile-skill-card__text">
+                    <strong>{skill.skillName}</strong> - {skill.category} ({skill.level})
+                  </span>
+                  <button
+                    type="button"
+                    className="profile-inline-button profile-inline-button--subtle"
+                    onClick={() => removeSkillWanted(index)}
+                  >
+                    Remove
+                  </button>
+                </div>
               ))}
-            </select>
+            </div>
+          )}
+
+          <div className="skill-input">
+            <div className="profile-input-group">
+              <input
+                name="skillName"
+                placeholder="Skill name"
+                value={newSkillWanted.skillName}
+                onChange={handleSkillWantedChange}
+              />
+            </div>
+            <div className="profile-field-grid">
+              <label className="profile-field">
+                <span className="profile-field__label">Category</span>
+                <select name="category" value={newSkillWanted.category} onChange={handleSkillWantedChange}>
+                  <option value="">Select category</option>
+                  {SKILL_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="profile-field">
+                <span className="profile-field__label">Level</span>
+                <select name="level" value={newSkillWanted.level} onChange={handleSkillWantedChange}>
+                  {SKILL_LEVELS.map((level) => (
+                    <option key={level} value={level}>{level}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button type="button" className="profile-inline-button" onClick={addSkillWanted}>
+              Add Skill Wanted
+            </button>
           </div>
-
-          <button type="button" onClick={addSkill}>
-            Add Skill
-          </button>
-        </div>
-
-        <h3>Skills You Want</h3>
-        {profile.skillsWanted.length > 0 && (
-          <div className="skills-list" style={{ marginBottom: "15px" }}>
-            {profile.skillsWanted.map((skill, index) => (
-              <div
-                key={index}
-                className="availability-item"
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "8px",
-                }}
-              >
-                <span>
-                  <strong>{skill.skillName}</strong> - {skill.category} ({skill.level})
-                </span>
-                <button type="button" onClick={() => removeSkillWanted(index)}>
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="skill-input" style={{ marginBottom: "20px" }}>
-          <div style={{ marginBottom: "10px" }}>
-            <input
-              name="skillName"
-              placeholder="Skill Name (e.g., Guitar Playing)"
-              value={newSkillWanted.skillName}
-              onChange={handleSkillWantedChange}
-              style={{ width: "100%", padding: "8px", fontSize: "14px" }}
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-            <select
-              name="category"
-              value={newSkillWanted.category}
-              onChange={handleSkillWantedChange}
-              style={{ flex: 1, padding: "8px", fontSize: "14px" }}
-            >
-              <option value="">Select Category *</option>
-              {SKILL_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-
-            <select
-              name="level"
-              value={newSkillWanted.level}
-              onChange={handleSkillWantedChange}
-              style={{ flex: 1, padding: "8px", fontSize: "14px" }}
-            >
-              {SKILL_LEVELS.map((level) => (
-                <option key={level} value={level}>
-                  {level}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button type="button" onClick={addSkillWanted}>
-            Add Skill Wanted
-          </button>
-        </div>
+        </section>
 
         {skillError && (
-          <div
-            style={{
-              backgroundColor: "#fee",
-              border: "2px solid #c00",
-              color: "#c00",
-              padding: "12px",
-              borderRadius: "5px",
-              marginTop: "10px",
-              marginBottom: "15px",
-              fontWeight: "bold",
-            }}
-          >
-            ⚠️ {skillError}
-          </div>
+          <div className="profile-alert profile-alert--error">Warning: {skillError}</div>
         )}
-
-        <button type="submit" disabled={saving}>
-          {saving ? "Saving..." : "Save Profile"}
-        </button>
+        <div className="profile-form__footer">
+          <p className="profile-form__footer-copy">
+            Keep this updated so people see the right availability and match info.
+          </p>
+          <button type="submit" disabled={saving}>
+            {saving ? "Saving..." : "Save Profile"}
+          </button>
+        </div>
       </form>
 
       {message && (
-        <div
-          style={{
-            backgroundColor: message.includes("success") ? "#dfd" : "#fee",
-            border: message.includes("success") ? "2px solid #0a0" : "2px solid #c00",
-            color: message.includes("success") ? "#0a0" : "#c00",
-            padding: "12px",
-            borderRadius: "5px",
-            marginTop: "15px",
-            fontWeight: "bold",
-          }}
-        >
-          {message.includes("success") ? "✓" : "⚠️"} {message}
+        <div className={`profile-alert ${message.includes("success") ? "profile-alert--success" : "profile-alert--error"}`}>
+          {message}
         </div>
       )}
+
+      <ProfileSetupModal
+        open={Boolean(pendingNavigationPath)}
+        title="Leave setup?"
+        description="Your profile still isn't finished. Leave anyway?"
+        primaryLabel="Leave anyway"
+        secondaryLabel="Stay here"
+        primaryVariant="danger"
+        onPrimary={() => {
+          const nextPath = pendingNavigationPath;
+          setPendingNavigationPath("");
+          if (nextPath === "__back__") {
+            window.history.back();
+            return;
+          }
+          if (nextPath) navigate(nextPath);
+        }}
+        onSecondary={() => setPendingNavigationPath("")}
+        onClose={() => setPendingNavigationPath("")}
+      />
     </div>
   );
 }
