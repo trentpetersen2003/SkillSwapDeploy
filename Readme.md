@@ -87,17 +87,20 @@ SMTP_PORT=
 SMTP_USER=
 SMTP_PASS=
 
+# Email delivery mode: auto | smtp | ethereal-test
+# auto (default): smtp when SMTP vars exist, otherwise Ethereal test inbox
+EMAIL_DELIVERY_MODE=auto
+
 # Sender identity
 EMAIL_FROM="SkillSwap <no-reply@skillswap.local>"
-
-# Production email provider (Resend)
-RESEND_API_KEY=
 ```
 
 Password reset email behavior:
-- In production with `RESEND_API_KEY`, email is sent through Resend.
-- In non-production (or if Resend key is missing), the server uses Nodemailer.
-- If no SMTP credentials are configured in non-production, Nodemailer falls back to a free Ethereal test inbox and logs a preview URL to the server console.
+- The server uses Nodemailer for password reset emails.
+- `EMAIL_DELIVERY_MODE=smtp` forces SMTP delivery.
+- `EMAIL_DELIVERY_MODE=ethereal-test` forces Ethereal test delivery.
+- `EMAIL_DELIVERY_MODE=auto` (default) uses SMTP if credentials are present; otherwise it uses Ethereal test delivery.
+- In production, `EMAIL_FROM` and SMTP credentials are required, and `EMAIL_DELIVERY_MODE=ethereal-test` is blocked at startup.
 
 ## Deployment
 

@@ -12,6 +12,7 @@ describe("Email service delivery mode", () => {
     delete process.env.SMTP_PORT;
     delete process.env.SMTP_USER;
     delete process.env.SMTP_PASS;
+    delete process.env.EMAIL_DELIVERY_MODE;
     delete process.env.NODE_ENV;
   });
 
@@ -32,6 +33,22 @@ describe("Email service delivery mode", () => {
     expect(getEmailDeliveryMode()).toBe("smtp");
   });
 
+  test("forces ethereal-test when EMAIL_DELIVERY_MODE is set", () => {
+    process.env.SMTP_HOST = "smtp.example.com";
+    process.env.SMTP_PORT = "587";
+    process.env.SMTP_USER = "user";
+    process.env.SMTP_PASS = "pass";
+    process.env.EMAIL_DELIVERY_MODE = "ethereal-test";
+
+    expect(getEmailDeliveryMode()).toBe("ethereal-test");
+  });
+
+  test("forces smtp when EMAIL_DELIVERY_MODE is set", () => {
+    process.env.EMAIL_DELIVERY_MODE = "smtp";
+
+    expect(getEmailDeliveryMode()).toBe("smtp");
+  });
+
   test("validates non-production as always valid", () => {
     process.env.NODE_ENV = "development";
 
@@ -45,6 +62,16 @@ describe("Email service delivery mode", () => {
     expect(validateProductionEmailConfig()).toEqual({
       valid: false,
       message: "Startup blocked: SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS are required in production.",
+    });
+  });
+
+  test("fails production config when ethereal mode is forced", () => {
+    process.env.NODE_ENV = "production";
+    process.env.EMAIL_DELIVERY_MODE = "ethereal-test";
+
+    expect(validateProductionEmailConfig()).toEqual({
+      valid: false,
+      message: "Startup blocked: EMAIL_DELIVERY_MODE=ethereal-test is not allowed in production.",
     });
   });
 

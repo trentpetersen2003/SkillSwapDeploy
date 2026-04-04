@@ -3,6 +3,12 @@ const nodemailer = require("nodemailer");
 let cachedTransporter;
 let cachedTestAccount;
 
+const DELIVERY_MODES = {
+  AUTO: "auto",
+  SMTP: "smtp",
+  ETHEREAL_TEST: "ethereal-test",
+};
+
 function hasSmtpConfig() {
   return Boolean(
     process.env.SMTP_HOST &&
@@ -12,17 +18,52 @@ function hasSmtpConfig() {
   );
 }
 
-function getEmailDeliveryMode() {
-  if (hasSmtpConfig()) {
-    return "smtp";
+function getConfiguredEmailMode() {
+  const configuredMode = (process.env.EMAIL_DELIVERY_MODE || DELIVERY_MODES.AUTO)
+    .trim()
+    .toLowerCase();
+
+  if (configuredMode === DELIVERY_MODES.SMTP) {
+    return DELIVERY_MODES.SMTP;
   }
 
-  return "ethereal-test";
+  if (configuredMode === "ethereal" || configuredMode === DELIVERY_MODES.ETHEREAL_TEST) {
+    return DELIVERY_MODES.ETHEREAL_TEST;
+  }
+
+  return DELIVERY_MODES.AUTO;
+}
+
+function getEmailDeliveryMode() {
+  const configuredMode = getConfiguredEmailMode();
+
+  if (configuredMode === DELIVERY_MODES.SMTP) {
+    return DELIVERY_MODES.SMTP;
+  }
+
+  if (configuredMode === DELIVERY_MODES.ETHEREAL_TEST) {
+    return DELIVERY_MODES.ETHEREAL_TEST;
+  }
+
+  if (hasSmtpConfig()) {
+    return DELIVERY_MODES.SMTP;
+  }
+
+  return DELIVERY_MODES.ETHEREAL_TEST;
 }
 
 function validateProductionEmailConfig() {
   if (process.env.NODE_ENV !== "production") {
     return { valid: true };
+  }
+
+  const configuredMode = getConfiguredEmailMode();
+
+  if (configuredMode === DELIVERY_MODES.ETHEREAL_TEST) {
+    return {
+      valid: false,
+      message: "Startup blocked: EMAIL_DELIVERY_MODE=ethereal-test is not allowed in production.",
+    };
   }
 
   if (!process.env.EMAIL_FROM) {
@@ -48,7 +89,15 @@ async function getTransporter() {
     return cachedTransporter;
   }
 
-  if (hasSmtpConfig()) {
+  const mode = getEmailDeliveryMode();
+
+  if (mode === DELIVERY_MODES.SMTP) {
+    if (!hasSmtpConfig()) {
+      throw new Error(
+        "SMTP delivery mode requires SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS."
+      );
+    }
+
     cachedTransporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
