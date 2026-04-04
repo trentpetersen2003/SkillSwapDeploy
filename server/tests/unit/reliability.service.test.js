@@ -71,4 +71,19 @@ describe("Reliability Service", () => {
       })
     );
   });
+
+  test("does not count unrated completed swaps toward average rating", () => {
+    const summary = buildSummaryFromStats({
+      totalSwaps: 3,
+      completedSwaps: 3,
+      cancelledSwaps: 0,
+      totalMilestones: 3,
+      completedMilestones: 3,
+      ratingsReceivedCount: 0,
+      ratingsReceivedSum: 0,
+    });
+
+    expect(summary.averageRating).toBeNull();
+    expect(summary.ratingsReceivedCount).toBe(0);
+  });
 });

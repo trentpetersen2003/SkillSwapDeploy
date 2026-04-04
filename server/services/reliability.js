@@ -100,6 +100,13 @@ async function getReliabilityByUserIds(userIds = []) {
     {
       $addFields: {
         participantIsRequester: { $eq: ["$participants", "$requester"] },
+        receivedRating: {
+          $cond: [
+            "$participantIsRequester",
+            "$reviews.recipientReview.rating",
+            "$reviews.requesterReview.rating",
+          ],
+        },
       },
     },
     {
@@ -139,15 +146,10 @@ async function getReliabilityByUserIds(userIds = []) {
           $sum: {
             $cond: [
               {
-                $ifNull: [
-                  {
-                    $cond: [
-                      "$participantIsRequester",
-                      "$reviews.recipientReview.rating",
-                      "$reviews.requesterReview.rating",
-                    ],
-                  },
-                  false,
+                $and: [
+                  { $ne: ["$receivedRating", null] },
+                  { $gte: ["$receivedRating", 1] },
+                  { $lte: ["$receivedRating", 5] },
                 ],
               },
               1,
@@ -157,14 +159,15 @@ async function getReliabilityByUserIds(userIds = []) {
         },
         ratingsReceivedSum: {
           $sum: {
-            $ifNull: [
+            $cond: [
               {
-                $cond: [
-                  "$participantIsRequester",
-                  "$reviews.recipientReview.rating",
-                  "$reviews.requesterReview.rating",
+                $and: [
+                  { $ne: ["$receivedRating", null] },
+                  { $gte: ["$receivedRating", 1] },
+                  { $lte: ["$receivedRating", 5] },
                 ],
               },
+              "$receivedRating",
               0,
             ],
           },
