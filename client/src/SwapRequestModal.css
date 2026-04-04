@@ -130,6 +130,39 @@
   gap: 0.5rem;
 }
 
+.suggested-slots {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suggested-slot-btn {
+  text-align: left;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.suggested-slot-btn:hover:not(:disabled) {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.suggested-slot-btn small {
+  color: #64748b;
+}
+
+.suggested-slot-reason {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
 .form-error {
   padding: 12px;
   background-color: #fee;

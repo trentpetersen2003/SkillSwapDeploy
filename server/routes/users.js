@@ -471,6 +471,10 @@ router.put("/notifications", auth, async (req, res) => {
         notificationPreferences.swapCancelledEmail !== undefined
           ? Boolean(notificationPreferences.swapCancelledEmail)
           : current.swapCancelledEmail ?? true,
+      "notificationPreferences.profileReminderEmail":
+        notificationPreferences.profileReminderEmail !== undefined
+          ? Boolean(notificationPreferences.profileReminderEmail)
+          : current.profileReminderEmail ?? true,
     };
 
     const user = await User.findByIdAndUpdate(

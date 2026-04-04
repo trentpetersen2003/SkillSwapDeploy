@@ -5,6 +5,11 @@ const Swap = require("../models/Swap");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
 const { isProfileSetupComplete } = require("../services/profileSetup");
+const {
+  sendSwapRequestEmail,
+  sendSwapAcceptedEmail,
+  sendSwapCancelledEmail,
+} = require("../services/email");
 
 const PROFILE_SETUP_REQUIRED_MESSAGE =
   "Finish your profile setup before you use swaps.";
@@ -19,6 +24,10 @@ function isRequester(swap, userId) {
 
 function hasBothConfirmations(swap) {
   return Boolean(swap.requesterConfirmedAt && swap.recipientConfirmedAt);
+}
+
+function emailPrefEnabled(user, key) {
+  return user?.notificationPreferences?.[key] !== false;
 }
 
 function normalizeMilestones(rawMilestones = [], totalSessions = 1) {
@@ -160,6 +169,124 @@ function describeLocalSession(date, timeZone, durationMinutes) {
 
   return `${localStart.day} ${formatMinutes(localStart.minutes)} - ${formatMinutes(localEnd)} (${timeZone})`;
 }
+
+function roundUpToInterval(date, intervalMinutes) {
+  const intervalMs = intervalMinutes * 60 * 1000;
+  return new Date(Math.ceil(date.getTime() / intervalMs) * intervalMs);
+}
+
+function getDateRangeEnd(daysAhead) {
+  const end = new Date();
+  end.setDate(end.getDate() + daysAhead);
+  return end;
+}
+
+function isSwapConflict(existingSwap, startDate, durationMinutes) {
+  const existingStart = new Date(existingSwap.scheduledDate);
+  const existingDuration = Number(existingSwap.duration || 60);
+  const existingEnd = new Date(existingStart.getTime() + existingDuration * 60 * 1000);
+  const candidateEnd = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+
+  return startDate < existingEnd && candidateEnd > existingStart;
+}
+
+function hasConflict(existingSwaps, startDate, durationMinutes) {
+  return existingSwaps.some((swap) => isSwapConflict(swap, startDate, durationMinutes));
+}
+
+function parsePositiveInt(value, fallback) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function isWeekendDay(day) {
+  return day === "Saturday" || day === "Sunday";
+}
+
+function isEveningMinutes(minutes) {
+  return minutes >= 17 * 60 && minutes < 22 * 60;
+}
+
+function isWorkHoursMinutes(minutes) {
+  return minutes >= 9 * 60 && minutes < 17 * 60;
+}
+
+function scoreSuggestedSlot({
+  date,
+  requesterTimeZone,
+  recipientTimeZone,
+  rangeStart,
+}) {
+  const requesterOffset = parseUtcOffsetToMinutes(requesterTimeZone);
+  const recipientOffset = parseUtcOffsetToMinutes(recipientTimeZone);
+
+  if (requesterOffset === null || recipientOffset === null) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const requesterLocal = getLocalDayAndMinutes(date, requesterOffset);
+  const recipientLocal = getLocalDayAndMinutes(date, recipientOffset);
+
+  const minutesFromNow = Math.max(0, (date.getTime() - rangeStart.getTime()) / (60 * 1000));
+  let score = minutesFromNow / 60;
+
+  const requesterWeekend = isWeekendDay(requesterLocal.day);
+  const recipientWeekend = isWeekendDay(recipientLocal.day);
+  if (requesterWeekend && recipientWeekend) {
+    score -= 24;
+  } else if (requesterWeekend || recipientWeekend) {
+    score -= 8;
+  }
+
+  const requesterEvening = isEveningMinutes(requesterLocal.minutes);
+  const recipientEvening = isEveningMinutes(recipientLocal.minutes);
+  if (requesterEvening && recipientEvening) {
+    score -= 16;
+  } else if (requesterEvening || recipientEvening) {
+    score -= 6;
+  }
+
+  if (isWorkHoursMinutes(requesterLocal.minutes) && isWorkHoursMinutes(recipientLocal.minutes)) {
+    score += 6;
+  }
+
+  return score;
+}
+
+function getSuggestedSlotReason({ date, requesterTimeZone, recipientTimeZone }) {
+  const requesterOffset = parseUtcOffsetToMinutes(requesterTimeZone);
+  const recipientOffset = parseUtcOffsetToMinutes(recipientTimeZone);
+
+  if (requesterOffset === null || recipientOffset === null) {
+    return "Mutual availability";
+  }
+
+  const requesterLocal = getLocalDayAndMinutes(date, requesterOffset);
+  const recipientLocal = getLocalDayAndMinutes(date, recipientOffset);
+
+  const requesterWeekend = isWeekendDay(requesterLocal.day);
+  const recipientWeekend = isWeekendDay(recipientLocal.day);
+  const requesterEvening = isEveningMinutes(requesterLocal.minutes);
+  const recipientEvening = isEveningMinutes(recipientLocal.minutes);
+
+  if (requesterWeekend && recipientWeekend && requesterEvening && recipientEvening) {
+    return "Weekend evening overlap";
+  }
+
+  if (requesterEvening && recipientEvening) {
+    return "Both users evening-friendly";
+  }
+
+  if (requesterWeekend && recipientWeekend) {
+    return "Both users weekend-friendly";
+  }
+
+  if (requesterEvening || recipientEvening) {
+    return "At least one user in evening hours";
+  }
+
+  return "Earliest mutual slot";
+}
 function formatAvailabilityForDay(availability = [], day, timeZone = "") {
   const daySlots = (availability || []).filter((slot) => slot.day === day);
 
@@ -283,6 +410,147 @@ router.get("/range", auth, async (req, res) => {
     res.status(500).json({ message: "Error fetching swaps" });
   }
 });
+
+// Suggest mutual time slots based on both users' availability and existing swaps
+router.get("/suggestions", auth, async (req, res) => {
+  try {
+    const currentUser = await enforceProfileSetupComplete(req.userId, res);
+    if (!currentUser) {
+      return;
+    }
+
+    const { recipientId } = req.query;
+    const durationMinutes = parsePositiveInt(req.query.duration, 60);
+    const daysAhead = Math.min(parsePositiveInt(req.query.daysAhead, 14), 30);
+    const limit = Math.min(parsePositiveInt(req.query.limit, 8), 20);
+    const intervalMinutes = Math.min(parsePositiveInt(req.query.intervalMinutes, 30), 60);
+
+    if (!recipientId) {
+      return res.status(400).json({ message: "recipientId is required" });
+    }
+
+    if (recipientId === req.userId) {
+      return res.status(400).json({ message: "Cannot suggest slots for yourself" });
+    }
+
+    if (!Number.isInteger(durationMinutes) || durationMinutes < 15 || durationMinutes > 240) {
+      return res.status(400).json({ message: "Duration must be between 15 and 240 minutes" });
+    }
+
+    const recipient = await User.findById(recipientId).select(
+      "blockedUsers availability timeZone name email"
+    );
+    const requesterPrivacy = await User.findById(req.userId).select("blockedUsers");
+
+    if (!recipient || !requesterPrivacy) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const requesterBlockedRecipient = (requesterPrivacy.blockedUsers || []).some(
+      (id) => id.toString() === recipientId
+    );
+    const recipientBlockedRequester = (recipient.blockedUsers || []).some(
+      (id) => id.toString() === req.userId
+    );
+
+    if (requesterBlockedRecipient || recipientBlockedRequester) {
+      return res.status(403).json({ message: "Cannot suggest slots with a blocked user" });
+    }
+
+    if (!currentUser.timeZone || !recipient.timeZone) {
+      return res.status(400).json({ message: "Both users must set a time zone" });
+    }
+
+    if (!Array.isArray(currentUser.availability) || currentUser.availability.length === 0) {
+      return res.status(400).json({ message: "You must set availability first" });
+    }
+
+    if (!Array.isArray(recipient.availability) || recipient.availability.length === 0) {
+      return res.status(400).json({ message: "This user has not set availability yet" });
+    }
+
+    const rangeStart = new Date();
+    const rangeEnd = getDateRangeEnd(daysAhead);
+
+    const existingSwaps = await Swap.find({
+      status: { $in: ["pending", "confirmed"] },
+      scheduledDate: { $gte: rangeStart, $lte: rangeEnd },
+      $or: [
+        { requester: req.userId },
+        { recipient: req.userId },
+        { requester: recipientId },
+        { recipient: recipientId },
+      ],
+    }).select("scheduledDate duration requester recipient status");
+
+    const requesterSwaps = existingSwaps.filter(
+      (swap) =>
+        swap.requester.toString() === req.userId || swap.recipient.toString() === req.userId
+    );
+    const recipientSwaps = existingSwaps.filter(
+      (swap) =>
+        swap.requester.toString() === recipientId || swap.recipient.toString() === recipientId
+    );
+
+    const candidateSlots = [];
+    let cursor = roundUpToInterval(new Date(), intervalMinutes);
+
+    while (cursor <= rangeEnd) {
+      const requesterAvailable = validateUserAvailability(currentUser, cursor, durationMinutes).ok;
+      const recipientAvailable = validateUserAvailability(recipient, cursor, durationMinutes).ok;
+
+      if (requesterAvailable && recipientAvailable) {
+        const requesterBusy = hasConflict(requesterSwaps, cursor, durationMinutes);
+        const recipientBusy = hasConflict(recipientSwaps, cursor, durationMinutes);
+
+        if (!requesterBusy && !recipientBusy) {
+          candidateSlots.push({
+            date: new Date(cursor),
+            score: scoreSuggestedSlot({
+              date: cursor,
+              requesterTimeZone: currentUser.timeZone,
+              recipientTimeZone: recipient.timeZone,
+              rangeStart,
+            }),
+          });
+        }
+      }
+
+      cursor = new Date(cursor.getTime() + intervalMinutes * 60 * 1000);
+    }
+
+    const suggestions = candidateSlots
+      .sort((a, b) => {
+        if (a.score !== b.score) {
+          return a.score - b.score;
+        }
+
+        return a.date.getTime() - b.date.getTime();
+      })
+      .slice(0, limit)
+      .map((entry) => ({
+        scheduledDate: entry.date.toISOString(),
+        requesterLocal: describeLocalSession(entry.date, currentUser.timeZone, durationMinutes),
+        recipientLocal: describeLocalSession(entry.date, recipient.timeZone, durationMinutes),
+        reason: getSuggestedSlotReason({
+          date: entry.date,
+          requesterTimeZone: currentUser.timeZone,
+          recipientTimeZone: recipient.timeZone,
+        }),
+      }));
+
+    return res.json({
+      duration: durationMinutes,
+      intervalMinutes,
+      daysAhead,
+      suggestions,
+    });
+  } catch (error) {
+    console.error("Error suggesting swap slots:", error);
+    return res.status(500).json({ message: "Error generating slot suggestions" });
+  }
+});
+
 // Create a new swap
 router.post("/", auth, async (req, res) => {
   try {
@@ -332,8 +600,8 @@ router.post("/", auth, async (req, res) => {
     }
 
     const [requester, recipient] = await Promise.all([
-      User.findById(req.userId).select("blockedUsers availability timeZone"),
-      User.findById(recipientId).select("blockedUsers availability timeZone"),
+      User.findById(req.userId).select("blockedUsers availability timeZone name email notificationPreferences"),
+      User.findById(recipientId).select("blockedUsers availability timeZone name email notificationPreferences"),
     ]);
 
     if (!requester || !recipient) {
@@ -437,6 +705,20 @@ router.post("/", auth, async (req, res) => {
       .populate("requester", "name email username")
       .populate("recipient", "name email username");
 
+    try {
+      await sendSwapRequestEmail({
+        to: recipient.email,
+        recipientName: recipient.name,
+        requesterName: requester.name,
+        skillOffered: newSwap.skillOffered,
+        skillWanted: newSwap.skillWanted,
+        scheduledDate: newSwap.scheduledDate,
+        preferenceEnabled: emailPrefEnabled(recipient, "swapRequestEmail"),
+      });
+    } catch (emailError) {
+      console.error("Error sending swap request email:", emailError);
+    }
+
     res.status(201).json(populatedSwap);
   } catch (error) {
     console.error("Error creating swap:", error);
@@ -505,6 +787,47 @@ router.patch("/:id/status", auth, async (req, res) => {
 
     swap.status = status;
     await swap.save();
+
+    const [requesterUser, recipientUser] = await Promise.all([
+      User.findById(swap.requester).select("name email notificationPreferences"),
+      User.findById(swap.recipient).select("name email notificationPreferences"),
+    ]);
+
+    if (status === "confirmed" && requesterUser && recipientUser) {
+      try {
+        await sendSwapAcceptedEmail({
+          to: requesterUser.email,
+          requesterName: requesterUser.name,
+          recipientName: recipientUser.name,
+          skillOffered: swap.skillOffered,
+          skillWanted: swap.skillWanted,
+          scheduledDate: swap.scheduledDate,
+          preferenceEnabled: emailPrefEnabled(requesterUser, "swapConfirmedEmail"),
+        });
+      } catch (emailError) {
+        console.error("Error sending swap accepted email:", emailError);
+      }
+    }
+
+    if (status === "cancelled" && requesterUser && recipientUser) {
+      const cancelledByRequester = swap.requester.toString() === req.userId;
+      const targetUser = cancelledByRequester ? recipientUser : requesterUser;
+      const actorUser = cancelledByRequester ? requesterUser : recipientUser;
+
+      try {
+        await sendSwapCancelledEmail({
+          to: targetUser.email,
+          recipientName: targetUser.name,
+          actorName: actorUser.name,
+          skillOffered: swap.skillOffered,
+          skillWanted: swap.skillWanted,
+          scheduledDate: swap.scheduledDate,
+          preferenceEnabled: emailPrefEnabled(targetUser, "swapCancelledEmail"),
+        });
+      } catch (emailError) {
+        console.error("Error sending swap cancelled email:", emailError);
+      }
+    }
 
     const updatedSwap = await Swap.findById(id)
       .populate("requester", "name email username")
@@ -603,8 +926,16 @@ router.patch("/:id/review", auth, async (req, res) => {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    if (swap.status !== "completed") {
+    if (swap.status === "cancelled" || swap.status === "pending") {
       return res.status(400).json({ message: "You can only review completed swaps" });
+    }
+
+    const hasCurrentUserConfirmed = isRequester(swap, req.userId)
+      ? Boolean(swap.requesterConfirmedAt)
+      : Boolean(swap.recipientConfirmedAt);
+
+    if (swap.status === "confirmed" && !hasCurrentUserConfirmed) {
+      return res.status(400).json({ message: "Confirm your session before reviewing" });
     }
 
     if (!swap.reviews) {

@@ -127,6 +127,68 @@ function parseTimeRange(range) {
   return { start, end };
 }
 
+function getLocalDayAndMinutes(date, offsetMinutes) {
+  const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+
+  return {
+    day: [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ][shifted.getUTCDay()],
+    minutes: shifted.getUTCHours() * 60 + shifted.getUTCMinutes(),
+  };
+}
+
+function isUserAvailableAt(user, scheduledDate, durationMinutes) {
+  if (!user?.timeZone || !Array.isArray(user.availability) || user.availability.length === 0) {
+    return false;
+  }
+
+  const offsetMinutes = parseUtcOffsetToMinutes(user.timeZone);
+  if (offsetMinutes === null) {
+    return false;
+  }
+
+  const localStart = getLocalDayAndMinutes(scheduledDate, offsetMinutes);
+  const localEndMinutes = localStart.minutes + durationMinutes;
+
+  if (localEndMinutes > 24 * 60) {
+    return false;
+  }
+
+  return user.availability.some((slot) => {
+    if (slot.day !== localStart.day) {
+      return false;
+    }
+
+    const parsedRange = parseTimeRange(slot.timeRange);
+    if (!parsedRange) {
+      return false;
+    }
+
+    return (
+      localStart.minutes >= parsedRange.start &&
+      localEndMinutes <= parsedRange.end
+    );
+  });
+}
+
+function roundUpToInterval(date, intervalMinutes) {
+  const intervalMs = intervalMinutes * 60 * 1000;
+  return new Date(Math.ceil(date.getTime() / intervalMs) * intervalMs);
+}
+
+function getDateRangeEnd(daysAhead) {
+  const end = new Date();
+  end.setDate(end.getDate() + daysAhead);
+  return end;
+}
+
 function toSkillShape(skill) {
   if (!skill) {
     return { name: "", normalized: "", family: null, category: "" };
@@ -302,59 +364,36 @@ function computeSkillScore(currentUser, candidateUser) {
 }
 
 function computeAvailabilityScore(currentUser, candidateUser) {
-  const byDay = new Map();
-
-  (currentUser.availability || []).forEach((slot) => {
-    const parsedRange = parseTimeRange(slot.timeRange);
-    if (!parsedRange) {
-      return;
-    }
-
-    const key = normalizeText(slot.day);
-    const existing = byDay.get(key) || { current: [], candidate: [] };
-    existing.current.push(parsedRange);
-    byDay.set(key, existing);
-  });
-
-  (candidateUser.availability || []).forEach((slot) => {
-    const parsedRange = parseTimeRange(slot.timeRange);
-    if (!parsedRange) {
-      return;
-    }
-
-    const key = normalizeText(slot.day);
-    const existing = byDay.get(key) || { current: [], candidate: [] };
-    existing.candidate.push(parsedRange);
-    byDay.set(key, existing);
-  });
+  const durationMinutes = 60;
+  const daysAhead = 14;
+  const intervalMinutes = 30;
 
   let overlapMinutes = 0;
-  let overlapDays = 0;
+  const overlapDays = new Set();
+  let cursor = roundUpToInterval(new Date(), intervalMinutes);
+  const rangeEnd = getDateRangeEnd(daysAhead);
 
-  byDay.forEach((value) => {
-    if (!value.current.length || !value.candidate.length) {
-      return;
+  while (cursor <= rangeEnd) {
+    if (
+      isUserAvailableAt(currentUser, cursor, durationMinutes) &&
+      isUserAvailableAt(candidateUser, cursor, durationMinutes)
+    ) {
+      overlapMinutes += durationMinutes;
+
+      const currentOffset = parseUtcOffsetToMinutes(currentUser.timeZone);
+      if (currentOffset !== null) {
+        const localStart = getLocalDayAndMinutes(cursor, currentOffset);
+        overlapDays.add(localStart.day);
+      }
     }
 
-    let dayOverlap = 0;
-    value.current.forEach((currentRange) => {
-      value.candidate.forEach((candidateRange) => {
-        const overlap = Math.max(
-          0,
-          Math.min(currentRange.end, candidateRange.end) - Math.max(currentRange.start, candidateRange.start)
-        );
-        dayOverlap += overlap;
-      });
-    });
+    cursor = new Date(cursor.getTime() + intervalMinutes * 60 * 1000);
+  }
 
-    if (dayOverlap > 0) {
-      overlapDays += 1;
-      overlapMinutes += dayOverlap;
-    }
-  });
+  const hasOverlap = overlapMinutes > 0;
+  const score = hasOverlap ? Math.min(100, Math.round((overlapMinutes / 180) * 100)) : 0;
 
-  const score = Math.min(100, Math.round((overlapMinutes / 180) * 100));
-  return { score, overlapMinutes, overlapDays };
+  return { score, overlapMinutes, overlapDays: overlapDays.size, hasOverlap };
 }
 
 function computeTimezoneScore(currentUser, candidateUser) {
@@ -460,6 +499,7 @@ function computeMatch(currentUser, candidateUser, candidateReliability = null) {
       timezoneScore: timezoneData.score,
       reliabilityScore,
     },
+    hasScheduleableOverlap: availabilityData.hasOverlap,
   };
 }
 
@@ -481,7 +521,9 @@ function rankCandidates(currentUser, candidates, reliabilityByUserId = {}) {
     };
   });
 
-  enriched.sort((a, b) => {
+  const scheduleableOnly = enriched.filter((candidate) => candidate.hasScheduleableOverlap);
+
+  scheduleableOnly.sort((a, b) => {
     if (b.matchScore !== a.matchScore) {
       return b.matchScore - a.matchScore;
     }
@@ -489,7 +531,7 @@ function rankCandidates(currentUser, candidates, reliabilityByUserId = {}) {
     return String(a.name || "").localeCompare(String(b.name || ""));
   });
 
-  return enriched;
+  return scheduleableOnly;
 }
 
 function getMatchingTelemetrySnapshot() {

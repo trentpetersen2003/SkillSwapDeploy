@@ -18,6 +18,7 @@ function Settings({ onLogout, setupRequired = false }) {
     swapRequestEmail: true,
     swapConfirmedEmail: true,
     swapCancelledEmail: true,
+    profileReminderEmail: true,
   });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -104,6 +105,7 @@ function Settings({ onLogout, setupRequired = false }) {
         swapRequestEmail: profileData.notificationPreferences?.swapRequestEmail ?? true,
         swapConfirmedEmail: profileData.notificationPreferences?.swapConfirmedEmail ?? true,
         swapCancelledEmail: profileData.notificationPreferences?.swapCancelledEmail ?? true,
+        profileReminderEmail: profileData.notificationPreferences?.profileReminderEmail ?? true,
       });
       setBlockedUsers(Array.isArray(blockedData) ? blockedData : []);
     } catch (e) {
@@ -560,6 +562,19 @@ function Settings({ onLogout, setupRequired = false }) {
                   disabled={isAnyBlockingAction}
                 />
                 <span>Email me when swaps are cancelled</span>
+              </label>
+
+              <label className="settings-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={notificationPreferences.profileReminderEmail}
+                  onChange={(e) => setNotificationPreferences((prev) => ({
+                    ...prev,
+                    profileReminderEmail: e.target.checked,
+                  }))}
+                  disabled={isAnyBlockingAction}
+                />
+                <span>Email me profile completion reminders</span>
               </label>
             </div>
 

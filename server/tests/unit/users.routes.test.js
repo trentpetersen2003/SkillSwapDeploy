@@ -152,10 +152,17 @@ describe("Users Routes", () => {
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(1);
       expect(response.body[0]).toEqual(expect.objectContaining({ _id: "u1" }));
-      expect(User.find).toHaveBeenCalledWith(
+      expect(User.find).toHaveBeenNthCalledWith(
+        2,
         expect.objectContaining({
           $and: expect.arrayContaining([
-            expect.objectContaining({ city: expect.any(Object), locationVisibility: { $ne: "hidden" } }),
+            expect.objectContaining({
+              $or: [
+                { city: expect.any(Object) },
+                { state: expect.any(Object) },
+              ],
+              locationVisibility: { $ne: "hidden" },
+            }),
             { availability: { $elemMatch: { day: { $in: ["Monday"] } } } },
             {
               $or: [
@@ -253,6 +260,7 @@ describe("Users Routes", () => {
             swapRequestEmail: true,
             swapConfirmedEmail: true,
             swapCancelledEmail: false,
+            profileReminderEmail: true,
           },
         })
       );
@@ -263,6 +271,7 @@ describe("Users Routes", () => {
             swapRequestEmail: false,
             swapConfirmedEmail: true,
             swapCancelledEmail: false,
+            profileReminderEmail: true,
           },
         })
       );
@@ -283,6 +292,7 @@ describe("Users Routes", () => {
             "notificationPreferences.swapRequestEmail": false,
             "notificationPreferences.swapConfirmedEmail": true,
             "notificationPreferences.swapCancelledEmail": false,
+            "notificationPreferences.profileReminderEmail": true,
           },
         },
         { new: true, runValidators: true }
@@ -291,6 +301,7 @@ describe("Users Routes", () => {
         swapRequestEmail: false,
         swapConfirmedEmail: true,
         swapCancelledEmail: false,
+        profileReminderEmail: true,
       });
     });
   });

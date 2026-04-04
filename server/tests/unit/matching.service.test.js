@@ -120,8 +120,8 @@ describe("Matching Service", () => {
         name: "Low Fit",
         skills: [skill("Public Speaking", "Career & Professional")],
         skillsWanted: [skill("Design", "Creative & Arts")],
-        availability: [{ day: "Sunday", timeRange: "9:00 AM - 10:00 AM" }],
-        timeZone: "UTC+09:00",
+        availability: [{ day: "Friday", timeRange: "6:00 PM - 8:00 PM" }],
+        timeZone: "UTC-05:00",
       },
       {
         _id: "u1",
@@ -143,6 +143,42 @@ describe("Matching Service", () => {
     expect(ranked[0]).toEqual(expect.objectContaining({ matchReasons: expect.any(Array) }));
   });
 
+  test("filters out candidates without schedulable overlap", () => {
+    const currentUser = {
+      skills: [skill("React", "Tech & Programming")],
+      skillsWanted: [skill("Python", "Tech & Programming")],
+      availability: [{ day: "Monday", timeRange: "6:00 PM - 8:00 PM" }],
+      timeZone: "UTC-08:00",
+    };
+
+    const candidates = [
+      {
+        _id: "u1",
+        name: "No Overlap",
+        skills: [skill("Python", "Tech & Programming")],
+        skillsWanted: [skill("React", "Tech & Programming")],
+        availability: [{ day: "Wednesday", timeRange: "8:00 AM - 9:00 AM" }],
+        timeZone: "UTC-05:00",
+      },
+      {
+        _id: "u2",
+        name: "Has Overlap",
+        skills: [skill("Python", "Tech & Programming")],
+        skillsWanted: [skill("React", "Tech & Programming")],
+        availability: [{ day: "Monday", timeRange: "7:00 PM - 8:30 PM" }],
+        timeZone: "UTC-08:00",
+      },
+    ];
+
+    const ranked = rankCandidates(currentUser, candidates, {
+      u1: { score: 80, tier: "Reliable" },
+      u2: { score: 80, tier: "Reliable" },
+    });
+
+    expect(ranked).toHaveLength(1);
+    expect(ranked[0].name).toBe("Has Overlap");
+  });
+
   test("preserves public fields when ranking Mongoose-like documents", () => {
     const currentUser = {
       skills: [skill("React", "Tech & Programming")],
@@ -160,7 +196,7 @@ describe("Matching Service", () => {
         locationVisibility: "visible",
         skills: [skill("Python", "Tech & Programming")],
         skillsWanted: [skill("React", "Tech & Programming")],
-        availability: [{ day: "Monday", timeRange: "7:00 PM - 8:30 PM" }],
+        availability: [{ day: "Monday", timeRange: "3:00 PM - 5:00 PM" }],
         timeZone: "UTC-08:00",
       }),
     };

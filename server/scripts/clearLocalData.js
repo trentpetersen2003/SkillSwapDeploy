@@ -5,6 +5,7 @@ const User = require("../models/User");
 const Swap = require("../models/Swap");
 const Message = require("../models/Message");
 const PasswordResetToken = require("../models/PasswordResetToken");
+const EmailDailyUsage = require("../models/EmailDailyUsage");
 
 dotenv.config();
 
@@ -30,11 +31,12 @@ async function run() {
 
     await connectToDatabase();
 
-    const [usersDeleted, swapsDeleted, messagesDeleted, resetTokensDeleted] = await Promise.all([
+    const [usersDeleted, swapsDeleted, messagesDeleted, resetTokensDeleted, emailUsageDeleted] = await Promise.all([
       User.deleteMany({}),
       Swap.deleteMany({}),
       Message.deleteMany({}),
       PasswordResetToken.deleteMany({}),
+      EmailDailyUsage.deleteMany({}),
     ]);
 
     console.log("\nLocal database cleared.");
@@ -42,6 +44,7 @@ async function run() {
     console.log(`- Swaps removed: ${swapsDeleted.deletedCount}`);
     console.log(`- Messages removed: ${messagesDeleted.deletedCount}`);
     console.log(`- Password reset tokens removed: ${resetTokensDeleted.deletedCount}`);
+    console.log(`- Email daily usage rows removed: ${emailUsageDeleted.deletedCount}`);
   } catch (error) {
     console.error("Failed to clear local data:", error);
     process.exitCode = 1;

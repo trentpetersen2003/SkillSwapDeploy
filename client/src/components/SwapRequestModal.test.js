@@ -143,6 +143,7 @@ describe('SwapRequestModal Component', () => {
       ok: true,
       json: async () => ({
         skills: [{ skillName: 'Piano' }],
+        timeZone: 'UTC-05:00',
       }),
     });
 
@@ -166,7 +167,7 @@ describe('SwapRequestModal Component', () => {
     fetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ skills: [{ skillName: 'Piano' }] }),
+        json: async () => ({ skills: [{ skillName: 'Piano' }], timeZone: 'UTC-05:00' }),
       })
       .mockImplementationOnce(() => new Promise(() => {}));
 
@@ -209,7 +210,7 @@ describe('SwapRequestModal Component', () => {
     fetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ skills: [{ skillName: 'Piano' }] }),
+        json: async () => ({ skills: [{ skillName: 'Piano' }], timeZone: 'UTC-05:00' }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -281,5 +282,53 @@ describe('SwapRequestModal Component', () => {
     const overlay = container.querySelector('.modal-overlay');
     fireEvent.click(overlay);
     expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  test('loads suggested slots and applies one to date/time fields', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          skills: [{ skillName: 'Piano' }],
+          timeZone: 'UTC-05:00',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          suggestions: [
+            {
+              scheduledDate: '2030-01-10T15:30:00.000Z',
+              requesterLocal: 'Friday 10:30 AM - 11:30 AM (UTC-05:00)',
+              recipientLocal: 'Friday 7:30 AM - 8:30 AM (UTC-08:00)',
+              reason: 'Both users evening-friendly',
+            },
+          ],
+        }),
+      });
+
+    const { container } = render(
+      <SwapRequestModal
+        user={mockUser}
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+      />
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('.swap-request-form')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest Times' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Friday 10:30 AM - 11:30 AM (UTC-05:00)')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Why: Both users evening-friendly')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Friday 10:30 AM - 11:30 AM/i }));
+
+    expect(container.querySelector('#scheduledDate')).toHaveValue('2030-01-10');
+    expect(container.querySelector('#scheduledTime')).toHaveValue('10:30');
   });
 });

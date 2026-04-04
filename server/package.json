@@ -9,6 +9,7 @@
     "seed:sample:stress": "node scripts/seedLocalSampleData.js --stress",
     "seed:sample:edge": "node scripts/seedLocalSampleData.js --edge",
     "seed:sample:stress:edge": "node scripts/seedLocalSampleData.js --stress --edge",
+    "email:profile-reminders": "node scripts/sendProfileCompletionReminders.js",
     "db:clear:local": "node scripts/clearLocalData.js --force",
     "test:unit": "jest",
     "test:unit:watch": "jest --watch",

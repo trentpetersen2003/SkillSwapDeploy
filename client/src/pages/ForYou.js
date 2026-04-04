@@ -551,7 +551,7 @@ function ForYouPage() {
 
       {users.length === 0 ? (
         <div className="for-you-empty">
-          <p>No other users yet. Invite your friends to join SkillSwap!</p>
+          <p>No ready-to-schedule matches yet. Try broadening your availability or check back later.</p>
         </div>
       ) : (
         <div className="for-you-grid">

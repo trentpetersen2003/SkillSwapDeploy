@@ -6,12 +6,20 @@ const User = require("../models/User");
 const Swap = require("../models/Swap");
 const Message = require("../models/Message");
 const PasswordResetToken = require("../models/PasswordResetToken");
+const EmailDailyUsage = require("../models/EmailDailyUsage");
 
 dotenv.config();
 
 const DEFAULT_PASSWORD = "SkillSwap!123";
 const STRESS_MODE = process.argv.includes("--stress");
 const EDGE_MODE = process.argv.includes("--edge");
+
+const DEFAULT_NOTIFICATION_PREFERENCES = {
+  swapRequestEmail: true,
+  swapConfirmedEmail: true,
+  swapCancelledEmail: true,
+  profileReminderEmail: true,
+};
 
 const STRESS_SKILL_VARIANTS = [
   { skillName: "JS", category: "Tech & Programming", level: "Proficient" },
@@ -182,7 +190,9 @@ const SAMPLE_USERS = [
       swapRequestEmail: false,
       swapConfirmedEmail: true,
       swapCancelledEmail: true,
+      profileReminderEmail: false,
     },
+    lastProfileReminderAt: daysAgo(2),
     availability: [
       { day: "Wednesday", timeRange: "6:00 PM - 8:00 PM" },
       { day: "Friday", timeRange: "6:00 PM - 8:00 PM" },
@@ -215,6 +225,7 @@ const SAMPLE_USERS = [
       swapRequestEmail: true,
       swapConfirmedEmail: false,
       swapCancelledEmail: true,
+      profileReminderEmail: true,
     },
     availability: [
       { day: "Monday", timeRange: "7:00 PM - 9:00 PM" },
@@ -488,6 +499,13 @@ function buildUserLookup(users) {
     acc[user.key] = user;
     return acc;
   }, {});
+}
+
+function buildNotificationPreferences(notificationPreferences = {}) {
+  return {
+    ...DEFAULT_NOTIFICATION_PREFERENCES,
+    ...notificationPreferences,
+  };
 }
 
 function daysAgo(days) {
@@ -1173,6 +1191,9 @@ async function purgeExistingSampleData(activeUsers) {
       User.deleteMany({ _id: { $in: existingIds } }),
     ]);
   }
+
+  // Reset daily usage counters for deterministic local email behavior between seed runs.
+  await EmailDailyUsage.deleteMany({});
 }
 
 async function createUsers(activeUsers) {
@@ -1196,7 +1217,8 @@ async function createUsers(activeUsers) {
       locationVisibility: userData.locationVisibility,
       showOthersLocations: userData.showOthersLocations,
       swapMode: userData.swapMode,
-      notificationPreferences: userData.notificationPreferences,
+      notificationPreferences: buildNotificationPreferences(userData.notificationPreferences),
+      lastProfileReminderAt: userData.lastProfileReminderAt || null,
     });
 
     createdUsers.push({ ...userData, _id: created._id });

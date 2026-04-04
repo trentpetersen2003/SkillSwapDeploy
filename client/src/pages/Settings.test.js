@@ -28,6 +28,7 @@ const defaultProfile = {
     swapRequestEmail: true,
     swapConfirmedEmail: true,
     swapCancelledEmail: true,
+    profileReminderEmail: true,
   },
 };
 
@@ -164,6 +165,20 @@ describe("Settings Page", () => {
     });
 
     expect(await screen.findByText("Notification preferences updated.")).toBeInTheDocument();
+
+    const notificationCall = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url === "http://localhost:3001/api/users/notifications" && options?.method === "PUT"
+    );
+
+    expect(notificationCall).toBeTruthy();
+    const [, options] = notificationCall;
+    const payload = JSON.parse(options.body);
+    expect(payload.notificationPreferences).toEqual(
+      expect.objectContaining({
+        profileReminderEmail: true,
+      })
+    );
   });
 
   test("saves location privacy settings for self and others visibility", async () => {

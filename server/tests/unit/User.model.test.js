@@ -40,6 +40,7 @@ describe("User Model", () => {
         swapRequestEmail: true,
         swapConfirmedEmail: true,
         swapCancelledEmail: true,
+        profileReminderEmail: true,
       });
     });
 

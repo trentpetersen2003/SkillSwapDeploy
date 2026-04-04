@@ -1,5 +1,6 @@
 const {
   getEmailDeliveryMode,
+  getEmailBudgetConfig,
   validateProductionEmailConfig,
 } = require("../../services/email");
 
@@ -13,6 +14,9 @@ describe("Email service delivery mode", () => {
     delete process.env.SMTP_USER;
     delete process.env.SMTP_PASS;
     delete process.env.EMAIL_DELIVERY_MODE;
+    delete process.env.EMAIL_DAILY_HARD_LIMIT;
+    delete process.env.EMAIL_DAILY_SOFT_LIMIT;
+    delete process.env.EMAIL_ENFORCE_DAILY_LIMIT;
     delete process.env.NODE_ENV;
   });
 
@@ -97,5 +101,25 @@ describe("Email service delivery mode", () => {
     process.env.EMAIL_FROM = "SkillSwap <skillswap@example.com>";
 
     expect(validateProductionEmailConfig()).toEqual({ valid: true });
+  });
+
+  test("uses safe default daily email budget", () => {
+    expect(getEmailBudgetConfig()).toEqual({
+      enforce: true,
+      hardLimit: 350,
+      softLimit: 300,
+    });
+  });
+
+  test("reads budget values from environment", () => {
+    process.env.EMAIL_DAILY_HARD_LIMIT = "200";
+    process.env.EMAIL_DAILY_SOFT_LIMIT = "150";
+    process.env.EMAIL_ENFORCE_DAILY_LIMIT = "false";
+
+    expect(getEmailBudgetConfig()).toEqual({
+      enforce: false,
+      hardLimit: 200,
+      softLimit: 150,
+    });
   });
 });

@@ -93,6 +93,15 @@ EMAIL_DELIVERY_MODE=auto
 
 # Sender identity
 EMAIL_FROM="SkillSwap <no-reply@skillswap.local>"
+
+# Daily email safety budget (helps stay under Gmail 500/day limit)
+EMAIL_ENFORCE_DAILY_LIMIT=true
+EMAIL_DAILY_HARD_LIMIT=350
+EMAIL_DAILY_SOFT_LIMIT=300
+
+# Profile reminder throttling
+EMAIL_PROFILE_REMINDER_COOLDOWN_DAYS=7
+EMAIL_PROFILE_REMINDER_BATCH_SIZE=50
 ```
 
 Password reset email behavior:
@@ -101,6 +110,9 @@ Password reset email behavior:
 - `EMAIL_DELIVERY_MODE=ethereal-test` forces Ethereal test delivery.
 - `EMAIL_DELIVERY_MODE=auto` (default) uses SMTP if credentials are present; otherwise it uses Ethereal test delivery.
 - In production, `EMAIL_FROM` and SMTP credentials are required, and `EMAIL_DELIVERY_MODE=ethereal-test` is blocked at startup.
+- `EMAIL_DAILY_HARD_LIMIT` blocks sends once the daily cap is reached.
+- `EMAIL_DAILY_SOFT_LIMIT` suppresses lower-priority reminder sends earlier to preserve headroom.
+- Run profile reminders manually with `npm run email:profile-reminders` from `server/`.
 
 ## Deployment
 

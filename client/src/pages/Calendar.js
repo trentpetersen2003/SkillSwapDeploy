@@ -13,6 +13,8 @@ function CalendarPage() {
   const location = useLocation();
   const focusSwapId = location.state?.focusSwapId || "";
   const focusView = location.state?.focusView || "list";
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentUserId = currentUser.id || currentUser._id || "";
   const [swaps, setSwaps] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -22,6 +24,7 @@ function CalendarPage() {
   const [highlightedSwapId, setHighlightedSwapId] = useState("");
   const [reviewDraftsBySwapId, setReviewDraftsBySwapId] = useState({});
   const [submittingReviewForSwapId, setSubmittingReviewForSwapId] = useState("");
+  const [reviewPromptSwap, setReviewPromptSwap] = useState(null);
 
   useEffect(() => {
     loadSwaps();
@@ -85,6 +88,8 @@ function CalendarPage() {
       });
 
       if (res.ok) {
+        const updatedSwap = await res.json();
+        maybePromptForReview(updatedSwap);
         loadSwaps();
       } else {
         const data = await res.json();
@@ -133,6 +138,8 @@ function CalendarPage() {
       });
 
       if (res.ok) {
+        const updatedSwap = await res.json();
+        maybePromptForReview(updatedSwap);
         loadSwaps();
       } else {
         const data = await res.json();
@@ -153,6 +160,32 @@ function CalendarPage() {
         [field]: value,
       },
     }));
+  }
+
+  function maybePromptForReview(updatedSwap) {
+    if (!updatedSwap || !currentUserId) {
+      return;
+    }
+
+    const reviewField = updatedSwap.requester?._id === currentUserId ? "requesterReview" : "recipientReview";
+    if (updatedSwap.reviews?.[reviewField]) {
+      return;
+    }
+
+    const hasCurrentUserConfirmed =
+      updatedSwap.requester?._id === currentUserId
+        ? Boolean(updatedSwap.requesterConfirmedAt)
+        : Boolean(updatedSwap.recipientConfirmedAt);
+
+    if (updatedSwap.status !== "completed" && !(updatedSwap.status === "confirmed" && hasCurrentUserConfirmed)) {
+      return;
+    }
+
+    setReviewDraftsBySwapId((prev) => ({
+      ...prev,
+      [updatedSwap._id]: prev[updatedSwap._id] || { rating: "5", comment: "" },
+    }));
+    setReviewPromptSwap(updatedSwap);
   }
 
   async function handleSubmitReview(swapId) {
@@ -179,6 +212,9 @@ function CalendarPage() {
           delete next[swapId];
           return next;
         });
+        if (reviewPromptSwap?._id === swapId) {
+          setReviewPromptSwap(null);
+        }
         loadSwaps();
       } else {
         const data = await res.json();
@@ -271,8 +307,6 @@ function CalendarPage() {
 
   // Get swaps for selected date
   const selectedDateSwaps = getSwapsForDate(selectedDate);
-
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
   function formatDate(dateString) {
     const date = new Date(dateString);
@@ -368,6 +402,20 @@ function CalendarPage() {
 
       {message && <p className="calendar-page__message">{message}</p>}
 
+      {reviewPromptSwap && (
+        <ReviewPromptModal
+          swap={reviewPromptSwap}
+          currentUserId={currentUserId}
+          reviewDraft={reviewDraftsBySwapId[reviewPromptSwap._id]}
+          isSubmittingReview={submittingReviewForSwapId === reviewPromptSwap._id}
+          onClose={() => setReviewPromptSwap(null)}
+          onReviewChange={handleReviewChange}
+          onSubmitReview={handleSubmitReview}
+          formatDate={formatDate}
+          formatTime={formatTime}
+        />
+      )}
+
       {view === "calendar" ? (
         <div className="calendar-view">
           <div className="calendar-view__calendar">
@@ -406,6 +454,7 @@ function CalendarPage() {
                     onSubmitReview={handleSubmitReview}
                     reviewDraft={reviewDraftsBySwapId[swap._id]}
                     isSubmittingReview={submittingReviewForSwapId === swap._id}
+                    reviewPromptSwapId={reviewPromptSwap?._id || ""}
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
                   />
@@ -439,6 +488,7 @@ function CalendarPage() {
                     onSubmitReview={handleSubmitReview}
                     reviewDraft={reviewDraftsBySwapId[swap._id]}
                     isSubmittingReview={submittingReviewForSwapId === swap._id}
+                    reviewPromptSwapId={reviewPromptSwap?._id || ""}
                     formatDate={formatDate}
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
@@ -472,6 +522,7 @@ function CalendarPage() {
                     onSubmitReview={handleSubmitReview}
                     reviewDraft={reviewDraftsBySwapId[swap._id]}
                     isSubmittingReview={submittingReviewForSwapId === swap._id}
+                    reviewPromptSwapId={reviewPromptSwap?._id || ""}
                     formatDate={formatDate}
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
@@ -503,6 +554,7 @@ function CalendarPage() {
                     onSubmitReview={handleSubmitReview}
                     reviewDraft={reviewDraftsBySwapId[swap._id]}
                     isSubmittingReview={submittingReviewForSwapId === swap._id}
+                    reviewPromptSwapId={reviewPromptSwap?._id || ""}
                     formatDate={formatDate}
                     formatTime={formatTime}
                     getStatusColor={getStatusColor}
@@ -530,6 +582,7 @@ function SwapCard({
   onSubmitReview,
   reviewDraft,
   isSubmittingReview,
+  reviewPromptSwapId,
   formatDate,
   formatTime,
   getStatusColor,
@@ -542,6 +595,7 @@ function SwapCard({
   const otherUser = isRequester ? swap.recipient : swap.requester;
   const milestones = Array.isArray(swap.milestones) ? swap.milestones : [];
   const completedMilestoneCount = milestones.filter((milestone) => milestone.completed).length;
+  const isReviewPromptOpen = reviewPromptSwapId === swap._id;
   const hasConfirmed = Boolean(
     isRequester ? swap.requesterConfirmedAt : swap.recipientConfirmedAt
   );
@@ -664,7 +718,7 @@ function SwapCard({
         </div>
       )}
 
-      {swap.status === "completed" && !hasReviewed && (
+      {swap.status === "completed" && !hasReviewed && !isReviewPromptOpen && (
         <div className="swap-card__review">
           <strong>Rate this swap</strong>
           <div className="swap-card__review-controls">
@@ -739,6 +793,90 @@ function SwapCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ReviewPromptModal({
+  swap,
+  currentUserId,
+  reviewDraft,
+  isSubmittingReview,
+  onClose,
+  onReviewChange,
+  onSubmitReview,
+  formatDate,
+  formatTime,
+}) {
+  const isRequester = swap.requester._id === currentUserId;
+  const otherUser = isRequester ? swap.recipient : swap.requester;
+
+  return (
+    <div
+      className="review-prompt-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={`review-prompt-title-${swap._id}`}
+    >
+      <div className="review-prompt-modal">
+        <button
+          type="button"
+          className="review-prompt-modal__close"
+          aria-label="Close review prompt"
+          onClick={onClose}
+        >
+          ×
+        </button>
+        <p className="review-prompt-modal__eyebrow">Swap completed</p>
+        <h2 id={`review-prompt-title-${swap._id}`} className="review-prompt-modal__title">
+          {swap.status === "completed"
+            ? `Rate your swap with ${otherUser?.name || "your partner"}`
+            : `Leave your review for ${otherUser?.name || "your partner"}`}
+        </h2>
+        <p className="review-prompt-modal__copy">
+          {swap.status === "completed"
+            ? "Add a quick rating and optional note before you move on."
+            : "You can leave your rating now while you wait for the other person to confirm."}
+        </p>
+        <div className="review-prompt-modal__meta">
+          <span>
+            {swap.skillOffered} ↔ {swap.skillWanted}
+          </span>
+          <span>{formatDate(swap.scheduledDate)}</span>
+          <span>{formatTime(swap.scheduledDate)}</span>
+        </div>
+        <div className="swap-card__review-controls swap-card__review-controls--prompt">
+          <select
+            value={reviewDraft?.rating || "5"}
+            onChange={(event) => onReviewChange(swap._id, "rating", event.target.value)}
+          >
+            <option value="5">5 - Excellent</option>
+            <option value="4">4 - Good</option>
+            <option value="3">3 - Okay</option>
+            <option value="2">2 - Poor</option>
+            <option value="1">1 - Very poor</option>
+          </select>
+          <input
+            type="text"
+            placeholder="Optional feedback"
+            value={reviewDraft?.comment || ""}
+            onChange={(event) => onReviewChange(swap._id, "comment", event.target.value)}
+          />
+          <button
+            type="button"
+            className="action-btn complete-btn"
+            onClick={() => onSubmitReview(swap._id)}
+            disabled={isSubmittingReview}
+          >
+            {isSubmittingReview ? "Submitting..." : "Submit Review"}
+          </button>
+        </div>
+        <div className="review-prompt-modal__actions">
+          <button type="button" className="action-btn cancel-btn" onClick={onClose}>
+            Maybe later
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

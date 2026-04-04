@@ -23,6 +23,9 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
   const [detailsLoading, setDetailsLoading] = useState(true);
   const [detailsError, setDetailsError] = useState("");
   const [currentUserTimeZone, setCurrentUserTimeZone] = useState("");
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState("");
+  const [suggestedSlots, setSuggestedSlots] = useState([]);
 
   useEffect(() => {
     fetchCurrentUserProfile();
@@ -125,6 +128,92 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     const utcMillis = Date.UTC(year, month - 1, day, hour, minute) - offsetMinutes * 60 * 1000;
 
     return new Date(utcMillis).toISOString();
+  }
+
+  function splitDateAndTimeForProfileTimeZone(isoDate, timeZone) {
+    const offsetMinutes = parseUtcOffsetToMinutes(timeZone);
+    if (offsetMinutes === null) {
+      throw new Error("Invalid profile time zone");
+    }
+
+    const date = new Date(isoDate);
+    if (Number.isNaN(date.getTime())) {
+      throw new Error("Invalid suggested date");
+    }
+
+    const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+    const year = shifted.getUTCFullYear();
+    const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(shifted.getUTCDate()).padStart(2, "0");
+    const hour = String(shifted.getUTCHours()).padStart(2, "0");
+    const minute = String(shifted.getUTCMinutes()).padStart(2, "0");
+
+    return {
+      date: `${year}-${month}-${day}`,
+      time: `${hour}:${minute}`,
+    };
+  }
+
+  function applySuggestedSlot(isoDate) {
+    try {
+      const next = splitDateAndTimeForProfileTimeZone(isoDate, currentUserTimeZone);
+      setFormData((prev) => ({
+        ...prev,
+        scheduledDate: next.date,
+        scheduledTime: next.time,
+      }));
+      setSuggestionsError("");
+    } catch (err) {
+      setSuggestionsError(err.message || "Unable to use suggested slot");
+    }
+  }
+
+  async function fetchSuggestedSlots() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setSuggestionsError("Please log in to view suggestions.");
+      return;
+    }
+
+    if (!formData.duration) {
+      setSuggestionsError("Select a duration to get suggested time slots.");
+      return;
+    }
+
+    setSuggestionsLoading(true);
+    setSuggestionsError("");
+
+    try {
+      const params = new URLSearchParams({
+        recipientId: user._id,
+        duration: String(parseInt(formData.duration, 10) || 60),
+        daysAhead: "14",
+        limit: "6",
+      });
+
+      const suggestionsPayload = await withMinimumDelay(async () => {
+        const res = await fetchWithAuth(`${API_URL}/api/swaps/suggestions?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(payload.message || "Failed to get suggestions");
+        }
+
+        return payload;
+      });
+
+      setSuggestedSlots(Array.isArray(suggestionsPayload.suggestions) ? suggestionsPayload.suggestions : []);
+    } catch (err) {
+      console.error("Error loading suggested slots:", err);
+      setSuggestionsError(err.message || "Unable to load suggested time slots.");
+      setSuggestedSlots([]);
+    } finally {
+      setSuggestionsLoading(false);
+    }
   }
   async function handleSubmit(e) {
     e.preventDefault();
@@ -330,6 +419,41 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
                   <option value="90">1.5 hours</option>
                   <option value="120">2 hours</option>
                 </select>
+              </div>
+
+              <div className="form-group">
+                <label>Suggested Time Slots</label>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={fetchSuggestedSlots}
+                  disabled={loading || suggestionsLoading}
+                >
+                  {suggestionsLoading ? "Finding..." : "Suggest Times"}
+                </button>
+
+                {suggestionsError && <div className="form-error">{suggestionsError}</div>}
+
+                {suggestedSlots.length > 0 && (
+                  <div className="suggested-slots">
+                    {suggestedSlots.map((slot) => (
+                      <button
+                        key={slot.scheduledDate}
+                        type="button"
+                        className="suggested-slot-btn"
+                        onClick={() => applySuggestedSlot(slot.scheduledDate)}
+                        disabled={loading}
+                      >
+                        <span>{slot.requesterLocal}</span>
+                        <small>{user.name}: {slot.recipientLocal}</small>
+                        {slot.reason && <small className="suggested-slot-reason">Why: {slot.reason}</small>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {suggestedSlots.length === 0 && !suggestionsLoading && !suggestionsError && (
+                  <p className="form-hint">Click Suggest Times to find open slots for both of you.</p>
+                )}
               </div>
 
               <div className="form-group">

@@ -101,6 +101,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    bio: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     swapMode: {
       type: String,
       enum: ["either", "online", "in-person"],
@@ -126,6 +131,14 @@ const userSchema = new mongoose.Schema(
         type: Boolean,
         default: true,
       },
+      profileReminderEmail: {
+        type: Boolean,
+        default: true,
+      },
+    },
+    lastProfileReminderAt: {
+      type: Date,
+      default: null,
     },
   },
   {

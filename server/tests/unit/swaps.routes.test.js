@@ -3,12 +3,22 @@ const request = require("supertest");
 const swapsRoutes = require("../../routes/swaps");
 const Swap = require("../../models/Swap");
 const User = require("../../models/User");
+const {
+  sendSwapRequestEmail,
+  sendSwapAcceptedEmail,
+  sendSwapCancelledEmail,
+} = require("../../services/email");
 
 const AUTH_USER_ID = "507f1f77bcf86cd799439011";
 const RECIPIENT_ID = "507f1f77bcf86cd799439012";
 
 jest.mock("../../models/Swap");
 jest.mock("../../models/User");
+jest.mock("../../services/email", () => ({
+  sendSwapRequestEmail: jest.fn(),
+  sendSwapAcceptedEmail: jest.fn(),
+  sendSwapCancelledEmail: jest.fn(),
+}));
 jest.mock("../../middleware/auth", () => (req, res, next) => {
   req.userId = AUTH_USER_ID;
   next();
@@ -43,6 +53,16 @@ function makeSetupReadyUser(id, overrides = {}) {
     ...overrides,
   };
 }
+
+const allDayAvailability = [
+  { day: "Sunday", timeRange: "12:00 AM - 11:59 PM" },
+  { day: "Monday", timeRange: "12:00 AM - 11:59 PM" },
+  { day: "Tuesday", timeRange: "12:00 AM - 11:59 PM" },
+  { day: "Wednesday", timeRange: "12:00 AM - 11:59 PM" },
+  { day: "Thursday", timeRange: "12:00 AM - 11:59 PM" },
+  { day: "Friday", timeRange: "12:00 AM - 11:59 PM" },
+  { day: "Saturday", timeRange: "12:00 AM - 11:59 PM" },
+];
 
 describe("Swaps Routes", () => {
   const app = express();
@@ -101,6 +121,79 @@ describe("Swaps Routes", () => {
         ],
       })
     );
+    expect(sendSwapRequestEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: `${RECIPIENT_ID}@example.com`,
+        preferenceEnabled: true,
+      })
+    );
+  });
+
+  test("returns suggested overlapping slots", async () => {
+    User.findById.mockImplementation((id) => {
+      if (id === AUTH_USER_ID) {
+        return makeSelectQuery(
+          makeSetupReadyUser(AUTH_USER_ID, {
+            blockedUsers: [],
+            availability: allDayAvailability,
+          })
+        );
+      }
+
+      if (id === RECIPIENT_ID) {
+        return makeSelectQuery(
+          makeSetupReadyUser(RECIPIENT_ID, {
+            blockedUsers: [],
+            availability: allDayAvailability,
+          })
+        );
+      }
+
+      return makeSelectQuery(null);
+    });
+
+    Swap.find.mockReturnValue(makeSelectQuery([]));
+
+    const response = await request(app).get(
+      `/api/swaps/suggestions?recipientId=${RECIPIENT_ID}&duration=60&limit=3`
+    );
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body.suggestions)).toBe(true);
+    expect(response.body.suggestions.length).toBeGreaterThan(0);
+    expect(response.body.suggestions[0]).toEqual(
+      expect.objectContaining({
+        scheduledDate: expect.any(String),
+        requesterLocal: expect.any(String),
+        recipientLocal: expect.any(String),
+      })
+    );
+  });
+
+  test("returns 400 when recipient has no availability for suggestions", async () => {
+    User.findById.mockImplementation((id) => {
+      if (id === AUTH_USER_ID) {
+        return makeSelectQuery(makeSetupReadyUser(AUTH_USER_ID, { blockedUsers: [] }));
+      }
+
+      if (id === RECIPIENT_ID) {
+        return makeSelectQuery(
+          makeSetupReadyUser(RECIPIENT_ID, {
+            blockedUsers: [],
+            availability: [],
+          })
+        );
+      }
+
+      return makeSelectQuery(null);
+    });
+
+    const response = await request(app).get(
+      `/api/swaps/suggestions?recipientId=${RECIPIENT_ID}&duration=60`
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe("This user has not set availability yet");
   });
 
   test("prevents marking swap completed when milestones remain", async () => {
@@ -212,6 +305,122 @@ describe("Swaps Routes", () => {
     expect(save).toHaveBeenCalled();
     expect(swapDoc.status).toBe("completed");
     expect(swapDoc.completedAt).toBeInstanceOf(Date);
+  });
+
+  test("sends accepted email when recipient confirms pending swap", async () => {
+    User.findById
+      .mockImplementationOnce((id) => {
+        if (id === AUTH_USER_ID) {
+          return makeSelectQuery(makeSetupReadyUser(AUTH_USER_ID));
+        }
+        return makeSelectQuery(null);
+      })
+      .mockImplementationOnce(() =>
+        makeSelectQuery({
+          _id: AUTH_USER_ID,
+          name: "Requester",
+          email: "requester@example.com",
+          notificationPreferences: { swapConfirmedEmail: true },
+        })
+      )
+      .mockImplementationOnce(() =>
+        makeSelectQuery({
+          _id: RECIPIENT_ID,
+          name: "Recipient",
+          email: "recipient@example.com",
+          notificationPreferences: { swapConfirmedEmail: true },
+        })
+      );
+
+    const save = jest.fn().mockResolvedValue();
+    Swap.findById
+      .mockResolvedValueOnce({
+        _id: "swap-confirm",
+        requester: { toString: () => AUTH_USER_ID },
+        recipient: { toString: () => AUTH_USER_ID },
+        status: "pending",
+        skillOffered: "Piano",
+        skillWanted: "Spanish",
+        scheduledDate: new Date("2030-01-01T10:00:00.000Z"),
+        milestones: [{ completed: true }],
+        save,
+      })
+      .mockReturnValueOnce(
+        makePopulateQuery({
+          _id: "swap-confirm",
+          status: "confirmed",
+        })
+      );
+
+    const response = await request(app)
+      .patch("/api/swaps/swap-confirm/status")
+      .send({ status: "confirmed" });
+
+    expect(response.status).toBe(200);
+    expect(sendSwapAcceptedEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "requester@example.com",
+        preferenceEnabled: true,
+      })
+    );
+  });
+
+  test("sends cancellation email to the non-actor participant", async () => {
+    User.findById
+      .mockImplementationOnce((id) => {
+        if (id === AUTH_USER_ID) {
+          return makeSelectQuery(makeSetupReadyUser(AUTH_USER_ID));
+        }
+        return makeSelectQuery(null);
+      })
+      .mockImplementationOnce(() =>
+        makeSelectQuery({
+          _id: AUTH_USER_ID,
+          name: "Requester",
+          email: "requester@example.com",
+          notificationPreferences: { swapCancelledEmail: true },
+        })
+      )
+      .mockImplementationOnce(() =>
+        makeSelectQuery({
+          _id: RECIPIENT_ID,
+          name: "Recipient",
+          email: "recipient@example.com",
+          notificationPreferences: { swapCancelledEmail: true },
+        })
+      );
+
+    const save = jest.fn().mockResolvedValue();
+    Swap.findById
+      .mockResolvedValueOnce({
+        _id: "swap-2",
+        requester: { toString: () => AUTH_USER_ID },
+        recipient: { toString: () => RECIPIENT_ID },
+        status: "confirmed",
+        skillOffered: "Piano",
+        skillWanted: "Spanish",
+        scheduledDate: new Date("2030-01-01T10:00:00.000Z"),
+        milestones: [{ completed: true }],
+        save,
+      })
+      .mockReturnValueOnce(
+        makePopulateQuery({
+          _id: "swap-2",
+          status: "cancelled",
+        })
+      );
+
+    const response = await request(app)
+      .patch("/api/swaps/swap-2/status")
+      .send({ status: "cancelled" });
+
+    expect(response.status).toBe(200);
+    expect(sendSwapCancelledEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "recipient@example.com",
+        preferenceEnabled: true,
+      })
+    );
   });
 
   test("submits a review for completed swap", async () => {
