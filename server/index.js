@@ -34,16 +34,17 @@ const allowedOrigins = [
   "http://localhost:3000",
   "https://sccapstone.github.io",
   process.env.CLIENT_URL,
+  process.env.CORS_ORIGIN,
   ...envAllowedOrigins,
 ].filter(Boolean);
 
 function normalizeOrigin(origin) {
-  return origin.trim().replace(/\/$/, "");
+  return (origin || "").trim().replace(/\/+$/, "");
 }
 
 const allowedOriginSet = new Set(allowedOrigins.map(normalizeOrigin));
 
-app.use(cors({ 
+const corsOptions = {
   origin: function(origin, callback) {
     if (!origin) {
       return callback(null, true);
@@ -57,7 +58,10 @@ app.use(cors({
     }
   },
   credentials: true 
-}));
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 // TEMP route to verify auth middleware is working
