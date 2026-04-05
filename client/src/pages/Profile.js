@@ -60,6 +60,7 @@ const SKILL_CATEGORIES = [
 ];
 const SKILL_LEVELS = ["Novice", "Proficient", "Expert"];
 
+// Build analytics payload.
 function buildAnalytics(swaps, currentUserId) {
   const mine = (swaps || []).filter((swap) => {
     const requesterId = swap.requester?._id || swap.requester;
@@ -105,6 +106,7 @@ function buildAnalytics(swaps, currentUserId) {
   };
 }
 
+// Run section header logic.
 function SectionHeader({ eyebrow, title, copy }) {
   return (
     <div className="profile-section__header">
@@ -117,6 +119,7 @@ function SectionHeader({ eyebrow, title, copy }) {
   );
 }
 
+// Run profile logic.
 function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }) {
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -157,6 +160,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
       setPendingNavigationPath("");
       return undefined;
     }
+    // Handle before unload action.
     function handleBeforeUnload(event) {
       event.preventDefault();
       event.returnValue = "";
@@ -168,6 +172,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
   useEffect(() => {
     if (!setupRequired) return undefined;
     window.history.pushState({ profileSetupGuard: true }, "", window.location.href);
+    // Handle pop state action.
     function handlePopState() {
       setPendingNavigationPath("__back__");
       window.history.pushState({ profileSetupGuard: true }, "", window.location.href);
@@ -176,6 +181,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     return () => window.removeEventListener("popstate", handlePopState);
   }, [setupRequired]);
 
+  // Run time to minutes logic.
   function timeToMinutes(hour, minute, period) {
     let hours = parseInt(hour, 10);
     if (period === "PM" && hours !== 12) hours += 12;
@@ -238,16 +244,19 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     fetchProfile();
   }, [fetchProfile]);
 
+  // Handle change action.
   function handleChange(event) {
     const { name, value } = event.target;
     setProfile((prev) => ({ ...prev, [name]: value }));
   }
 
+  // Handle availability change action.
   function handleAvailabilityChange(event) {
     const { name, value } = event.target;
     setNewAvailability((prev) => ({ ...prev, [name]: value }));
   }
 
+  // Handle day toggle action.
   function handleDayToggle(day) {
     setNewAvailability((prev) => ({
       ...prev,
@@ -257,16 +266,19 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     }));
   }
 
+  // Handle skill change action.
   function handleSkillChange(event) {
     const { name, value } = event.target;
     setNewSkill((prev) => ({ ...prev, [name]: value }));
   }
 
+  // Handle skill wanted change action.
   function handleSkillWantedChange(event) {
     const { name, value } = event.target;
     setNewSkillWanted((prev) => ({ ...prev, [name]: value }));
   }
 
+  // Check whether time conflict .
   function hasTimeConflict(day, startMin, endMin) {
     return profile.availability.some((slot) => {
       if (slot.day !== day) return false;
@@ -278,6 +290,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     });
   }
 
+  // Run add availability logic.
   function addAvailability() {
     setAvailabilityError("");
     if (newAvailability.selectedDays.length === 0) {
@@ -311,6 +324,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     });
   }
 
+  // Run remove availability logic.
   function removeAvailability(index) {
     setProfile((prev) => ({
       ...prev,
@@ -318,6 +332,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     }));
   }
 
+  // Run add skill logic.
   function addSkill() {
     setSkillError("");
     if (!newSkill.skillName.trim() || !newSkill.category) {
@@ -328,6 +343,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     setNewSkill({ skillName: "", category: "", level: "Novice" });
   }
 
+  // Run remove skill logic.
   function removeSkill(index) {
     setProfile((prev) => ({
       ...prev,
@@ -335,6 +351,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     }));
   }
 
+  // Run add skill wanted logic.
   function addSkillWanted() {
     setSkillError("");
     if (!newSkillWanted.skillName.trim() || !newSkillWanted.category) {
@@ -345,6 +362,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     setNewSkillWanted({ skillName: "", category: "", level: "Novice" });
   }
 
+  // Run remove skill wanted logic.
   function removeSkillWanted(index) {
     setProfile((prev) => ({
       ...prev,
@@ -352,6 +370,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     }));
   }
 
+  // Handle save action.
   async function handleSave(event) {
     event.preventDefault();
     setMessage("");

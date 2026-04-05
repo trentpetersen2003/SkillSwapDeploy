@@ -32,6 +32,7 @@ jest.mock("../components/SwapRequestModal", () => (props) => {
 global.fetch = jest.fn();
 
 describe("ForYouPage", () => {
+  // Run mock fetch data logic.
   function mockFetchData({
     users = [
       {

@@ -5,6 +5,7 @@ const COMPLETED_STATUS = "completed";
 const CANCELLED_STATUS = "cancelled";
 const FINALIZED_STATUSES = [COMPLETED_STATUS, CANCELLED_STATUS];
 
+// Run safe rate logic.
 function safeRate(numerator, denominator) {
   if (!denominator) {
     return 0;
@@ -12,6 +13,7 @@ function safeRate(numerator, denominator) {
   return numerator / denominator;
 }
 
+// Run determine tier logic.
 function determineTier(score) {
   if (score >= 85) return "Highly Reliable";
   if (score >= 70) return "Reliable";
@@ -19,6 +21,7 @@ function determineTier(score) {
   return "Needs Follow-through";
 }
 
+// Build summary from stats payload.
 function buildSummaryFromStats(stats) {
   const totalSwaps = Number(stats.totalSwaps || 0);
   const completedSwaps = Number(stats.completedSwaps || 0);
@@ -64,6 +67,7 @@ function buildSummaryFromStats(stats) {
   };
 }
 
+// Get reliability by user ids data.
 async function getReliabilityByUserIds(userIds = []) {
   const normalizedUserIds = (userIds || []).map((id) => String(id)).filter(Boolean);
   if (normalizedUserIds.length === 0) {

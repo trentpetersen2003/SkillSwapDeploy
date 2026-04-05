@@ -9,6 +9,7 @@ import { withMinimumDelay } from "../utils/loading";
 import "react-calendar/dist/Calendar.css";
 import "../pages/Calendar.css";
 
+// Run calendar page logic.
 function CalendarPage() {
   const location = useLocation();
   const focusSwapId = location.state?.focusSwapId || "";
@@ -16,7 +17,6 @@ function CalendarPage() {
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = currentUser.id || currentUser._id || "";
   const [swaps, setSwaps] = useState([]);
-  const [googleEvents, setGoogleEvents] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -39,6 +39,7 @@ function CalendarPage() {
     setView(focusView);
   }, [focusSwapId, focusView]);
 
+  // Load swaps data.
   async function loadSwaps() {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -63,36 +64,10 @@ function CalendarPage() {
           throw new Error(payload.message || "Failed to load swaps");
         }
 
-        const swapPayload = await swapRes.json();
-
-        let googleEventsPayload = { events: [] };
-        try {
-          const googleEventsRes = await fetchWithAuth(
-            API_URL + "/api/integrations/google-calendar/events",
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-
-          if (googleEventsRes.ok) {
-            googleEventsPayload = await googleEventsRes.json().catch(() => ({ events: [] }));
-          }
-        } catch (_error) {
-          googleEventsPayload = { events: [] };
-        }
-
-        return {
-          swaps: swapPayload,
-          googleEvents: Array.isArray(googleEventsPayload.events)
-            ? googleEventsPayload.events
-            : [],
-        };
+        return swapRes.json();
       });
 
-      setSwaps(data.swaps);
-      setGoogleEvents(data.googleEvents);
+      setSwaps(Array.isArray(data) ? data : []);
       setMessage("");
     } catch (err) {
       console.error("Error loading swaps:", err);
@@ -102,6 +77,7 @@ function CalendarPage() {
     }
   }
 
+  // Handle status change action.
   async function handleStatusChange(swapId, newStatus) {
     const token = localStorage.getItem("token");
     try {
@@ -128,6 +104,7 @@ function CalendarPage() {
     }
   }
 
+  // Handle delete swap action.
   async function handleDeleteSwap(swapId) {
     if (!window.confirm("Are you sure you want to delete this swap?")) {
       return;
@@ -154,6 +131,7 @@ function CalendarPage() {
     }
   }
 
+  // Handle confirm session action.
   async function handleConfirmSession(swapId) {
     const token = localStorage.getItem("token");
     try {
@@ -178,6 +156,7 @@ function CalendarPage() {
     }
   }
 
+  // Handle review change action.
   function handleReviewChange(swapId, field, value) {
     setReviewDraftsBySwapId((prev) => ({
       ...prev,
@@ -189,6 +168,7 @@ function CalendarPage() {
     }));
   }
 
+  // Run maybe prompt for review logic.
   function maybePromptForReview(updatedSwap) {
     if (!updatedSwap || !currentUserId) {
       return;
@@ -215,6 +195,7 @@ function CalendarPage() {
     setReviewPromptSwap(updatedSwap);
   }
 
+  // Handle submit review action.
   async function handleSubmitReview(swapId) {
     const token = localStorage.getItem("token");
     const draft = reviewDraftsBySwapId[swapId] || { rating: "5", comment: "" };
@@ -255,6 +236,7 @@ function CalendarPage() {
     }
   }
 
+  // Handle milestone complete action.
   async function handleMilestoneComplete(swapId, milestoneId) {
     const token = localStorage.getItem("token");
     try {
@@ -293,31 +275,14 @@ function CalendarPage() {
     });
   }
 
-  function getGoogleEventsForDate(date) {
-    return googleEvents.filter((event) => {
-      const startDate = new Date(event.start);
-      if (Number.isNaN(startDate.getTime())) {
-        return false;
-      }
-
-      return (
-        startDate.getDate() === date.getDate() &&
-        startDate.getMonth() === date.getMonth() &&
-        startDate.getFullYear() === date.getFullYear()
-      );
-    });
-  }
-
   // Mark dates that have swaps
   function tileContent({ date, view }) {
     if (view === "month") {
       const daySwaps = getSwapsForDate(date);
-      const dayGoogleEvents = getGoogleEventsForDate(date);
-      const totalEvents = daySwaps.length + dayGoogleEvents.length;
-      if (totalEvents > 0) {
+      if (daySwaps.length > 0) {
         return (
           <div className="calendar-tile-badge">
-            {totalEvents}
+            {daySwaps.length}
           </div>
         );
       }
@@ -351,11 +316,8 @@ function CalendarPage() {
 
   // Get swaps for selected date
   const selectedDateSwaps = getSwapsForDate(selectedDate);
-  const selectedDateGoogleEvents = getGoogleEventsForDate(selectedDate);
-  const upcomingGoogleEvents = googleEvents
-    .filter((event) => new Date(event.start) >= new Date())
-    .sort((a, b) => new Date(a.start) - new Date(b.start));
 
+  // Run format date logic.
   function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -366,6 +328,7 @@ function CalendarPage() {
     });
   }
 
+  // Run format time logic.
   function formatTime(dateString) {
     const date = new Date(dateString);
     return date.toLocaleTimeString("en-US", {
@@ -375,6 +338,7 @@ function CalendarPage() {
     });
   }
 
+  // Get status color data.
   function getStatusColor(status) {
     switch (status) {
       case "confirmed":
@@ -510,27 +474,6 @@ function CalendarPage() {
               </div>
             )}
 
-            <div className="details-google-events">
-              <h4>Other scheduled events ({selectedDateGoogleEvents.length})</h4>
-              {selectedDateGoogleEvents.length === 0 ? (
-                <p className="details-empty details-empty--compact">No other Google events this day.</p>
-              ) : (
-                <div className="details-google-events__list">
-                  {selectedDateGoogleEvents.map((event) => (
-                    <div key={event.id} className="google-event-card">
-                      <div className="google-event-card__title">{event.title}</div>
-                      <div className="google-event-card__meta">
-                        <span>{formatTime(event.start)}</span>
-                        {event.location && <span>{event.location}</span>}
-                      </div>
-                      {event.description && (
-                        <p className="google-event-card__description">{event.description}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </div>
       ) : (
@@ -604,33 +547,6 @@ function CalendarPage() {
           </section>
 
           <section className="list-view__section">
-            <h2 className="section-title">
-              Other Scheduled Events ({upcomingGoogleEvents.length})
-            </h2>
-            {upcomingGoogleEvents.length === 0 ? (
-              <p className="section-empty">
-                No additional Google Calendar events found.
-              </p>
-            ) : (
-              <div className="google-events-list">
-                {upcomingGoogleEvents.map((event) => (
-                  <div key={event.id} className="google-event-card">
-                    <div className="google-event-card__title">{event.title}</div>
-                    <div className="google-event-card__meta">
-                      <span>{formatDate(event.start)}</span>
-                      <span>{formatTime(event.start)}</span>
-                      {event.location && <span>{event.location}</span>}
-                    </div>
-                    {event.description && (
-                      <p className="google-event-card__description">{event.description}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="list-view__section">
             <h2 className="section-title">Swap History ({swapHistory.length})</h2>
             {swapHistory.length === 0 ? (
               <p className="section-empty">
@@ -668,6 +584,7 @@ function CalendarPage() {
   );
 }
 
+// Run swap card logic.
 function SwapCard({
   swap,
   currentUser,
@@ -687,6 +604,7 @@ function SwapCard({
   isHistory = false,
   isHighlighted = false,
 }) {
+  const [templateMessage, setTemplateMessage] = useState("");
   const currentUserId = currentUser.id || currentUser._id;
   const isRequester = swap.requester._id === currentUserId;
   const otherUser = isRequester ? swap.recipient : swap.requester;
@@ -699,6 +617,75 @@ function SwapCard({
   const hasReviewed = Boolean(
     isRequester ? swap.reviews?.requesterReview : swap.reviews?.recipientReview
   );
+
+  // Convert date values to a calendar URL token format.
+  function toCalendarDateToken(value) {
+    return new Date(value).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  }
+
+  // Build reusable metadata for calendar template actions.
+  function buildTemplateMetadata() {
+    const startDate = new Date(swap.scheduledDate);
+    const endDate = new Date(startDate.getTime() + Number(swap.duration || 60) * 60 * 1000);
+    const partnerLabel = otherUser?.username ? `@${otherUser.username}` : otherUser?.name || "Swap partner";
+    const summary = `SkillSwap: ${swap.skillOffered} ↔ ${swap.skillWanted}`;
+    const locationText = swap.meetingType === "virtual"
+      ? swap.meetingLink || swap.location || "Online"
+      : swap.meetingAddress || swap.location || "In person";
+    const details = [
+      `Swap with ${partnerLabel}`,
+      `You teach: ${swap.skillOffered}`,
+      `You learn: ${swap.skillWanted}`,
+      `Status: ${swap.status}`,
+      swap.notes ? `Notes: ${swap.notes}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    return {
+      startDate,
+      endDate,
+      partnerLabel,
+      summary,
+      locationText,
+      details,
+    };
+  }
+
+  // Open a prefilled calendar template in a new browser tab.
+  function handleOpenGoogleTemplate() {
+    const template = buildTemplateMetadata();
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: template.summary,
+      dates: `${toCalendarDateToken(template.startDate)}/${toCalendarDateToken(template.endDate)}`,
+      details: template.details,
+      location: template.locationText,
+    });
+
+    window.open(`https://calendar.google.com/calendar/render?${params.toString()}`, "_blank", "noopener,noreferrer");
+    setTemplateMessage("Opened a prefilled calendar template.");
+  }
+
+  // Copy a ready-to-use manual removal template to clipboard.
+  async function handleCopyRemoveTemplate() {
+    const template = buildTemplateMetadata();
+    const removalText = [
+      "Calendar removal template",
+      `Event title: ${template.summary}`,
+      `Date: ${formatDate ? formatDate(swap.scheduledDate) : new Date(swap.scheduledDate).toLocaleDateString("en-US")}`,
+      `Time: ${formatTime(swap.scheduledDate)}`,
+      `Partner: ${template.partnerLabel}`,
+      "Action: Delete this event manually from your calendar.",
+    ].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(removalText);
+      setTemplateMessage("Copied remove-from-calendar template.");
+    } catch (_error) {
+      setTemplateMessage("Unable to copy automatically. Please copy the event details manually.");
+    }
+  }
 
   return (
     <div
@@ -772,6 +759,25 @@ function SwapCard({
           <strong>Notes:</strong> {swap.notes}
         </div>
       )}
+
+      <div className="swap-card__calendar-tools">
+        <button
+          type="button"
+          className="action-btn template-btn"
+          onClick={handleOpenGoogleTemplate}
+        >
+            Add to Calendar (Template)
+        </button>
+        <button
+          type="button"
+          className="action-btn remove-template-btn"
+          onClick={handleCopyRemoveTemplate}
+        >
+          Copy Remove Template
+        </button>
+      </div>
+
+      {templateMessage && <div className="swap-card__template-message">{templateMessage}</div>}
 
       {milestones.length > 0 && (
         <div className="swap-card__milestones">
@@ -894,6 +900,7 @@ function SwapCard({
   );
 }
 
+// Run review prompt modal logic.
 function ReviewPromptModal({
   swap,
   currentUserId,

@@ -364,6 +364,37 @@
   margin-bottom: 0.75rem;
 }
 
+.swap-card__calendar-tools {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.template-btn {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.template-btn:hover {
+  background: #bfdbfe;
+}
+
+.remove-template-btn {
+  background: #f3f4f6;
+  color: #334155;
+}
+
+.remove-template-btn:hover {
+  background: #e5e7eb;
+}
+
+.swap-card__template-message {
+  margin-bottom: 0.7rem;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
 .swap-card__confirmation {
   margin-bottom: 0.75rem;
 }

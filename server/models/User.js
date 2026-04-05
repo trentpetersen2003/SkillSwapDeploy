@@ -86,54 +86,6 @@ const userSchema = new mongoose.Schema(
         default: null,
       },
     },
-    googleCalendar: {
-      connected: {
-        type: Boolean,
-        default: false,
-      },
-      accountEmail: {
-        type: String,
-        trim: true,
-        default: "",
-      },
-      calendarId: {
-        type: String,
-        trim: true,
-        default: "primary",
-      },
-      syncAcceptedSwaps: {
-        type: Boolean,
-        default: false,
-      },
-      removeCancelledSwaps: {
-        type: Boolean,
-        default: true,
-      },
-      refreshTokenCiphertext: {
-        type: String,
-        default: "",
-        select: false,
-      },
-      refreshTokenIv: {
-        type: String,
-        default: "",
-        select: false,
-      },
-      refreshTokenAuthTag: {
-        type: String,
-        default: "",
-        select: false,
-      },
-      refreshTokenUpdatedAt: {
-        type: Date,
-        default: null,
-        select: false,
-      },
-      lastConnectedAt: {
-        type: Date,
-        default: null,
-      },
-    },
     city: {
       type: String,
       trim: true,

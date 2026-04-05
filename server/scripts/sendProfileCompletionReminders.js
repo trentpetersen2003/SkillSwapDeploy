@@ -4,6 +4,7 @@ const { sendProfileCompletionReminders } = require("../services/profileReminders
 
 dotenv.config();
 
+// Run run logic.
 async function run() {
   if (!process.env.MONGO_URI) {
     throw new Error("MONGO_URI is required to send profile completion reminders.");

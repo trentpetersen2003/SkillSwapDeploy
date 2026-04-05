@@ -26,6 +26,7 @@ jest.mock("../../middleware/auth", () => (req, res, next) => {
 
 const forYouRoutes = require("../../routes/forYou");
 
+// Run make select query logic.
 function makeSelectQuery(value) {
   return {
     select: jest.fn().mockResolvedValue(value),

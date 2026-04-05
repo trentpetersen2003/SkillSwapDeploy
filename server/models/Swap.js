@@ -150,22 +150,6 @@ const swapSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    googleCalendarSync: {
-      requesterEventId: {
-        type: String,
-        trim: true,
-        default: "",
-      },
-      recipientEventId: {
-        type: String,
-        trim: true,
-        default: "",
-      },
-      lastSyncedAt: {
-        type: Date,
-        default: null,
-      },
-    },
   },
   {
     timestamps: true,

@@ -7,6 +7,7 @@ import "./NavBar.css";
 const UNREAD_POLLING_INTERVAL_MS = 10000;
 const MUTED_CONVERSATIONS_STORAGE_KEY = "chat-muted-conversations";
 
+// Run nav bar logic.
 function NavBar({
   isProfileComplete = true,
   onRequireProfileSetup,
@@ -25,6 +26,7 @@ function NavBar({
 
     let intervalId = null;
 
+    // Run fetch unread count logic.
     async function fetchUnreadCount() {
       try {
         const res = await fetchWithAuth(`${API_URL}/api/messages/conversations`, {
@@ -75,6 +77,7 @@ function NavBar({
     };
   }, [isProfileComplete, token]);
 
+  // Handle restricted navigation action.
   function handleRestrictedNavigation(pathname, actionLabel) {
     if (isProfileComplete) {
       if (onBeforeNavigate) {
@@ -88,6 +91,7 @@ function NavBar({
     onRequireProfileSetup?.(actionLabel);
   }
 
+  // Handle nav click action.
   function handleNavClick(event, pathname) {
     if (!onBeforeNavigate) {
       return;
@@ -97,6 +101,7 @@ function NavBar({
     onBeforeNavigate(pathname);
   }
 
+  // Get restricted nav class data.
   function getRestrictedNavClass(pathname) {
     return location.pathname === pathname ? "nav-link active" : "nav-link";
   }

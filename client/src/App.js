@@ -41,6 +41,7 @@ const completeSetupModalCopy = {
   secondaryLabel: "Maybe later",
 };
 
+// Get default profile setup state data.
 function getDefaultProfileSetupState() {
   return {
     loading: false,
@@ -49,10 +50,12 @@ function getDefaultProfileSetupState() {
   };
 }
 
+// Check whether restricted route .
 function isRestrictedRoute(pathname = "") {
   return Object.prototype.hasOwnProperty.call(restrictedRouteConfig, pathname);
 }
 
+// Run login page logic.
 function LoginPage({ onLogin }) {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState(initialForm);
@@ -78,10 +81,12 @@ function LoginPage({ onLogin }) {
 
     let cancelled = false;
 
+    // Run wait for google identity logic.
     function waitForGoogleIdentity(maxAttempts = 50, delayMs = 100) {
       return new Promise((resolve, reject) => {
         let attempts = 0;
 
+        // Run check ready logic.
         function checkReady() {
           if (cancelled) {
             reject(new Error("Google Sign-In initialization cancelled"));
@@ -106,6 +111,7 @@ function LoginPage({ onLogin }) {
       });
     }
 
+    // Run initialize google button logic.
     function initializeGoogleButton() {
       if (cancelled || !window.google?.accounts?.id) {
         return;
@@ -211,11 +217,13 @@ function LoginPage({ onLogin }) {
     };
   }, [googleClientId, navigate, onLogin]);
 
+  // Handle change action.
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
+  // Handle submit action.
   async function handleSubmit(e) {
     e.preventDefault();
     if (submitting) {
@@ -390,12 +398,14 @@ function LoginPage({ onLogin }) {
   );
 }
 
+// Run forgot password page logic.
 function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
+  // Handle submit action.
   async function handleSubmit(e) {
     e.preventDefault();
     if (submitting) {
@@ -467,6 +477,7 @@ function ForgotPasswordPage() {
   );
 }
 
+// Run reset password page logic.
 function ResetPasswordPage() {
   const { token } = useParams();
   const [password, setPassword] = useState("");
@@ -475,6 +486,7 @@ function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
+  // Handle submit action.
   async function handleSubmit(e) {
     e.preventDefault();
     if (submitting) {
@@ -569,6 +581,7 @@ function ResetPasswordPage() {
   );
 }
 
+// Run app shell logic.
 function AppShell({
   user,
   profileSetup,
@@ -708,6 +721,7 @@ function AppShell({
   );
 }
 
+// Run app logic.
 function App() {
   const [user, setUser] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
@@ -779,6 +793,7 @@ function App() {
   useEffect(() => {
     let isMounted = true;
 
+    // Run restore session logic.
     async function restoreSession() {
       const savedToken = localStorage.getItem("token");
       const savedUser = localStorage.getItem("user");

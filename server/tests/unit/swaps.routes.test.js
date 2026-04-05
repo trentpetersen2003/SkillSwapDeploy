@@ -8,7 +8,6 @@ const {
   sendSwapAcceptedEmail,
   sendSwapCancelledEmail,
 } = require("../../services/email");
-const googleCalendar = require("../../services/googleCalendar");
 
 const AUTH_USER_ID = "507f1f77bcf86cd799439011";
 const RECIPIENT_ID = "507f1f77bcf86cd799439012";
@@ -20,23 +19,19 @@ jest.mock("../../services/email", () => ({
   sendSwapAcceptedEmail: jest.fn(),
   sendSwapCancelledEmail: jest.fn(),
 }));
-jest.mock("../../services/googleCalendar", () => ({
-  listUpcomingExternalEventsForUser: jest.fn().mockResolvedValue([]),
-  removeSwapEventForUser: jest.fn().mockResolvedValue(undefined),
-  shouldRemoveCancelledSwaps: jest.fn().mockReturnValue(false),
-  upsertSwapEventForUser: jest.fn().mockResolvedValue(""),
-}));
 jest.mock("../../middleware/auth", () => (req, res, next) => {
   req.userId = AUTH_USER_ID;
   next();
 });
 
+// Run make select query logic.
 function makeSelectQuery(value) {
   return {
     select: jest.fn().mockResolvedValue(value),
   };
 }
 
+// Run make populate query logic.
 function makePopulateQuery(value) {
   return {
     populate: jest.fn().mockReturnValue({
@@ -45,6 +40,7 @@ function makePopulateQuery(value) {
   };
 }
 
+// Run make setup ready user logic.
 function makeSetupReadyUser(id, overrides = {}) {
   return {
     _id: id,
@@ -203,161 +199,6 @@ describe("Swaps Routes", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe("This user has not set availability yet");
-  });
-
-  test("returns 400 when recipient has a Google Calendar conflict", async () => {
-    const conflictStart = new Date("2030-01-01T10:00:00.000Z");
-    const conflictEnd = new Date("2030-01-01T11:00:00.000Z");
-
-    User.findById.mockImplementation((id) => {
-      if (id === AUTH_USER_ID) {
-        return makeSelectQuery(
-          makeSetupReadyUser(AUTH_USER_ID, {
-            blockedUsers: [],
-            availability: allDayAvailability,
-          })
-        );
-      }
-
-      if (id === RECIPIENT_ID) {
-        return makeSelectQuery(
-          makeSetupReadyUser(RECIPIENT_ID, {
-            blockedUsers: [],
-            availability: allDayAvailability,
-          })
-        );
-      }
-
-      return makeSelectQuery(null);
-    });
-
-    googleCalendar.listUpcomingExternalEventsForUser
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        {
-          id: "event-1",
-          summary: "Existing meeting",
-          start: { dateTime: conflictStart.toISOString() },
-          end: { dateTime: conflictEnd.toISOString() },
-        },
-      ]);
-
-    const response = await request(app)
-      .post("/api/swaps")
-      .send({
-        recipientId: RECIPIENT_ID,
-        skillOffered: "Piano",
-        skillWanted: "Spanish",
-        scheduledDate: "2030-01-01T10:30:00.000Z",
-        duration: 60,
-        meetingType: "virtual",
-        meetingLink: "https://zoom.us/j/123456789",
-        totalSessions: 1,
-        milestones: [{ title: "Session one" }],
-      });
-
-    expect(response.status).toBe(400);
-    expect(response.body.message).toBe(
-      "That time conflicts with another event on this user's Google Calendar."
-    );
-    expect(Swap).not.toHaveBeenCalled();
-  });
-
-  test("returns requester-only conflict details for own Google Calendar conflict", async () => {
-    User.findById.mockImplementation((id) => {
-      if (id === AUTH_USER_ID) {
-        return makeSelectQuery(
-          makeSetupReadyUser(AUTH_USER_ID, {
-            blockedUsers: [],
-            availability: allDayAvailability,
-          })
-        );
-      }
-
-      if (id === RECIPIENT_ID) {
-        return makeSelectQuery(
-          makeSetupReadyUser(RECIPIENT_ID, {
-            blockedUsers: [],
-            availability: allDayAvailability,
-          })
-        );
-      }
-
-      return makeSelectQuery(null);
-    });
-
-    googleCalendar.listUpcomingExternalEventsForUser
-      .mockResolvedValueOnce([
-        {
-          id: "mine-1",
-          title: "Doctor Appointment",
-          start: { dateTime: "2030-01-01T10:00:00.000Z" },
-          end: { dateTime: "2030-01-01T11:00:00.000Z" },
-        },
-      ])
-      .mockResolvedValueOnce([]);
-
-    const response = await request(app)
-      .post("/api/swaps")
-      .send({
-        recipientId: RECIPIENT_ID,
-        skillOffered: "Piano",
-        skillWanted: "Spanish",
-        scheduledDate: "2030-01-01T10:30:00.000Z",
-        duration: 60,
-        meetingType: "virtual",
-        meetingLink: "https://zoom.us/j/123456789",
-        totalSessions: 1,
-        milestones: [{ title: "Session one" }],
-      });
-
-    expect(response.status).toBe(400);
-    expect(response.body.message).toContain("Doctor Appointment");
-    expect(response.body.message).toContain("your Google Calendar event");
-    expect(Swap).not.toHaveBeenCalled();
-  });
-
-  test("omits Google Calendar-conflicting suggestions", async () => {
-    User.findById.mockImplementation((id) => {
-      if (id === AUTH_USER_ID) {
-        return makeSelectQuery(
-          makeSetupReadyUser(AUTH_USER_ID, {
-            blockedUsers: [],
-            availability: allDayAvailability,
-          })
-        );
-      }
-
-      if (id === RECIPIENT_ID) {
-        return makeSelectQuery(
-          makeSetupReadyUser(RECIPIENT_ID, {
-            blockedUsers: [],
-            availability: allDayAvailability,
-          })
-        );
-      }
-
-      return makeSelectQuery(null);
-    });
-
-    Swap.find.mockReturnValue(makeSelectQuery([]));
-    googleCalendar.listUpcomingExternalEventsForUser
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        {
-          id: "event-1",
-          summary: "Existing meeting",
-          start: { dateTime: "2030-01-01T10:00:00.000Z" },
-          end: { dateTime: "2030-01-01T11:00:00.000Z" },
-        },
-      ]);
-
-    const response = await request(app).get(
-      `/api/swaps/suggestions?recipientId=${RECIPIENT_ID}&duration=60&limit=3&daysAhead=14`
-    );
-
-    expect(response.status).toBe(200);
-    expect(response.body.suggestions.every((slot) => slot.scheduledDate !== "2030-01-01T10:00:00.000Z")).toBe(true);
   });
 
   test("prevents marking swap completed when milestones remain", async () => {

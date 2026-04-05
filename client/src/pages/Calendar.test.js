@@ -88,6 +88,7 @@ describe("CalendarPage review prompt", () => {
     window.localStorage.clear();
   });
 
+  // Run mock responses logic.
   function mockResponses() {
     const swapListResponses = [
       [pendingSwap],
@@ -129,6 +130,7 @@ describe("CalendarPage review prompt", () => {
     };
   }
 
+  // Run mock first confirmation responses logic.
   function mockFirstConfirmationResponses() {
     const swapListResponses = [[pendingSwap], [confirmedSwap], [confirmedSwap]];
     let reviewPayload = null;

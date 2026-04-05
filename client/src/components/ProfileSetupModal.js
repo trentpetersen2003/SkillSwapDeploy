@@ -1,6 +1,7 @@
 import React from "react";
 import "./ProfileSetupModal.css";
 
+// Run profile setup modal logic.
 function ProfileSetupModal({
   open,
   title,

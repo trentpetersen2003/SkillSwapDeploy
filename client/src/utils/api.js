@@ -30,6 +30,7 @@ export async function fetchWithAuth(url, options = {}) {
   }
 }
 
+// Handle auth failure action.
 function handleAuthFailure() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");

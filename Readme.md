@@ -111,9 +111,7 @@ Tip: You can start from the checked-in templates:
 
 Copy each to `.env` in the same folder, then fill in your values.
 
-### Google OAuth setup (for Google Login + Calendar sync)
-
-Use one Google OAuth app for both features.
+### Google OAuth setup (Google Login)
 
 1. In Google Cloud Console, open your project.
 2. Go to `APIs & Services` -> `OAuth consent screen`.
@@ -123,12 +121,10 @@ Use one Google OAuth app for both features.
 	- `openid`
 	- `.../auth/userinfo.email`
 	- `.../auth/userinfo.profile`
-	- `.../auth/calendar.events`
 6. Save changes.
 
 If you do not see userinfo scopes in the picker, enable:
 - `Google People API`
-- `Google Calendar API`
 
 Then refresh the OAuth consent screen and add scopes again.
 
@@ -151,8 +147,6 @@ Then refresh the OAuth consent screen and add scopes again.
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 GOOGLE_REDIRECT_URI=http://localhost:3001/api/auth/google/callback
-# Optional if using separate callback route later
-GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:3001/api/integrations/google-calendar/callback
 ```
 
 `client/.env`:

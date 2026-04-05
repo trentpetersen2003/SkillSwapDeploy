@@ -50,6 +50,7 @@ const matchingTelemetry = {
   lastUpdatedAt: null,
 };
 
+// Build skill family alias lookup payload.
 function buildSkillFamilyAliasLookup() {
   const aliases = {};
 
@@ -64,6 +65,7 @@ function buildSkillFamilyAliasLookup() {
 
 const SKILL_FAMILY_ALIASES = buildSkillFamilyAliasLookup();
 
+// Run normalize text logic.
 function normalizeText(value) {
   return String(value || "")
     .toLowerCase()
@@ -72,10 +74,12 @@ function normalizeText(value) {
     .replace(/\s+/g, " ");
 }
 
+// Run normalize skill key logic.
 function normalizeSkillKey(value) {
   return normalizeText(value).replace(/\s+/g, "");
 }
 
+// Run tokenize skill logic.
 function tokenizeSkill(value) {
   return normalizeText(value)
     .split(" ")
@@ -83,6 +87,7 @@ function tokenizeSkill(value) {
     .filter((token) => token.length >= 2);
 }
 
+// Parse utc offset to minutes input.
 function parseUtcOffsetToMinutes(timeZone) {
   const match = String(timeZone || "").match(/^UTC([+-])(\d{2}):(\d{2})$/i);
   if (!match) {
@@ -95,6 +100,7 @@ function parseUtcOffsetToMinutes(timeZone) {
   return sign * (hours * 60 + minutes);
 }
 
+// Parse time token to minutes input.
 function parseTimeTokenToMinutes(token) {
   const match = String(token || "").trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
   if (!match) {
@@ -115,6 +121,7 @@ function parseTimeTokenToMinutes(token) {
   return hours * 60 + minutes;
 }
 
+// Parse time range input.
 function parseTimeRange(range) {
   const [startToken, endToken] = String(range || "").split("-").map((part) => part.trim());
   const start = parseTimeTokenToMinutes(startToken);
@@ -127,6 +134,7 @@ function parseTimeRange(range) {
   return { start, end };
 }
 
+// Get local day and minutes data.
 function getLocalDayAndMinutes(date, offsetMinutes) {
   const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
 
@@ -144,6 +152,7 @@ function getLocalDayAndMinutes(date, offsetMinutes) {
   };
 }
 
+// Check whether user available at .
 function isUserAvailableAt(user, scheduledDate, durationMinutes) {
   if (!user?.timeZone || !Array.isArray(user.availability) || user.availability.length === 0) {
     return false;
@@ -178,17 +187,20 @@ function isUserAvailableAt(user, scheduledDate, durationMinutes) {
   });
 }
 
+// Run round up to interval logic.
 function roundUpToInterval(date, intervalMinutes) {
   const intervalMs = intervalMinutes * 60 * 1000;
   return new Date(Math.ceil(date.getTime() / intervalMs) * intervalMs);
 }
 
+// Get date range end data.
 function getDateRangeEnd(daysAhead) {
   const end = new Date();
   end.setDate(end.getDate() + daysAhead);
   return end;
 }
 
+// Run to skill shape logic.
 function toSkillShape(skill) {
   if (!skill) {
     return { name: "", normalized: "", family: null, category: "" };
@@ -209,6 +221,7 @@ function toSkillShape(skill) {
   };
 }
 
+// Run compute token similarity logic.
 function computeTokenSimilarity(aTokens, bTokens) {
   if (!aTokens.length || !bTokens.length) {
     return 0;
@@ -226,6 +239,7 @@ function computeTokenSimilarity(aTokens, bTokens) {
   return intersectionCount / unionCount;
 }
 
+// Run increment map counter logic.
 function incrementMapCounter(map, key) {
   if (!key) {
     return;
@@ -234,6 +248,7 @@ function incrementMapCounter(map, key) {
   map.set(key, (map.get(key) || 0) + 1);
 }
 
+// Run top entries logic.
 function topEntries(map, limit = TELEMETRY_TOP_LIMIT) {
   return [...map.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -241,6 +256,7 @@ function topEntries(map, limit = TELEMETRY_TOP_LIMIT) {
     .map(([value, count]) => ({ value, count }));
 }
 
+// Run pair similarity logic.
 function pairSimilarity(a, b) {
   if (!a.normalized || !b.normalized) {
     return 0;
@@ -272,6 +288,7 @@ function pairSimilarity(a, b) {
   return 0;
 }
 
+// Run best set similarity logic.
 function bestSetSimilarity(sourceSkills, targetSkills) {
   if (!sourceSkills.length || !targetSkills.length) {
     return { average: 0, matches: [] };
@@ -302,6 +319,7 @@ function bestSetSimilarity(sourceSkills, targetSkills) {
   };
 }
 
+// Run format telemetry skill logic.
 function formatTelemetrySkill(skill) {
   if (!skill) {
     return "";
@@ -310,6 +328,7 @@ function formatTelemetrySkill(skill) {
   return skill.normalizedText || skill.name || skill.normalized || "";
 }
 
+// Run record skill telemetry logic.
 function recordSkillTelemetry(learnMatches, teachMatches) {
   const all = [...learnMatches, ...teachMatches];
 
@@ -341,6 +360,7 @@ function recordSkillTelemetry(learnMatches, teachMatches) {
   matchingTelemetry.lastUpdatedAt = new Date().toISOString();
 }
 
+// Run compute skill score logic.
 function computeSkillScore(currentUser, candidateUser) {
   const currentTeaches = (currentUser.skills || []).map(toSkillShape);
   const currentWants = (currentUser.skillsWanted || []).map(toSkillShape);
@@ -363,6 +383,7 @@ function computeSkillScore(currentUser, candidateUser) {
   };
 }
 
+// Run compute availability score logic.
 function computeAvailabilityScore(currentUser, candidateUser) {
   const durationMinutes = 60;
   const daysAhead = 14;
@@ -396,6 +417,7 @@ function computeAvailabilityScore(currentUser, candidateUser) {
   return { score, overlapMinutes, overlapDays: overlapDays.size, hasOverlap };
 }
 
+// Run compute timezone score logic.
 function computeTimezoneScore(currentUser, candidateUser) {
   const currentOffset = parseUtcOffsetToMinutes(currentUser.timeZone);
   const candidateOffset = parseUtcOffsetToMinutes(candidateUser.timeZone);
@@ -409,6 +431,7 @@ function computeTimezoneScore(currentUser, candidateUser) {
   return { score, gapHours: Number(gapHours.toFixed(2)) };
 }
 
+// Run compute reliability score logic.
 function computeReliabilityScore(candidateReliability) {
   if (!candidateReliability || candidateReliability.score === null || candidateReliability.score === undefined) {
     return 40;
@@ -417,6 +440,7 @@ function computeReliabilityScore(candidateReliability) {
   return Number(candidateReliability.score);
 }
 
+// Build match reasons payload.
 function buildMatchReasons({
   currentUser,
   candidateUser,
@@ -468,6 +492,7 @@ function buildMatchReasons({
   return reasons.slice(0, 3);
 }
 
+// Run compute match logic.
 function computeMatch(currentUser, candidateUser, candidateReliability = null) {
   const skillData = computeSkillScore(currentUser, candidateUser);
   const availabilityData = computeAvailabilityScore(currentUser, candidateUser);
@@ -503,6 +528,7 @@ function computeMatch(currentUser, candidateUser, candidateReliability = null) {
   };
 }
 
+// Run rank candidates logic.
 function rankCandidates(currentUser, candidates, reliabilityByUserId = {}) {
   const enriched = (candidates || []).map((candidate) => {
     const candidateObject =
@@ -534,6 +560,7 @@ function rankCandidates(currentUser, candidates, reliabilityByUserId = {}) {
   return scheduleableOnly;
 }
 
+// Get matching telemetry snapshot data.
 function getMatchingTelemetrySnapshot() {
   return {
     totalEvaluations: matchingTelemetry.totalEvaluations,
@@ -544,6 +571,7 @@ function getMatchingTelemetrySnapshot() {
   };
 }
 
+// Run reset matching telemetry logic.
 function resetMatchingTelemetry() {
   matchingTelemetry.unmatchedWantedSkills.clear();
   matchingTelemetry.unmatchedTeachSkills.clear();

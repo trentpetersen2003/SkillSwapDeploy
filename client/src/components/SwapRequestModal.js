@@ -5,6 +5,7 @@ import fetchWithAuth from "../utils/api";
 import LoadingState from "./LoadingState";
 import { withMinimumDelay } from "../utils/loading";
 
+// Run swap request modal logic.
 function SwapRequestModal({ user, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
     skillOffered: "",
@@ -33,6 +34,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     fetchCurrentUserProfile();
   }, []);
 
+  // Run fetch current user profile logic.
   async function fetchCurrentUserProfile() {
     setDetailsLoading(true);
     setDetailsError("");
@@ -68,6 +70,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     }
   }
 
+  // Handle change action.
   function handleChange(e) {
     const { name, value } = e.target;
 
@@ -95,6 +98,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   }
 
+  // Handle milestone change action.
   function handleMilestoneChange(index, value) {
     setFormData((prev) => {
       const nextMilestones = [...prev.milestoneTitles];
@@ -105,6 +109,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
       };
     });
   }
+  // Parse utc offset to minutes input.
   function parseUtcOffsetToMinutes(timeZone) {
     if (typeof timeZone !== "string") return null;
 
@@ -118,6 +123,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     return sign * (hours * 60 + minutes);
   }
 
+  // Build iso from profile time zone payload.
   function buildIsoFromProfileTimeZone(dateStr, timeStr, timeZone) {
     const offsetMinutes = parseUtcOffsetToMinutes(timeZone);
     if (offsetMinutes === null) {
@@ -141,6 +147,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     "teams.microsoft.us",
   ];
 
+  // Run normalize meeting link logic.
   function normalizeMeetingLink(rawLink = "") {
     const trimmed = typeof rawLink === "string" ? rawLink.trim() : "";
     if (!trimmed) {
@@ -174,6 +181,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     return { value: parsedUrl.toString() };
   }
 
+  // Run split date and time for profile time zone logic.
   function splitDateAndTimeForProfileTimeZone(isoDate, timeZone) {
     const offsetMinutes = parseUtcOffsetToMinutes(timeZone);
     if (offsetMinutes === null) {
@@ -198,6 +206,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     };
   }
 
+  // Run apply suggested slot logic.
   function applySuggestedSlot(isoDate) {
     try {
       const next = splitDateAndTimeForProfileTimeZone(isoDate, currentUserTimeZone);
@@ -212,6 +221,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     }
   }
 
+  // Run fetch suggested slots logic.
   async function fetchSuggestedSlots() {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -259,6 +269,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
       setSuggestionsLoading(false);
     }
   }
+  // Handle submit action.
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");

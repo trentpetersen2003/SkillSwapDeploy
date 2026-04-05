@@ -4,6 +4,7 @@ const auth = require("../../middleware/auth");
 
 jest.mock("../../models/User");
 
+// Run mock res logic.
 function mockRes() {
   return {
     statusCode: null,

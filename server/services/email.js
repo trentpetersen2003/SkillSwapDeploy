@@ -22,15 +22,18 @@ const EMAIL_PRIORITY = {
   LOW: "low",
 };
 
+// Get today key data.
 function getTodayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Run to number logic.
 function toNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+// Get email budget config data.
 function getEmailBudgetConfig() {
   const hardLimit = Math.max(1, toNumber(process.env.EMAIL_DAILY_HARD_LIMIT, 350));
   const softLimit = Math.max(1, toNumber(process.env.EMAIL_DAILY_SOFT_LIMIT, 300));
@@ -42,6 +45,7 @@ function getEmailBudgetConfig() {
   };
 }
 
+// Get counter field by category data.
 function getCounterFieldByCategory(category) {
   if (category === EMAIL_CATEGORY.TRANSACTIONAL) {
     return "transactionalSent";
@@ -54,6 +58,7 @@ function getCounterFieldByCategory(category) {
   return "notificationSent";
 }
 
+// Run reserve daily email slot logic.
 async function reserveDailyEmailSlot({ category, priority }) {
   const config = getEmailBudgetConfig();
   if (!config.enforce) {
@@ -108,11 +113,13 @@ async function reserveDailyEmailSlot({ category, priority }) {
   };
 }
 
+// Build swap dashboard link payload.
 function buildSwapDashboardLink() {
   const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
   return `${clientUrl}/swaps`;
 }
 
+// Check whether smtp config .
 function hasSmtpConfig() {
   return Boolean(
     process.env.SMTP_HOST &&
@@ -122,6 +129,7 @@ function hasSmtpConfig() {
   );
 }
 
+// Get configured email mode data.
 function getConfiguredEmailMode() {
   const configuredMode = (process.env.EMAIL_DELIVERY_MODE || DELIVERY_MODES.AUTO)
     .trim()
@@ -138,6 +146,7 @@ function getConfiguredEmailMode() {
   return DELIVERY_MODES.AUTO;
 }
 
+// Get email delivery mode data.
 function getEmailDeliveryMode() {
   const configuredMode = getConfiguredEmailMode();
 
@@ -156,6 +165,7 @@ function getEmailDeliveryMode() {
   return DELIVERY_MODES.ETHEREAL_TEST;
 }
 
+// Run validate production email config logic.
 function validateProductionEmailConfig() {
   if (process.env.NODE_ENV !== "production") {
     return { valid: true };
@@ -188,6 +198,7 @@ function validateProductionEmailConfig() {
   return { valid: true };
 }
 
+// Get transporter data.
 async function getTransporter() {
   if (cachedTransporter) {
     return cachedTransporter;
@@ -232,6 +243,7 @@ async function getTransporter() {
   return cachedTransporter;
 }
 
+// Run send email logic.
 async function sendEmail({
   to,
   subject,
@@ -274,6 +286,7 @@ async function sendEmail({
   return { sent: true, skipped: false };
 }
 
+// Run send password reset email logic.
 async function sendPasswordResetEmail({ to, resetLink }) {
   const subject = "Reset your SkillSwap password";
   const text = `You requested a password reset for your SkillSwap account.\n\nReset your password using this link: ${resetLink}\n\nThis link expires in 30 minutes and can only be used once. If you did not request this, you can ignore this email.`;
@@ -295,6 +308,7 @@ async function sendPasswordResetEmail({ to, resetLink }) {
   });
 }
 
+// Run send swap request email logic.
 async function sendSwapRequestEmail({
   to,
   recipientName,
@@ -327,6 +341,7 @@ async function sendSwapRequestEmail({
   });
 }
 
+// Run send swap accepted email logic.
 async function sendSwapAcceptedEmail({
   to,
   requesterName,
@@ -359,6 +374,7 @@ async function sendSwapAcceptedEmail({
   });
 }
 
+// Run send swap cancelled email logic.
 async function sendSwapCancelledEmail({
   to,
   recipientName,
@@ -391,6 +407,7 @@ async function sendSwapCancelledEmail({
   });
 }
 
+// Run send profile completion reminder email logic.
 async function sendProfileCompletionReminderEmail({
   to,
   userName,

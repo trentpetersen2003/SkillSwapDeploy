@@ -11,6 +11,7 @@ const {
 
 const router = express.Router();
 
+// Check whether matching telemetry enabled .
 function isMatchingTelemetryEnabled() {
   return (
     process.env.NODE_ENV !== "production" &&
@@ -18,6 +19,7 @@ function isMatchingTelemetryEnabled() {
   );
 }
 
+// Check whether access matching telemetry .
 function canAccessMatchingTelemetry(req) {
   if (!isMatchingTelemetryEnabled()) {
     return false;
@@ -31,6 +33,7 @@ function canAccessMatchingTelemetry(req) {
   return req.get("x-matching-telemetry-token") === requiredToken;
 }
 
+// Run sanitize public user logic.
 function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
   const user = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
 

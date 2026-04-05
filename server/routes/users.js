@@ -6,10 +6,6 @@ const User = require("../models/User");
 const auth = require("../middleware/auth");
 const { getReliabilityByUserIds } = require("../services/reliability");
 const { rankCandidates } = require("../services/matching");
-const {
-  decryptToken,
-  revokeGoogleCalendarRefreshToken,
-} = require("../services/googleCalendar");
 
 const router = express.Router();
 const PASSWORD_MIN_LENGTH = 8;
@@ -23,6 +19,7 @@ const DAYS_OF_WEEK = [
   "Sunday",
 ];
 
+// Run sanitize public user logic.
 function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
   const user = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
 
@@ -35,6 +32,7 @@ function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
   return user;
 }
 
+// Parse multi value param input.
 function parseMultiValueParam(value) {
   if (Array.isArray(value)) {
     return value
@@ -270,29 +268,10 @@ router.delete("/:id", auth, async (req, res) => {
   }
 
   try {
-    const user = await User.findById(id).select(
-      "googleCalendar.connected googleCalendar.refreshTokenCiphertext googleCalendar.refreshTokenIv googleCalendar.refreshTokenAuthTag googleCalendar.refreshTokenUpdatedAt"
-    );
+    const user = await User.findById(id);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
-    }
-
-    const shouldRevokeGoogleGrant = Boolean(user.googleCalendar?.connected);
-    const refreshToken = shouldRevokeGoogleGrant && user.googleCalendar?.refreshTokenCiphertext
-      ? decryptToken({
-          ciphertext: user.googleCalendar.refreshTokenCiphertext,
-          iv: user.googleCalendar.refreshTokenIv,
-          authTag: user.googleCalendar.refreshTokenAuthTag,
-        })
-      : "";
-
-    if (refreshToken) {
-      try {
-        await revokeGoogleCalendarRefreshToken(refreshToken);
-      } catch (error) {
-        console.error("Error revoking Google Calendar grant during account deletion:", error);
-      }
     }
 
     const deleted = await User.findByIdAndDelete(id);
@@ -309,9 +288,7 @@ router.delete("/:id", auth, async (req, res) => {
 // GET /api/users/profile - get current user profile
 router.get("/profile", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select(
-      "-passwordHash -tokenVersion -googleCalendar.refreshTokenCiphertext -googleCalendar.refreshTokenIv -googleCalendar.refreshTokenAuthTag -googleCalendar.refreshTokenUpdatedAt"
-    );
+    const user = await User.findById(req.userId).select("-passwordHash -tokenVersion");
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Migrate old firstName/lastName to name if needed

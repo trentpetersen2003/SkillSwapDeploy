@@ -4,10 +4,6 @@ const bcrypt = require("bcryptjs");
 const User = require("../../models/User");
 const usersRoutes = require("../../routes/users");
 const { getReliabilityByUserIds } = require("../../services/reliability");
-const {
-  decryptToken,
-  revokeGoogleCalendarRefreshToken,
-} = require("../../services/googleCalendar");
 
 const AUTH_USER_ID = "507f1f77bcf86cd799439011";
 
@@ -16,21 +12,19 @@ jest.mock("bcryptjs");
 jest.mock("../../services/reliability", () => ({
   getReliabilityByUserIds: jest.fn(),
 }));
-jest.mock("../../services/googleCalendar", () => ({
-  decryptToken: jest.fn(),
-  revokeGoogleCalendarRefreshToken: jest.fn(),
-}));
 jest.mock("../../middleware/auth", () => (req, res, next) => {
   req.userId = "507f1f77bcf86cd799439011";
   next();
 });
 
+// Run make select query logic.
 function makeSelectQuery(value) {
   return {
     select: jest.fn().mockResolvedValue(value),
   };
 }
 
+// Run make select sort query logic.
 function makeSelectSortQuery(value) {
   return {
     select: jest.fn().mockReturnValue({
@@ -237,51 +231,14 @@ describe("Users Routes", () => {
   });
 
   describe("DELETE /api/users/:id", () => {
-    test("revokes a connected Google Calendar grant before deleting the account", async () => {
-      const user = {
-        googleCalendar: {
-          connected: true,
-          refreshTokenCiphertext: "ciphertext",
-          refreshTokenIv: "iv",
-          refreshTokenAuthTag: "tag",
-        },
-      };
-
-      User.findById.mockReturnValue(makeSelectQuery(user));
-      decryptToken.mockReturnValue("refresh-token");
-      revokeGoogleCalendarRefreshToken.mockResolvedValue(true);
+    test("deletes the account for the authenticated user", async () => {
+      User.findById.mockReturnValue(makeSelectQuery({ _id: AUTH_USER_ID }));
       User.findByIdAndDelete.mockResolvedValue({ _id: AUTH_USER_ID });
 
       const response = await request(app).delete(`/api/users/${AUTH_USER_ID}`);
 
       expect(response.status).toBe(200);
-      expect(decryptToken).toHaveBeenCalledWith({
-        ciphertext: "ciphertext",
-        iv: "iv",
-        authTag: "tag",
-      });
-      expect(revokeGoogleCalendarRefreshToken).toHaveBeenCalledWith("refresh-token");
       expect(User.findByIdAndDelete).toHaveBeenCalledWith(AUTH_USER_ID);
-    });
-
-    test("skips Google revocation for normal accounts", async () => {
-      const user = {
-        googleCalendar: {
-          connected: false,
-          refreshTokenCiphertext: "",
-          refreshTokenIv: "",
-          refreshTokenAuthTag: "",
-        },
-      };
-
-      User.findById.mockReturnValue(makeSelectQuery(user));
-      User.findByIdAndDelete.mockResolvedValue({ _id: AUTH_USER_ID });
-
-      const response = await request(app).delete(`/api/users/${AUTH_USER_ID}`);
-
-      expect(response.status).toBe(200);
-      expect(decryptToken).not.toHaveBeenCalled();
-      expect(revokeGoogleCalendarRefreshToken).not.toHaveBeenCalled();
     });
   });
 

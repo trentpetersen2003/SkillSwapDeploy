@@ -33,10 +33,12 @@ const resetPasswordLimiter = rateLimit({
   message: { message: "Too many reset attempts. Please try again later." },
 });
 
+// Emit structured log entries for password reset flows.
 function logPasswordResetEvent(event, meta = {}) {
   console.log(`[password-reset] ${event}`, meta);
 }
 
+// Create a signed JWT for authenticated API access.
 function createAuthToken(user) {
   return jwt.sign(
     {
@@ -48,6 +50,7 @@ function createAuthToken(user) {
   );
 }
 
+// Build the standard auth response payload for clients.
 function createAuthResponse(user, options = {}) {
   const { isNewUser = false } = options;
   return {
@@ -62,16 +65,19 @@ function createAuthResponse(user, options = {}) {
   };
 }
 
+// Normalize user emails for identity matching.
 function normalizeEmail(rawEmail = "") {
   return String(rawEmail || "").trim().toLowerCase();
 }
 
+// Build a safe username candidate from an email prefix.
 function buildUsernameCandidate(email, fallback = "user") {
   const localPart = String(email || "").split("@")[0] || fallback;
   const cleaned = localPart.toLowerCase().replace(/[^a-z0-9_]/g, "");
   return (cleaned || fallback).slice(0, 20);
 }
 
+// Generate a unique username, retrying with numeric suffixes.
 async function generateUniqueUsername(email) {
   const base = buildUsernameCandidate(email);
   const maxAttempts = 30;

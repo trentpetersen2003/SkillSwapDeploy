@@ -24,6 +24,7 @@ const MUTED_CONVERSATIONS_STORAGE_KEY = "chat-muted-conversations";
 const RECENT_SEARCHES_STORAGE_KEY = "chat-recent-searches";
 const RECENT_SEARCHES_MAX = 6;
 
+// Check whether near bottom .
 function isNearBottom(element) {
   if (!element) {
     return false;
@@ -34,6 +35,7 @@ function isNearBottom(element) {
   return distanceFromBottom <= STICKY_SCROLL_THRESHOLD_PX;
 }
 
+// Run scroll to bottom logic.
 function scrollToBottom(element) {
   if (!element) {
     return;
@@ -42,6 +44,7 @@ function scrollToBottom(element) {
   element.scrollTop = element.scrollHeight;
 }
 
+// Run merge messages logic.
 function mergeMessages(existingMessages, incomingMessages) {
   const byId = new Map();
 
@@ -58,6 +61,7 @@ function mergeMessages(existingMessages, incomingMessages) {
   );
 }
 
+// Run format timestamp logic.
 function formatTimestamp(dateString) {
   return new Date(dateString).toLocaleString("en-US", {
     month: "short",
@@ -67,6 +71,7 @@ function formatTimestamp(dateString) {
   });
 }
 
+// Run format relative timestamp logic.
 function formatRelativeTimestamp(dateString) {
   const timestamp = new Date(dateString).getTime();
   if (Number.isNaN(timestamp)) {
@@ -98,6 +103,7 @@ function formatRelativeTimestamp(dateString) {
   });
 }
 
+// Parse json storage value input.
 function parseJsonStorageValue(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -110,10 +116,12 @@ function parseJsonStorageValue(key, fallback) {
   }
 }
 
+// Run escape reg exp logic.
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Run render highlighted text logic.
 function renderHighlightedText(text, query) {
   if (!query) {
     return text;
@@ -137,6 +145,7 @@ function renderHighlightedText(text, query) {
   });
 }
 
+// Run truncate preview text logic.
 function truncatePreviewText(text, maxLength = RECENT_PREVIEW_MAX_CHARS) {
   const normalized = String(text || "").trim();
   if (normalized.length <= maxLength) {
@@ -146,6 +155,7 @@ function truncatePreviewText(text, maxLength = RECENT_PREVIEW_MAX_CHARS) {
   return `${normalized.slice(0, maxLength).trimEnd()}...`;
 }
 
+// Run chat logic.
 function Chat() {
   const [allUsers, setAllUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -280,17 +290,20 @@ function Chat() {
     }
   }, [thread]);
 
+  // Handle messages scroll action.
   function handleMessagesScroll() {
     if (isNearBottom(messagesContainerRef.current)) {
       setNewMessagesBelowCount(0);
     }
   }
 
+  // Handle jump to latest action.
   function handleJumpToLatest() {
     scrollToBottom(messagesContainerRef.current);
     setNewMessagesBelowCount(0);
   }
 
+  // Run resize composer textarea logic.
   function resizeComposerTextarea() {
     const element = composerTextareaRef.current;
     if (!element) {
@@ -320,6 +333,7 @@ function Chat() {
   }, [searchTerm]);
 
   useEffect(() => {
+    // Run search users logic.
     async function searchUsers() {
       if (!token) {
         return;
@@ -393,6 +407,7 @@ function Chat() {
     let intervalId = null;
     let visibilityTimeoutId = null;
 
+    // Run start polling logic.
     function startPolling() {
       if (intervalId !== null) {
         return;
@@ -407,6 +422,7 @@ function Chat() {
       }, THREAD_POLLING_INTERVAL_MS);
     }
 
+    // Run stop polling logic.
     function stopPolling() {
       if (intervalId === null) {
         return;
@@ -416,6 +432,7 @@ function Chat() {
       intervalId = null;
     }
 
+    // Run clear visibility timeout logic.
     function clearVisibilityTimeout() {
       if (visibilityTimeoutId === null) {
         return;
@@ -425,6 +442,7 @@ function Chat() {
       visibilityTimeoutId = null;
     }
 
+    // Handle visibility change action.
     function handleVisibilityChange() {
       if (document.visibilityState === "hidden") {
         clearVisibilityTimeout();
@@ -458,6 +476,7 @@ function Chat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUserId]);
 
+  // Run fetch initial data logic.
   async function fetchInitialData() {
     if (!token) {
       setLoadError("Please log in");
@@ -518,6 +537,7 @@ function Chat() {
     }
   }
 
+  // Run fetch thread logic.
   async function fetchThread(
     userId,
     { showLoading = true, refreshConversation = true, resetThread = true } = {}
@@ -533,6 +553,7 @@ function Chat() {
     }
 
     try {
+      // Run fetch legacy thread logic.
       const fetchLegacyThread = async () => {
         const legacyRes = await fetchWithAuth(`${API_URL}/api/messages/${userId}`, {
           headers: {
@@ -551,6 +572,7 @@ function Chat() {
         };
       };
 
+      // Run request page logic.
       const requestPage = async (beforeMessageId = "") => {
         const query = new URLSearchParams({ limit: String(THREAD_PAGE_SIZE) });
         if (beforeMessageId) {
@@ -635,6 +657,7 @@ function Chat() {
     }
   }
 
+  // Run start thread loading indicator logic.
   function startThreadLoadingIndicator() {
     if (threadLoadingDelayTimeoutRef.current) {
       clearTimeout(threadLoadingDelayTimeoutRef.current);
@@ -647,6 +670,7 @@ function Chat() {
     }, THREAD_LOADING_SHOW_DELAY_MS);
   }
 
+  // Run stop thread loading indicator logic.
   function stopThreadLoadingIndicator() {
     if (threadLoadingDelayTimeoutRef.current) {
       clearTimeout(threadLoadingDelayTimeoutRef.current);
@@ -657,6 +681,7 @@ function Chat() {
     setThreadLoading(false);
   }
 
+  // Handle load older messages action.
   async function handleLoadOlderMessages() {
     if (!token || !selectedUserId || loadingOlderMessages || !hasMoreOlderMessages) {
       return;
@@ -710,6 +735,7 @@ function Chat() {
     }
   }
 
+  // Run refresh conversations logic.
   async function refreshConversations() {
     if (!token) {
       return;
@@ -730,6 +756,7 @@ function Chat() {
     }
   }
 
+  // Run fetch blocked relationship status logic.
   async function fetchBlockedRelationshipStatus(userId) {
     if (!token || !userId) {
       return;
@@ -764,6 +791,7 @@ function Chat() {
     }
   }
 
+  // Handle unblock selected user action.
   async function handleUnblockSelectedUser() {
     if (!selectedUserId || !token || isUnblockingUser) {
       return;
@@ -800,6 +828,7 @@ function Chat() {
     }
   }
 
+  // Run commit recent search logic.
   function commitRecentSearch(value) {
     const normalized = String(value || "").trim();
     if (!normalized) {
@@ -814,6 +843,7 @@ function Chat() {
     });
   }
 
+  // Handle search result selection action.
   function handleSearchResultSelection(user) {
     if (!user?._id) {
       return;
@@ -823,6 +853,7 @@ function Chat() {
     commitRecentSearch(user.username || user.name || "");
   }
 
+  // Handle search key down action.
   function handleSearchKeyDown(event) {
     if (searchResults.length === 0) {
       if (event.key === "Enter" && exactUsernameMatch) {
@@ -866,6 +897,7 @@ function Chat() {
     }
   }
 
+  // Handle composer change action.
   function handleComposerChange(event) {
     const nextValue = event.target.value;
     setComposerText(nextValue);
@@ -880,6 +912,7 @@ function Chat() {
     }));
   }
 
+  // Handle composer key down action.
   function handleComposerKeyDown(event) {
     if (event.key !== "Enter" || event.shiftKey) {
       return;
@@ -889,6 +922,7 @@ function Chat() {
     handleSendMessage(event);
   }
 
+  // Run toggle conversation muted logic.
   function toggleConversationMuted(userId) {
     const normalized = String(userId);
     setMutedConversationIds((previous) => {
@@ -899,6 +933,7 @@ function Chat() {
     });
   }
 
+  // Handle send message action.
   async function handleSendMessage(e) {
     e.preventDefault();
     if (!token || !selectedUserId || isSendingMessage) {
