@@ -6,6 +6,10 @@ const User = require("../models/User");
 const auth = require("../middleware/auth");
 const { getReliabilityByUserIds } = require("../services/reliability");
 const { rankCandidates } = require("../services/matching");
+const {
+  decryptToken,
+  revokeGoogleCalendarRefreshToken,
+} = require("../services/googleCalendar");
 
 const router = express.Router();
 const PASSWORD_MIN_LENGTH = 8;
@@ -179,7 +183,9 @@ router.get("/", auth, async (req, res) => {
     }
 
     const users = await User.find(query)
-      .select("-passwordHash -blockedUsers")
+      .select(
+        "name username email city state locationVisibility showOthersLocations phoneNumber timeZone bio swapMode availability skills skillsWanted notificationPreferences lastProfileReminderAt createdAt updatedAt"
+      )
       .sort({ createdAt: 1 });
 
     const reliabilityByUserId = await getReliabilityByUserIds(
@@ -252,14 +258,43 @@ router.post("/", async (req, res) => {
 });
 
 // DELETE /api/users/:id - remove a user by id
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", auth, async (req, res) => {
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: "Invalid user id" });
   }
 
+  if (String(id) !== String(req.userId)) {
+    return res.status(403).json({ message: "Unauthorized" });
+  }
+
   try {
+    const user = await User.findById(id).select(
+      "googleCalendar.connected googleCalendar.refreshTokenCiphertext googleCalendar.refreshTokenIv googleCalendar.refreshTokenAuthTag googleCalendar.refreshTokenUpdatedAt"
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const shouldRevokeGoogleGrant = Boolean(user.googleCalendar?.connected);
+    const refreshToken = shouldRevokeGoogleGrant && user.googleCalendar?.refreshTokenCiphertext
+      ? decryptToken({
+          ciphertext: user.googleCalendar.refreshTokenCiphertext,
+          iv: user.googleCalendar.refreshTokenIv,
+          authTag: user.googleCalendar.refreshTokenAuthTag,
+        })
+      : "";
+
+    if (refreshToken) {
+      try {
+        await revokeGoogleCalendarRefreshToken(refreshToken);
+      } catch (error) {
+        console.error("Error revoking Google Calendar grant during account deletion:", error);
+      }
+    }
+
     const deleted = await User.findByIdAndDelete(id);
     if (!deleted) {
       return res.status(404).json({ message: "User not found" });
@@ -274,7 +309,9 @@ router.delete("/:id", async (req, res) => {
 // GET /api/users/profile - get current user profile
 router.get("/profile", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select("-passwordHash");
+    const user = await User.findById(req.userId).select(
+      "-passwordHash -tokenVersion -googleCalendar.refreshTokenCiphertext -googleCalendar.refreshTokenIv -googleCalendar.refreshTokenAuthTag -googleCalendar.refreshTokenUpdatedAt"
+    );
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Migrate old firstName/lastName to name if needed

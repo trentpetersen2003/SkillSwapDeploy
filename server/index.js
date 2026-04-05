@@ -7,6 +7,7 @@ const userRoutes = require("./routes/users");
 const authRoutes = require("./routes/auth");
 const swapRoutes = require("./routes/swaps");
 const messageRoutes = require("./routes/messages");
+const googleCalendarRoutes = require("./routes/googleCalendar");
 const auth = require("./middleware/auth");
 const forYouRoutes = require("./routes/forYou");
 const { getEmailDeliveryMode, validateProductionEmailConfig } = require("./services/email");
@@ -89,6 +90,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/for-you", forYouRoutes);
 app.use("/api/swaps", swapRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/integrations/google-calendar", googleCalendarRoutes);
 
 // start server
 app.listen(PORT, () => {

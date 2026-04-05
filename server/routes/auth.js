@@ -4,9 +4,11 @@ const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const PasswordResetToken = require("../models/PasswordResetToken");
 const { sendPasswordResetEmail } = require("../services/email");
+const auth = require("../middleware/auth");
 
 const router = express.Router();
 const RESET_TOKEN_TTL_MINUTES = Number(process.env.RESET_TOKEN_TTL_MINUTES || 30);
@@ -33,6 +35,57 @@ const resetPasswordLimiter = rateLimit({
 
 function logPasswordResetEvent(event, meta = {}) {
   console.log(`[password-reset] ${event}`, meta);
+}
+
+function createAuthToken(user) {
+  return jwt.sign(
+    {
+      userId: user._id,
+      tokenVersion: Number(user.tokenVersion || 0),
+    },
+    process.env.JWT_SECRET || "dev-secret",
+    { expiresIn: "7d" }
+  );
+}
+
+function createAuthResponse(user, options = {}) {
+  const { isNewUser = false } = options;
+  return {
+    token: createAuthToken(user),
+    isNewUser,
+    user: {
+      id: user._id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+    },
+  };
+}
+
+function normalizeEmail(rawEmail = "") {
+  return String(rawEmail || "").trim().toLowerCase();
+}
+
+function buildUsernameCandidate(email, fallback = "user") {
+  const localPart = String(email || "").split("@")[0] || fallback;
+  const cleaned = localPart.toLowerCase().replace(/[^a-z0-9_]/g, "");
+  return (cleaned || fallback).slice(0, 20);
+}
+
+async function generateUniqueUsername(email) {
+  const base = buildUsernameCandidate(email);
+  const maxAttempts = 30;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const suffix = attempt === 0 ? "" : String(100 + Math.floor(Math.random() * 900));
+    const candidate = `${base}${suffix}`.slice(0, 30);
+    const existing = await User.findOne({ username: candidate }).select("_id");
+    if (!existing) {
+      return candidate;
+    }
+  }
+
+  return `${base}${Date.now()}`.slice(0, 30);
 }
 
 // POST /api/auth/register
@@ -102,25 +155,95 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // simple JWT for protected routes
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET || "dev-secret",
-      { expiresIn: "7d" }
-    );
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        username: user.username,
-        email: user.email,
-      },
-    });
+    res.json(createAuthResponse(user));
   } catch (err) {
     console.error("Error in /login:", err);
     res.status(500).json({ message: "Error logging in" });
+  }
+});
+
+// POST /api/auth/google
+router.post("/google", async (req, res) => {
+  try {
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    if (!googleClientId) {
+      return res.status(500).json({ message: "Google OAuth is not configured" });
+    }
+
+    const { idToken } = req.body;
+    if (!idToken || !String(idToken).trim()) {
+      return res.status(400).json({ message: "Google idToken is required" });
+    }
+
+    const oauthClient = new OAuth2Client(googleClientId);
+    const ticket = await oauthClient.verifyIdToken({
+      idToken: String(idToken).trim(),
+      audience: googleClientId,
+    });
+    const payload = ticket.getPayload() || {};
+
+    const email = normalizeEmail(payload.email);
+    if (!email) {
+      return res.status(400).json({ message: "Google account email is required" });
+    }
+
+    if (!payload.email_verified) {
+      return res.status(403).json({ message: "Google email must be verified" });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (user) {
+      if (!user.googleAuth?.providerId && payload.sub) {
+        user.googleAuth = {
+          providerId: String(payload.sub),
+          linkedAt: new Date(),
+        };
+        await user.save();
+      }
+
+      return res.json(createAuthResponse(user));
+    }
+
+    const generatedPassword = crypto.randomBytes(32).toString("hex");
+    const username = await generateUniqueUsername(email);
+    const displayName = String(payload.name || email.split("@")[0] || "New User").trim();
+
+    user = await User.create({
+      name: displayName,
+      username,
+      email,
+      passwordHash: await bcrypt.hash(generatedPassword, 10),
+      googleAuth: {
+        providerId: String(payload.sub || ""),
+        linkedAt: new Date(),
+      },
+    });
+
+    return res.status(201).json(createAuthResponse(user, { isNewUser: true }));
+  } catch (err) {
+    console.error("Error in /google:", err);
+    return res.status(500).json({ message: "Error logging in with Google" });
+  }
+});
+
+// POST /api/auth/logout
+router.post("/logout", auth, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $inc: { tokenVersion: 1 } },
+      { new: true }
+    ).select("_id");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.json({ message: "Logged out" });
+  } catch (err) {
+    console.error("Error in /logout:", err);
+    return res.status(500).json({ message: "Error logging out" });
   }
 });
 

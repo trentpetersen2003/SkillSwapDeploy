@@ -1037,6 +1037,7 @@ function Chat() {
   const shouldShowSearchResults = searchTerm.trim().length > 0;
   const isBlockedRelationshipError = /cannot chat with a blocked user/i.test(messageError);
   const canUnblockFromChat = blockRelationship.iBlocked && !blockRelationship.blockedMe;
+  const hasNoOtherUsers = allUsers.length === 0 && conversations.length === 0;
 
   if (loading) {
     return <LoadingState message="Loading chat..." />;
@@ -1170,7 +1171,9 @@ function Chat() {
           </div>
           {recentConversations.length === 0 ? (
             <p className="chat-sidebar__empty">
-              {unreadOnlyFilter
+              {hasNoOtherUsers
+                ? "There are no other users yet."
+                : unreadOnlyFilter
                 ? "No unread conversations right now."
                 : "No recent conversations yet."}
             </p>
@@ -1369,7 +1372,11 @@ function Chat() {
           </>
         ) : (
           <div className="chat-thread__empty">
-            <p>Click on a chat to start or continue a conversation.</p>
+            <p>
+              {hasNoOtherUsers
+                ? "There are no other users yet."
+                : "Click on a chat to start or continue a conversation."}
+            </p>
           </div>
         )}
       </section>

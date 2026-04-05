@@ -104,6 +104,67 @@ EMAIL_PROFILE_REMINDER_COOLDOWN_DAYS=7
 EMAIL_PROFILE_REMINDER_BATCH_SIZE=50
 ```
 
+Tip: You can start from the checked-in templates:
+
+- `server/.env.example`
+- `client/.env.example`
+
+Copy each to `.env` in the same folder, then fill in your values.
+
+### Google OAuth setup (for Google Login + Calendar sync)
+
+Use one Google OAuth app for both features.
+
+1. In Google Cloud Console, open your project.
+2. Go to `APIs & Services` -> `OAuth consent screen`.
+3. Click `Data Access` (or `Scopes`, depending on UI version).
+4. Click `Add or remove scopes`.
+5. Add these scopes:
+	- `openid`
+	- `.../auth/userinfo.email`
+	- `.../auth/userinfo.profile`
+	- `.../auth/calendar.events`
+6. Save changes.
+
+If you do not see userinfo scopes in the picker, enable:
+- `Google People API`
+- `Google Calendar API`
+
+Then refresh the OAuth consent screen and add scopes again.
+
+### Finding your Client Secret
+
+1. Go to `APIs & Services` -> `Credentials`.
+2. Under `OAuth 2.0 Client IDs`, click your web client name.
+3. The details page shows:
+	- `Client ID`
+	- `Client secret`
+4. If the secret is hidden, click `Show client secret`.
+5. If there is still no secret, create a new credential:
+	- `Create credentials` -> `OAuth client ID` -> `Web application`.
+
+### Google values to paste into env files
+
+`server/.env`:
+
+```env
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=http://localhost:3001/api/auth/google/callback
+# Optional if using separate callback route later
+GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:3001/api/integrations/google-calendar/callback
+```
+
+`client/.env`:
+
+```env
+REACT_APP_GOOGLE_CLIENT_ID=...
+```
+
+Important:
+- The frontend may include `REACT_APP_GOOGLE_CLIENT_ID` safely.
+- Never commit `GOOGLE_CLIENT_SECRET`.
+
 Password reset email behavior:
 - The server uses Nodemailer for password reset emails.
 - `EMAIL_DELIVERY_MODE=smtp` forces SMTP delivery.

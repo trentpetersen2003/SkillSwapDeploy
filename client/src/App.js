@@ -58,8 +58,11 @@ function LoginPage({ onLogin }) {
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || "";
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -67,6 +70,146 @@ function LoginPage({ onLogin }) {
       setMessage("Password reset successful. You can now log in.");
     }
   }, [location.search]);
+
+  useEffect(() => {
+    if (!googleClientId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    function waitForGoogleIdentity(maxAttempts = 50, delayMs = 100) {
+      return new Promise((resolve, reject) => {
+        let attempts = 0;
+
+        function checkReady() {
+          if (cancelled) {
+            reject(new Error("Google Sign-In initialization cancelled"));
+            return;
+          }
+
+          if (window.google?.accounts?.id) {
+            resolve();
+            return;
+          }
+
+          attempts += 1;
+          if (attempts >= maxAttempts) {
+            reject(new Error("Google Sign-In library did not become ready in time"));
+            return;
+          }
+
+          window.setTimeout(checkReady, delayMs);
+        }
+
+        checkReady();
+      });
+    }
+
+    function initializeGoogleButton() {
+      if (cancelled || !window.google?.accounts?.id) {
+        return;
+      }
+
+      try {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (response) => {
+            if (cancelled || !response?.credential) {
+              return;
+            }
+
+            setGoogleSubmitting(true);
+            setMessage("");
+            try {
+              const apiResponse = await fetch(`${API_URL}/api/auth/google`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ idToken: response.credential }),
+              });
+              const payload = await apiResponse.json().catch(() => ({}));
+
+              if (!apiResponse.ok) {
+                setMessage(payload.message || "Google login failed");
+                return;
+              }
+
+              const nextPath = await onLogin(payload.user, payload.token);
+              navigate(nextPath || "/foryou");
+            } catch (err) {
+              console.error("Google login failed:", err);
+              setMessage("Google login failed. Please try again.");
+            } finally {
+              setGoogleSubmitting(false);
+            }
+          },
+        });
+
+        const target = document.getElementById("google-signin-button");
+        if (target) {
+          target.innerHTML = "";
+          window.google.accounts.id.renderButton(target, {
+            type: "standard",
+            theme: "outline",
+            size: "large",
+            text: "continue_with",
+            shape: "pill",
+            width: 320,
+          });
+          setGoogleReady(true);
+        }
+      } catch (err) {
+        console.error("Google Sign-In initialization failed:", err);
+        setMessage("Unable to initialize Google Sign-In. Check Google OAuth origins and try again.");
+      }
+    }
+
+    const existingScript = document.getElementById("google-identity-services");
+    if (existingScript) {
+      waitForGoogleIdentity()
+        .then(() => {
+          if (!cancelled) {
+            initializeGoogleButton();
+          }
+        })
+        .catch((err) => {
+          console.error("Google Sign-In library readiness failed:", err);
+          if (!cancelled) {
+            setMessage("Unable to load Google Sign-In. Please refresh and try again.");
+          }
+        });
+    } else {
+      const script = document.createElement("script");
+      script.id = "google-identity-services";
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        waitForGoogleIdentity()
+          .then(() => {
+            if (!cancelled) {
+              initializeGoogleButton();
+            }
+          })
+          .catch((err) => {
+            console.error("Google Sign-In library readiness failed:", err);
+            if (!cancelled) {
+              setMessage("Unable to load Google Sign-In. Please refresh and try again.");
+            }
+          });
+      };
+      script.onerror = () => {
+        if (!cancelled) {
+          setMessage("Unable to load Google Sign-In. Please refresh and try again.");
+        }
+      };
+      document.body.appendChild(script);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleClientId, navigate, onLogin]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -197,6 +340,20 @@ function LoginPage({ onLogin }) {
                 : "Sign up"}
           </button>
         </form>
+
+        {googleClientId && mode === "login" && (
+          <div className="google-login-section" aria-live="polite">
+            <div className="google-login-divider">or</div>
+            <div id="google-signin-button" className="google-signin-button" />
+            <div className="google-login-hint">
+              If the same Google email already belongs to a SkillSwap account, Google sign-in will use that account.
+            </div>
+            {googleSubmitting && <div className="message">Signing in with Google...</div>}
+            {!googleReady && !googleSubmitting && (
+              <div className="google-login-hint">Loading Google Sign-In...</div>
+            )}
+          </div>
+        )}
 
         <div className="switcher">
           {mode === "login" ? (
@@ -685,7 +842,22 @@ function App() {
     return nextStatus.isComplete ? "/foryou" : "/browse";
   }, [refreshProfileSetup, updateStoredUser]);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      try {
+        await fetchWithAuth(`${API_URL}/api/auth/logout`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (_error) {
+        // Local logout should still complete if server-side logout fails.
+      }
+    }
+
     setUser(null);
     setProfileSetup(getDefaultProfileSetupState());
     setShowSetupPrompt(false);

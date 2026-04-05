@@ -178,6 +178,57 @@
   gap: 1rem;
 }
 
+.details-google-events {
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.details-google-events h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.details-google-events__list,
+.google-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.details-empty--compact {
+  padding: 0.5rem 0;
+  text-align: left;
+}
+
+.google-event-card {
+  border: 1px solid #dbeafe;
+  background: #f8fbff;
+  border-radius: 8px;
+  padding: 0.7rem 0.8rem;
+}
+
+.google-event-card__title {
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.google-event-card__meta {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.google-event-card__description {
+  margin: 0.4rem 0 0;
+  font-size: 0.84rem;
+  color: #475569;
+}
+
 /* Swap Card */
 .swap-card {
   background: #f9fafb;

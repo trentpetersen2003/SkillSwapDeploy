@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 
 const COMPLETED_STATUS = "completed";
 const CANCELLED_STATUS = "cancelled";
+const FINALIZED_STATUSES = [COMPLETED_STATUS, CANCELLED_STATUS];
 
 function safeRate(numerator, denominator) {
   if (!denominator) {
@@ -32,7 +33,7 @@ function buildSummaryFromStats(stats) {
     ? safeRate(completedMilestones, totalMilestones)
     : swapCompletionRate;
 
-  if (totalSwaps === 0) {
+  if (totalSwaps === 0 || completedSwaps === 0) {
     return {
       score: null,
       tier: "New",
@@ -117,7 +118,11 @@ async function getReliabilityByUserIds(userIds = []) {
     {
       $group: {
         _id: "$participants",
-        totalSwaps: { $sum: 1 },
+        totalSwaps: {
+          $sum: {
+            $cond: [{ $in: ["$status", FINALIZED_STATUSES] }, 1, 0],
+          },
+        },
         completedSwaps: {
           $sum: {
             $cond: [{ $eq: ["$status", COMPLETED_STATUS] }, 1, 0],

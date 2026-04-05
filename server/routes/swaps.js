@@ -10,6 +10,12 @@ const {
   sendSwapAcceptedEmail,
   sendSwapCancelledEmail,
 } = require("../services/email");
+const {
+  removeSwapEventForUser,
+  shouldRemoveCancelledSwaps,
+  listUpcomingExternalEventsForUser,
+  upsertSwapEventForUser,
+} = require("../services/googleCalendar");
 
 const PROFILE_SETUP_REQUIRED_MESSAGE =
   "Finish your profile setup before you use swaps.";
@@ -28,6 +34,177 @@ function hasBothConfirmations(swap) {
 
 function emailPrefEnabled(user, key) {
   return user?.notificationPreferences?.[key] !== false;
+}
+
+const CALENDAR_SELECT_FIELDS =
+  "name username email notificationPreferences googleCalendar.connected googleCalendar.accountEmail googleCalendar.calendarId googleCalendar.syncAcceptedSwaps googleCalendar.removeCancelledSwaps googleCalendar.lastConnectedAt +googleCalendar.refreshTokenCiphertext +googleCalendar.refreshTokenIv +googleCalendar.refreshTokenAuthTag +googleCalendar.refreshTokenUpdatedAt";
+
+const GOOGLE_CALENDAR_LOOKAHEAD_BUFFER_MS = 24 * 60 * 60 * 1000;
+
+function getGoogleCalendarLookupWindow(startDate, endDate) {
+  return {
+    timeMin: new Date(startDate.getTime() - GOOGLE_CALENDAR_LOOKAHEAD_BUFFER_MS).toISOString(),
+    timeMax: new Date(endDate.getTime() + GOOGLE_CALENDAR_LOOKAHEAD_BUFFER_MS).toISOString(),
+  };
+}
+
+function parseGoogleCalendarEventBoundary(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parsedDate = new Date(value);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+}
+
+function getGoogleCalendarEventWindow(event) {
+  const start = parseGoogleCalendarEventBoundary(event?.start?.dateTime || event?.start?.date);
+  const end = parseGoogleCalendarEventBoundary(event?.end?.dateTime || event?.end?.date);
+
+  if (!start || !end) {
+    return null;
+  }
+
+  return { start, end };
+}
+
+function doesGoogleCalendarEventConflict(event, startDate, endDate) {
+  const window = getGoogleCalendarEventWindow(event);
+  if (!window) {
+    return false;
+  }
+
+  return startDate < window.end && endDate > window.start;
+}
+
+function findGoogleCalendarConflict(events, startDate, endDate) {
+  return (Array.isArray(events) ? events : []).find((event) =>
+    doesGoogleCalendarEventConflict(event, startDate, endDate)
+  ) || null;
+}
+
+function formatGoogleCalendarConflictMessage(event) {
+  const title = String(event?.title || event?.summary || "Another event").trim() || "Another event";
+  const window = getGoogleCalendarEventWindow(event);
+
+  if (!window) {
+    return `That time conflicts with another event on your Google Calendar (${title}).`;
+  }
+
+  const startsAt = window.start.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return `That time conflicts with your Google Calendar event: ${title} (${startsAt}).`;
+}
+
+async function getGoogleCalendarEventsForUser(user, startDate, endDate) {
+  if (!user) {
+    return [];
+  }
+
+  const { timeMin, timeMax } = getGoogleCalendarLookupWindow(startDate, endDate);
+  return listUpcomingExternalEventsForUser({
+    user,
+    timeMin,
+    timeMax,
+  });
+}
+
+async function syncConfirmedSwapToCalendars({ swap, requesterUser, recipientUser }) {
+  const [requesterResult, recipientResult] = await Promise.allSettled([
+    upsertSwapEventForUser({
+      user: requesterUser,
+      swap,
+      userRole: "requester",
+      partnerUser: recipientUser,
+    }),
+    upsertSwapEventForUser({
+      user: recipientUser,
+      swap,
+      userRole: "recipient",
+      partnerUser: requesterUser,
+    }),
+  ]);
+
+  if (requesterResult.status === "rejected") {
+    throw requesterResult.reason;
+  }
+
+  if (recipientResult.status === "rejected") {
+    throw recipientResult.reason;
+  }
+
+  const requesterEventId = requesterResult.value || "";
+  const recipientEventId = recipientResult.value || "";
+
+  const nextSyncState = {
+    requesterEventId,
+    recipientEventId,
+    lastSyncedAt: new Date(),
+  };
+
+  const existingSync = swap.googleCalendarSync || {};
+  const hasChanged =
+    existingSync.requesterEventId !== nextSyncState.requesterEventId ||
+    existingSync.recipientEventId !== nextSyncState.recipientEventId;
+
+  if (hasChanged) {
+    swap.googleCalendarSync = nextSyncState;
+    await swap.save();
+  }
+}
+
+async function removeCancelledSwapFromCalendars({ swap, requesterUser, recipientUser }) {
+  const requesterEventId = swap.googleCalendarSync?.requesterEventId || "";
+  const recipientEventId = swap.googleCalendarSync?.recipientEventId || "";
+  const requesterShouldRemove = shouldRemoveCancelledSwaps(requesterUser);
+  const recipientShouldRemove = shouldRemoveCancelledSwaps(recipientUser);
+
+  const [requesterResult, recipientResult] = await Promise.allSettled([
+    requesterShouldRemove
+      ? removeSwapEventForUser({
+          user: requesterUser,
+          eventId: requesterEventId,
+        })
+      : Promise.resolve(),
+    recipientShouldRemove
+      ? removeSwapEventForUser({
+          user: recipientUser,
+          eventId: recipientEventId,
+        })
+      : Promise.resolve(),
+  ]);
+
+  if (requesterResult.status === "rejected") {
+    throw requesterResult.reason;
+  }
+
+  if (recipientResult.status === "rejected") {
+    throw recipientResult.reason;
+  }
+
+  const nextSyncState = {
+    requesterEventId: requesterShouldRemove ? "" : requesterEventId,
+    recipientEventId: recipientShouldRemove ? "" : recipientEventId,
+    lastSyncedAt: new Date(),
+  };
+
+  const hasChanged =
+    (swap.googleCalendarSync?.requesterEventId || "") !== nextSyncState.requesterEventId ||
+    (swap.googleCalendarSync?.recipientEventId || "") !== nextSyncState.recipientEventId;
+
+  const hadEvents = Boolean(requesterEventId || recipientEventId);
+  if (hadEvents) {
+    swap.googleCalendarSync = hasChanged ? nextSyncState : {
+      ...(swap.googleCalendarSync || {}),
+      lastSyncedAt: new Date(),
+    };
+    await swap.save();
+  }
 }
 
 function normalizeMilestones(rawMilestones = [], totalSessions = 1) {
@@ -499,6 +676,8 @@ router.get("/suggestions", auth, async (req, res) => {
       return;
     }
 
+    const currentUserCalendar = await User.findById(req.userId).select(CALENDAR_SELECT_FIELDS);
+
     const { recipientId } = req.query;
     const durationMinutes = parsePositiveInt(req.query.duration, 60);
     const daysAhead = Math.min(parsePositiveInt(req.query.daysAhead, 14), 30);
@@ -518,7 +697,7 @@ router.get("/suggestions", auth, async (req, res) => {
     }
 
     const recipient = await User.findById(recipientId).select(
-      "blockedUsers availability timeZone name email"
+      "blockedUsers availability timeZone name email googleCalendar.connected googleCalendar.accountEmail googleCalendar.calendarId googleCalendar.syncAcceptedSwaps googleCalendar.removeCancelledSwaps googleCalendar.lastConnectedAt +googleCalendar.refreshTokenCiphertext +googleCalendar.refreshTokenIv +googleCalendar.refreshTokenAuthTag +googleCalendar.refreshTokenUpdatedAt"
     );
     const requesterPrivacy = await User.findById(req.userId).select("blockedUsers");
 
@@ -552,6 +731,11 @@ router.get("/suggestions", auth, async (req, res) => {
     const rangeStart = new Date();
     const rangeEnd = getDateRangeEnd(daysAhead);
 
+    const [requesterGoogleEvents, recipientGoogleEvents] = await Promise.all([
+      getGoogleCalendarEventsForUser(currentUserCalendar, rangeStart, rangeEnd),
+      getGoogleCalendarEventsForUser(recipient, rangeStart, rangeEnd),
+    ]);
+
     const existingSwaps = await Swap.find({
       status: { $in: ["pending", "confirmed"] },
       scheduledDate: { $gte: rangeStart, $lte: rangeEnd },
@@ -582,8 +766,19 @@ router.get("/suggestions", auth, async (req, res) => {
       if (requesterAvailable && recipientAvailable) {
         const requesterBusy = hasConflict(requesterSwaps, cursor, durationMinutes);
         const recipientBusy = hasConflict(recipientSwaps, cursor, durationMinutes);
+        const cursorEnd = new Date(cursor.getTime() + durationMinutes * 60 * 1000);
+        const requesterGoogleBusy = findGoogleCalendarConflict(
+          requesterGoogleEvents,
+          cursor,
+          cursorEnd
+        );
+        const recipientGoogleBusy = findGoogleCalendarConflict(
+          recipientGoogleEvents,
+          cursor,
+          cursorEnd
+        );
 
-        if (!requesterBusy && !recipientBusy) {
+        if (!requesterBusy && !recipientBusy && !requesterGoogleBusy && !recipientGoogleBusy) {
           candidateSlots.push({
             date: new Date(cursor),
             score: scoreSuggestedSlot({
@@ -690,8 +885,12 @@ router.post("/", auth, async (req, res) => {
     }
 
     const [requester, recipient] = await Promise.all([
-      User.findById(req.userId).select("blockedUsers availability timeZone name email notificationPreferences"),
-      User.findById(recipientId).select("blockedUsers availability timeZone name email notificationPreferences"),
+      User.findById(req.userId).select(
+        "blockedUsers availability timeZone name email notificationPreferences googleCalendar.connected googleCalendar.accountEmail googleCalendar.calendarId googleCalendar.syncAcceptedSwaps googleCalendar.removeCancelledSwaps googleCalendar.lastConnectedAt +googleCalendar.refreshTokenCiphertext +googleCalendar.refreshTokenIv +googleCalendar.refreshTokenAuthTag +googleCalendar.refreshTokenUpdatedAt"
+      ),
+      User.findById(recipientId).select(
+        "blockedUsers availability timeZone name email notificationPreferences googleCalendar.connected googleCalendar.accountEmail googleCalendar.calendarId googleCalendar.syncAcceptedSwaps googleCalendar.removeCancelledSwaps googleCalendar.lastConnectedAt +googleCalendar.refreshTokenCiphertext +googleCalendar.refreshTokenIv +googleCalendar.refreshTokenAuthTag +googleCalendar.refreshTokenUpdatedAt"
+      ),
     ]);
 
     if (!requester || !recipient) {
@@ -724,6 +923,43 @@ router.post("/", auth, async (req, res) => {
     if (!Array.isArray(recipient.availability) || recipient.availability.length === 0) {
       return res.status(400).json({
         message: "This user has not set availability yet",
+      });
+    }
+
+    const [requesterGoogleEvents, recipientGoogleEvents] = await Promise.all([
+      getGoogleCalendarEventsForUser(
+        requester,
+        scheduledDateObj,
+        new Date(scheduledDateObj.getTime() + durationMinutes * 60 * 1000)
+      ),
+      getGoogleCalendarEventsForUser(
+        recipient,
+        scheduledDateObj,
+        new Date(scheduledDateObj.getTime() + durationMinutes * 60 * 1000)
+      ),
+    ]);
+
+    const requesterGoogleConflict = findGoogleCalendarConflict(
+      requesterGoogleEvents,
+      scheduledDateObj,
+      new Date(scheduledDateObj.getTime() + durationMinutes * 60 * 1000)
+    );
+
+    if (requesterGoogleConflict) {
+      return res.status(400).json({
+        message: formatGoogleCalendarConflictMessage(requesterGoogleConflict),
+      });
+    }
+
+    const recipientGoogleConflict = findGoogleCalendarConflict(
+      recipientGoogleEvents,
+      scheduledDateObj,
+      new Date(scheduledDateObj.getTime() + durationMinutes * 60 * 1000)
+    );
+
+    if (recipientGoogleConflict) {
+      return res.status(400).json({
+        message: "That time conflicts with another event on this user's Google Calendar.",
       });
     }
 
@@ -882,8 +1118,8 @@ router.patch("/:id/status", auth, async (req, res) => {
     await swap.save();
 
     const [requesterUser, recipientUser] = await Promise.all([
-      User.findById(swap.requester).select("name email notificationPreferences"),
-      User.findById(swap.recipient).select("name email notificationPreferences"),
+      User.findById(swap.requester).select(CALENDAR_SELECT_FIELDS),
+      User.findById(swap.recipient).select(CALENDAR_SELECT_FIELDS),
     ]);
 
     if (status === "confirmed" && requesterUser && recipientUser) {
@@ -919,6 +1155,30 @@ router.patch("/:id/status", auth, async (req, res) => {
         });
       } catch (emailError) {
         console.error("Error sending swap cancelled email:", emailError);
+      }
+    }
+
+    if (status === "confirmed" && requesterUser && recipientUser) {
+      try {
+        await syncConfirmedSwapToCalendars({
+          swap,
+          requesterUser,
+          recipientUser,
+        });
+      } catch (calendarError) {
+        console.error("Error syncing confirmed swap to Google Calendar:", calendarError);
+      }
+    }
+
+    if (status === "cancelled" && requesterUser && recipientUser) {
+      try {
+        await removeCancelledSwapFromCalendars({
+          swap,
+          requesterUser,
+          recipientUser,
+        });
+      } catch (calendarError) {
+        console.error("Error removing cancelled swap from Google Calendar:", calendarError);
       }
     }
 
@@ -1131,6 +1391,23 @@ router.delete("/:id", auth, async (req, res) => {
     // Only the requester can delete
     if (swap.requester.toString() !== req.userId) {
       return res.status(403).json({ message: "Only the requester can delete this swap" });
+    }
+
+    const [requesterUser, recipientUser] = await Promise.all([
+      User.findById(swap.requester).select(CALENDAR_SELECT_FIELDS),
+      User.findById(swap.recipient).select(CALENDAR_SELECT_FIELDS),
+    ]);
+
+    if (requesterUser && recipientUser) {
+      try {
+        await removeCancelledSwapFromCalendars({
+          swap,
+          requesterUser,
+          recipientUser,
+        });
+      } catch (calendarError) {
+        console.error("Error removing deleted swap from Google Calendar:", calendarError);
+      }
     }
 
     await Swap.findByIdAndDelete(id);

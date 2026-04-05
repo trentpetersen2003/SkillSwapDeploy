@@ -80,6 +80,27 @@
   font-weight: 600;
 }
 
+.google-login-section {
+  margin-top: 14px;
+}
+
+.google-login-divider {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.google-signin-button {
+  display: flex;
+  justify-content: center;
+}
+
+.google-login-hint {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .message {
   margin-top: 10px;
   color: var(--text);

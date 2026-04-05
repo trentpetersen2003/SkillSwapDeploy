@@ -16,6 +16,7 @@ function CalendarPage() {
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = currentUser.id || currentUser._id || "";
   const [swaps, setSwaps] = useState([]);
+  const [googleEvents, setGoogleEvents] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -51,21 +52,47 @@ function CalendarPage() {
 
     try {
       const data = await withMinimumDelay(async () => {
-        const res = await fetchWithAuth(API_URL + "/api/swaps", {
+        const swapRes = await fetchWithAuth(API_URL + "/api/swaps", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        if (!res.ok) {
-          const payload = await res.json().catch(() => ({}));
+        if (!swapRes.ok) {
+          const payload = await swapRes.json().catch(() => ({}));
           throw new Error(payload.message || "Failed to load swaps");
         }
 
-        return res.json();
+        const swapPayload = await swapRes.json();
+
+        let googleEventsPayload = { events: [] };
+        try {
+          const googleEventsRes = await fetchWithAuth(
+            API_URL + "/api/integrations/google-calendar/events",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (googleEventsRes.ok) {
+            googleEventsPayload = await googleEventsRes.json().catch(() => ({ events: [] }));
+          }
+        } catch (_error) {
+          googleEventsPayload = { events: [] };
+        }
+
+        return {
+          swaps: swapPayload,
+          googleEvents: Array.isArray(googleEventsPayload.events)
+            ? googleEventsPayload.events
+            : [],
+        };
       });
 
-      setSwaps(data);
+      setSwaps(data.swaps);
+      setGoogleEvents(data.googleEvents);
       setMessage("");
     } catch (err) {
       console.error("Error loading swaps:", err);
@@ -266,14 +293,31 @@ function CalendarPage() {
     });
   }
 
+  function getGoogleEventsForDate(date) {
+    return googleEvents.filter((event) => {
+      const startDate = new Date(event.start);
+      if (Number.isNaN(startDate.getTime())) {
+        return false;
+      }
+
+      return (
+        startDate.getDate() === date.getDate() &&
+        startDate.getMonth() === date.getMonth() &&
+        startDate.getFullYear() === date.getFullYear()
+      );
+    });
+  }
+
   // Mark dates that have swaps
   function tileContent({ date, view }) {
     if (view === "month") {
       const daySwaps = getSwapsForDate(date);
-      if (daySwaps.length > 0) {
+      const dayGoogleEvents = getGoogleEventsForDate(date);
+      const totalEvents = daySwaps.length + dayGoogleEvents.length;
+      if (totalEvents > 0) {
         return (
           <div className="calendar-tile-badge">
-            {daySwaps.length}
+            {totalEvents}
           </div>
         );
       }
@@ -307,6 +351,10 @@ function CalendarPage() {
 
   // Get swaps for selected date
   const selectedDateSwaps = getSwapsForDate(selectedDate);
+  const selectedDateGoogleEvents = getGoogleEventsForDate(selectedDate);
+  const upcomingGoogleEvents = googleEvents
+    .filter((event) => new Date(event.start) >= new Date())
+    .sort((a, b) => new Date(a.start) - new Date(b.start));
 
   function formatDate(dateString) {
     const date = new Date(dateString);
@@ -461,6 +509,28 @@ function CalendarPage() {
                 ))}
               </div>
             )}
+
+            <div className="details-google-events">
+              <h4>Other scheduled events ({selectedDateGoogleEvents.length})</h4>
+              {selectedDateGoogleEvents.length === 0 ? (
+                <p className="details-empty details-empty--compact">No other Google events this day.</p>
+              ) : (
+                <div className="details-google-events__list">
+                  {selectedDateGoogleEvents.map((event) => (
+                    <div key={event.id} className="google-event-card">
+                      <div className="google-event-card__title">{event.title}</div>
+                      <div className="google-event-card__meta">
+                        <span>{formatTime(event.start)}</span>
+                        {event.location && <span>{event.location}</span>}
+                      </div>
+                      {event.description && (
+                        <p className="google-event-card__description">{event.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : (
@@ -528,6 +598,33 @@ function CalendarPage() {
                     getStatusColor={getStatusColor}
                     isHighlighted={swap._id === highlightedSwapId}
                   />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="list-view__section">
+            <h2 className="section-title">
+              Other Scheduled Events ({upcomingGoogleEvents.length})
+            </h2>
+            {upcomingGoogleEvents.length === 0 ? (
+              <p className="section-empty">
+                No additional Google Calendar events found.
+              </p>
+            ) : (
+              <div className="google-events-list">
+                {upcomingGoogleEvents.map((event) => (
+                  <div key={event.id} className="google-event-card">
+                    <div className="google-event-card__title">{event.title}</div>
+                    <div className="google-event-card__meta">
+                      <span>{formatDate(event.start)}</span>
+                      <span>{formatTime(event.start)}</span>
+                      {event.location && <span>{event.location}</span>}
+                    </div>
+                    {event.description && (
+                      <p className="google-event-card__description">{event.description}</p>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

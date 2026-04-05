@@ -904,7 +904,11 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
 
       {users.length === 0 ? (
         <div className="browse-empty">
-          <p className="browse-empty-title">No users found for these filters.</p>
+          <p className="browse-empty-title">
+            {activeFilterChips.length > 0
+              ? "No users found for these filters."
+              : "There are no other users yet."}
+          </p>
           {activeFilterChips.length > 0 ? (
             <div className="browse-empty-actions">
               {suggestedRelaxFilters.map((key) => (

@@ -20,6 +20,14 @@ function Settings({ onLogout, setupRequired = false }) {
     swapCancelledEmail: true,
     profileReminderEmail: true,
   });
+  const [googleCalendar, setGoogleCalendar] = useState({
+    configured: false,
+    connected: false,
+    accountEmail: "",
+    calendarId: "primary",
+    syncAcceptedSwaps: false,
+    removeCancelledSwaps: true,
+  });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -34,6 +42,9 @@ function Settings({ onLogout, setupRequired = false }) {
     savingVisibility: false,
     savingNotifications: false,
     changingPassword: false,
+    connectingGoogleCalendar: false,
+    savingGoogleCalendar: false,
+    disconnectingGoogleCalendar: false,
     unblockingUserId: "",
     loggingOut: false,
     deletingAccount: false,
@@ -67,15 +78,38 @@ function Settings({ onLogout, setupRequired = false }) {
       return;
     }
 
+    async function loadGoogleCalendarStatus(authToken) {
+      const response = await fetchWithAuth(
+        API_URL + "/api/integrations/google-calendar/status",
+        {
+          headers: { Authorization: `Bearer ${authToken}` },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load Google Calendar status");
+      }
+
+      return response.json();
+    }
+
     try {
-      const { profileData, blockedData } = await withMinimumDelay(async () => {
-        const [profileRes, blockedRes] = await Promise.all([
+      const { profileData, blockedData, googleCalendarData } = await withMinimumDelay(async () => {
+        const [profileRes, blockedRes, googleCalendarRes] = await Promise.all([
           fetchWithAuth(API_URL + "/api/users/profile", {
             headers: { Authorization: `Bearer ${token}` },
           }),
           fetchWithAuth(API_URL + "/api/users/blocked", {
             headers: { Authorization: `Bearer ${token}` },
           }),
+          loadGoogleCalendarStatus(token).catch(() => ({
+            configured: false,
+            connected: false,
+            accountEmail: "",
+            calendarId: "primary",
+            syncAcceptedSwaps: false,
+            removeCancelledSwaps: true,
+          })),
         ]);
 
         if (!profileRes.ok) {
@@ -95,6 +129,7 @@ function Settings({ onLogout, setupRequired = false }) {
         return {
           profileData: profilePayload,
           blockedData: blockedPayload,
+          googleCalendarData: googleCalendarRes,
         };
       });
 
@@ -108,12 +143,34 @@ function Settings({ onLogout, setupRequired = false }) {
         profileReminderEmail: profileData.notificationPreferences?.profileReminderEmail ?? true,
       });
       setBlockedUsers(Array.isArray(blockedData) ? blockedData : []);
+      setGoogleCalendar((prev) => ({
+        ...prev,
+        ...googleCalendarData,
+      }));
     } catch (e) {
       setLoadError(e.message || "Error loading settings.");
     } finally {
       setLoadingSettings(false);
     }
   }, [navigate]);
+
+  async function refreshGoogleCalendarStatus(token) {
+    const res = await fetchWithAuth(API_URL + "/api/integrations/google-calendar/status", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(payload.message || "Failed to load Google Calendar status");
+    }
+
+    setGoogleCalendar((prev) => ({
+      ...prev,
+      ...payload,
+    }));
+  }
 
   useEffect(() => {
     loadSettings();
@@ -178,7 +235,7 @@ function Settings({ onLogout, setupRequired = false }) {
 
     try {
       await withMinimumDelay(async () => {
-        onLogout();
+        await onLogout();
       });
 
       navigate("/");
@@ -291,6 +348,144 @@ function Settings({ onLogout, setupRequired = false }) {
     }
   }
 
+  async function handleConnectGoogleCalendar() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+      return;
+    }
+
+    setActions((prev) => ({ ...prev, connectingGoogleCalendar: true }));
+
+    try {
+      const res = await fetchWithAuth(API_URL + "/api/integrations/google-calendar/auth-url", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok || !payload.url) {
+        throw new Error(payload.message || "Unable to start Google Calendar connection");
+      }
+
+      const popup = window.open(payload.url, "google-calendar-connect", "width=620,height=740");
+      if (!popup) {
+        throw new Error("Popup blocked. Please allow popups and try again.");
+      }
+
+      await new Promise((resolve) => {
+        let expectedOrigin = "";
+        try {
+          expectedOrigin = new URL(API_URL).origin;
+        } catch (_error) {
+          expectedOrigin = window.location.origin;
+        }
+
+        const handleMessage = (event) => {
+          if (event.origin !== expectedOrigin) {
+            return;
+          }
+
+          if (event?.data?.type !== "google-calendar-connect-result") {
+            return;
+          }
+
+          window.removeEventListener("message", handleMessage);
+          if (event.data.connected) {
+            showMessage("Google Calendar connected.");
+          } else {
+            showMessage(event.data.message || "Google Calendar connection did not complete.");
+          }
+          resolve();
+        };
+
+        window.addEventListener("message", handleMessage);
+
+        const interval = window.setInterval(() => {
+          if (popup.closed) {
+            window.clearInterval(interval);
+            window.removeEventListener("message", handleMessage);
+            resolve();
+          }
+        }, 400);
+      });
+
+      await refreshGoogleCalendarStatus(token);
+    } catch (e) {
+      showMessage(e.message || "Unable to connect Google Calendar.");
+    } finally {
+      setActions((prev) => ({ ...prev, connectingGoogleCalendar: false }));
+    }
+  }
+
+  async function handleSaveGoogleCalendarSettings() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+      return;
+    }
+
+    setActions((prev) => ({ ...prev, savingGoogleCalendar: true }));
+
+    try {
+      const res = await fetchWithAuth(API_URL + "/api/integrations/google-calendar/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          syncAcceptedSwaps: googleCalendar.syncAcceptedSwaps,
+          removeCancelledSwaps: googleCalendar.removeCancelledSwaps,
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload.message || "Failed to save calendar sync settings");
+      }
+
+      setGoogleCalendar((prev) => ({ ...prev, ...payload }));
+      showMessage("Google Calendar sync settings updated.");
+    } catch (e) {
+      showMessage(e.message || "Error updating Google Calendar sync settings.");
+    } finally {
+      setActions((prev) => ({ ...prev, savingGoogleCalendar: false }));
+    }
+  }
+
+  async function handleDisconnectGoogleCalendar() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+      return;
+    }
+
+    setActions((prev) => ({ ...prev, disconnectingGoogleCalendar: true }));
+
+    try {
+      const res = await fetchWithAuth(API_URL + "/api/integrations/google-calendar/disconnect", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload.message || "Failed to disconnect Google Calendar");
+      }
+
+      setGoogleCalendar((prev) => ({ ...prev, ...payload }));
+      showMessage("Google Calendar disconnected.");
+    } catch (e) {
+      showMessage(e.message || "Error disconnecting Google Calendar.");
+    } finally {
+      setActions((prev) => ({ ...prev, disconnectingGoogleCalendar: false }));
+    }
+  }
+
   async function handleChangePassword() {
 
     const token = localStorage.getItem("token");
@@ -367,7 +562,7 @@ function Settings({ onLogout, setupRequired = false }) {
         }
       });
 
-      onLogout();
+      await onLogout();
       navigate("/");
     } catch (e) {
       showMessage(e.message || "Error deleting account.");
@@ -380,6 +575,9 @@ function Settings({ onLogout, setupRequired = false }) {
     actions.savingUsername ||
     actions.savingVisibility ||
     actions.savingNotifications ||
+    actions.connectingGoogleCalendar ||
+    actions.savingGoogleCalendar ||
+    actions.disconnectingGoogleCalendar ||
     actions.changingPassword ||
     actions.loggingOut ||
     actions.deletingAccount ||
@@ -392,6 +590,12 @@ function Settings({ onLogout, setupRequired = false }) {
         ? "Updating blocked users..."
         : actions.changingPassword
           ? "Updating password..."
+          : actions.connectingGoogleCalendar
+            ? "Connecting Google Calendar..."
+            : actions.savingGoogleCalendar
+              ? "Saving calendar settings..."
+              : actions.disconnectingGoogleCalendar
+                ? "Disconnecting Google Calendar..."
       : "Saving settings...";
 
   if (loadingSettings) {
@@ -519,6 +723,87 @@ function Settings({ onLogout, setupRequired = false }) {
                 ))
               )}
             </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>Google Calendar</h3>
+            <p className="settings-muted">
+              If the same Google email already belongs to a SkillSwap account, Google sign-in will use that account.
+            </p>
+
+            {!googleCalendar.configured ? (
+              <p className="settings-muted">
+                Google Calendar is not configured on the server yet.
+              </p>
+            ) : (
+              <>
+                <p className="settings-muted">
+                  {googleCalendar.connected
+                    ? `Connected${googleCalendar.accountEmail ? ` as ${googleCalendar.accountEmail}` : ""}.`
+                    : "Connect your Google Calendar to sync accepted swaps and see other events."}
+                </p>
+
+                <div className="settings-row">
+                  {!googleCalendar.connected ? (
+                    <button
+                      className="settings-btn-primary"
+                      onClick={handleConnectGoogleCalendar}
+                      disabled={isAnyBlockingAction}
+                    >
+                      {actions.connectingGoogleCalendar ? "Connecting..." : "Connect Google Calendar"}
+                    </button>
+                  ) : (
+                    <button
+                      className="settings-logout"
+                      onClick={handleDisconnectGoogleCalendar}
+                      disabled={isAnyBlockingAction}
+                    >
+                      {actions.disconnectingGoogleCalendar ? "Disconnecting..." : "Disconnect Google Calendar"}
+                    </button>
+                  )}
+                </div>
+
+                <div className="settings-checkbox-list">
+                  <label className="settings-checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={googleCalendar.syncAcceptedSwaps}
+                      onChange={(event) => setGoogleCalendar((prev) => ({
+                        ...prev,
+                        syncAcceptedSwaps: event.target.checked,
+                      }))}
+                      disabled={isAnyBlockingAction || !googleCalendar.connected}
+                    />
+                    <span>Automatically add accepted swaps to Google Calendar</span>
+                  </label>
+
+                  <label className="settings-checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={googleCalendar.removeCancelledSwaps}
+                      onChange={(event) => setGoogleCalendar((prev) => ({
+                        ...prev,
+                        removeCancelledSwaps: event.target.checked,
+                      }))}
+                      disabled={
+                        isAnyBlockingAction ||
+                        !googleCalendar.connected ||
+                        !googleCalendar.syncAcceptedSwaps
+                      }
+                    />
+                    <span>Remove cancelled swaps from Google Calendar</span>
+                  </label>
+                </div>
+
+                <button
+                  className="settings-btn-primary"
+                  onClick={handleSaveGoogleCalendarSettings}
+                  disabled={isAnyBlockingAction || !googleCalendar.connected}
+                >
+                  {actions.savingGoogleCalendar ? "Saving..." : "Save Calendar Sync"}
+                </button>
+              </>
+            )}
           </div>
 
           <div className="settings-section">
