@@ -1,9 +1,11 @@
-# SkillSwap
+# SkillSwap RC1
 
-SkillSwap is a community-driven web app where users can trade skills with each other  
+SkillSwap RC1 is the release candidate for a community-driven web app where users can trade skills with each other  
 (e.g., “I can teach guitar if you help me learn Spanish”).  
 
-Current implemented functionality includes:
+This README reflects the RC1 release scope and local development workflow.
+
+RC1 includes the following implemented functionality:
 
 - User registration and login (JWT auth)
 - Password reset flow (forgot password + reset token)
