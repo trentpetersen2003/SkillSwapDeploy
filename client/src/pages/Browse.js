@@ -938,7 +938,9 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
       {users.length === 0 ? (
         <div className="browse-empty">
           <p className="browse-empty-title">
-            {activeFilterChips.length > 0
+            {!isProfileComplete && activeFilterChips.length === 0
+              ? "Complete your profile to browse other users."
+              : activeFilterChips.length > 0
               ? "No users found for these filters."
               : "There are no other users yet."}
           </p>

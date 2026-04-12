@@ -83,7 +83,8 @@ function LoginPage({ onLogin }) {
   }, [location.search]);
 
   useEffect(() => {
-    if (!googleClientId) {
+    if (!googleClientId || mode !== "login") {
+      setGoogleReady(false);
       return;
     }
 
@@ -223,7 +224,7 @@ function LoginPage({ onLogin }) {
     return () => {
       cancelled = true;
     };
-  }, [googleClientId, navigate, onLogin]);
+  }, [googleClientId, mode, navigate, onLogin]);
 
   // Handle change action.
   function handleChange(e) {
@@ -705,7 +706,7 @@ function AppShell({
       </Routes>
 
       <ProfileSetupModal
-        open={showSetupPrompt}
+        open={showSetupPrompt && !blockedAction}
         title="Set up your profile"
         description="Finish your profile before you start swapping."
         hint="Add your time zone, availability, and skills when you're ready."
@@ -733,6 +734,7 @@ function AppShell({
 function App() {
   const [user, setUser] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [profileSetup, setProfileSetup] = useState(() => ({
     ...getDefaultProfileSetupState(),
     loading: true,
@@ -867,26 +869,33 @@ function App() {
 
   const handleLogout = useCallback(async () => {
     const token = localStorage.getItem("token");
+    setLoggingOut(true);
 
-    if (token) {
-      try {
-        await fetchWithAuth(`${API_URL}/api/auth/logout`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      } catch (_error) {
-        // Local logout should still complete if server-side logout fails.
-      }
+    try {
+      await withMinimumDelay(async () => {
+        if (token) {
+          try {
+            await fetchWithAuth(`${API_URL}/api/auth/logout`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+          } catch (_error) {
+            // Local logout should still complete if server-side logout fails.
+          }
+        }
+      }, 450);
+
+      setUser(null);
+      setProfileSetup(getDefaultProfileSetupState());
+      setShowSetupPrompt(false);
+      setBlockedAction(null);
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+    } finally {
+      setLoggingOut(false);
     }
-
-    setUser(null);
-    setProfileSetup(getDefaultProfileSetupState());
-    setShowSetupPrompt(false);
-    setBlockedAction(null);
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
   }, []);
 
   const handleDismissSetupPrompt = useCallback(() => {
@@ -895,6 +904,7 @@ function App() {
       localStorage.setItem(getProfileSetupPromptStorageKey(userId), "true");
     }
     setShowSetupPrompt(false);
+    setBlockedAction(null);
   }, [user]);
 
   const handleOpenSetup = useCallback(() => {
@@ -907,13 +917,17 @@ function App() {
   }, [user]);
 
   const handleRequireProfileSetup = useCallback((actionLabel = "do that") => {
+    if (showSetupPrompt) {
+      return;
+    }
+
     setBlockedAction({
       title: "Finish your profile first",
       description: `You can't ${actionLabel} yet. Finish your profile setup first.`,
       primaryLabel: "Go to setup",
       secondaryLabel: "Maybe later",
     });
-  }, []);
+  }, [showSetupPrompt]);
 
   const handleProfileSaved = useCallback((savedProfile) => {
     const nextStatus = {
@@ -939,6 +953,10 @@ function App() {
 
   if (authChecking) {
     return <LoadingState message="Checking session..." />;
+  }
+
+  if (loggingOut) {
+    return <LoadingState message="Logging out..." />;
   }
 
   return (
@@ -977,7 +995,10 @@ function App() {
                 blockedAction={blockedAction}
                 onDismissSetupPrompt={handleDismissSetupPrompt}
                 onOpenSetup={handleOpenSetup}
-                onCloseBlockedAction={() => setBlockedAction(null)}
+                onCloseBlockedAction={() => {
+                  setBlockedAction(null);
+                  setShowSetupPrompt(false);
+                }}
                 onProfileSaved={handleProfileSaved}
                 onLogout={handleLogout}
                 onRequireProfileSetup={handleRequireProfileSetup}

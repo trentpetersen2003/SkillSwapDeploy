@@ -208,6 +208,47 @@ describe("SkillSwap behavior tests", () => {
     cy.contains("Profile").should("be.visible");
   });
 
+  it("guides first-time profile setup and shows missing requirements on save", () => {
+    cy.intercept("GET", `${API_BASE}/api/messages/conversations`, { body: [] }).as("getConversations");
+    cy.intercept("GET", `${API_BASE}/api/users/profile`, {
+      body: {
+        _id: "u0",
+        name: "",
+        email: "",
+        city: "",
+        state: "",
+        timeZone: "",
+        swapMode: "either",
+        availability: [],
+        skills: [],
+        skillsWanted: [],
+      },
+    }).as("getIncompleteProfile");
+    cy.intercept("GET", `${API_BASE}/api/swaps`, { body: [] }).as("getSwaps");
+
+    cy.visit(`${BASE_URL}/profile`, { onBeforeLoad: setAuth });
+    cy.wait("@getIncompleteProfile");
+
+    cy.contains("Finish your profile to unlock swapping.").should("be.visible");
+    cy.contains("Setup guide").should("be.visible");
+    cy.contains("0/8 required complete").should("be.visible");
+    cy.contains("button", "Add your name").should("be.visible");
+    cy.contains("button", "Add at least one availability slot").should("be.visible");
+
+    cy.contains("button", "Save Profile").click();
+
+    cy.contains("Complete the required basics before saving.").should("be.visible");
+    cy.contains("You still need to add:").should("be.visible");
+    cy.contains("Name").should("be.visible");
+    cy.contains("Email").should("be.visible");
+    cy.contains("City").should("be.visible");
+    cy.contains("State").should("be.visible");
+    cy.contains("Time zone").should("be.visible");
+    cy.contains("Availability").should("be.visible");
+    cy.contains("Skills you offer").should("be.visible");
+    cy.contains("Skills you want").should("be.visible");
+  });
+
   it("manages settings notifications, security, and safety controls", () => {
     cy.intercept("GET", `${API_BASE}/api/messages/conversations`, { body: [] }).as("getConversations");
     cy.intercept("GET", `${API_BASE}/api/users/profile`, {

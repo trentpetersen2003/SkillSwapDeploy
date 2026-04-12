@@ -59,6 +59,82 @@ const SKILL_CATEGORIES = [
   "Career & Professional","Life Skills","Fitness & Wellness","Hobbies & Misc",
 ];
 const SKILL_LEVELS = ["Novice", "Proficient", "Expert"];
+const PROFILE_SETUP_STEPS = [
+  {
+    id: "basics",
+    label: "Basics",
+    sectionId: "profile-basics",
+    title: "Add your account details",
+    copy: "Add your name, email, city, state, and time zone.",
+  },
+  {
+    id: "schedule",
+    label: "Schedule",
+    sectionId: "profile-schedule",
+    title: "Set availability",
+    copy: "Add at least one time window each week.",
+  },
+  {
+    id: "teach",
+    label: "Teach",
+    sectionId: "profile-teach",
+    title: "List what you can teach",
+    copy: "List at least one skill you can teach.",
+  },
+  {
+    id: "learn",
+    label: "Learn",
+    sectionId: "profile-learn",
+    title: "List what you want to learn",
+    copy: "List at least one skill you want help with.",
+  },
+  {
+    id: "review",
+    label: "Review",
+    sectionId: "profile-review",
+    title: "Review and save",
+    copy: "Save once every required item is complete.",
+  },
+];
+
+const PROFILE_SETUP_FIELD_LABELS = {
+  name: "Name",
+  email: "Email",
+  location: "City",
+  state: "State",
+  "time zone": "Time zone",
+  availability: "Availability",
+  skills: "Skills you offer",
+  "skills wanted": "Skills you want",
+};
+
+const REQUIRED_BASIC_FIELDS = new Set(["name", "email", "city", "state", "timeZone"]);
+
+// Check whether a field should display a required marker.
+function shouldShowRequiredStar(profile, setupRequired, fieldName) {
+  if (setupRequired) {
+    return true;
+  }
+
+  if (fieldName === "city") {
+    return !isProfileSetupFieldComplete(profile, "location");
+  }
+
+  if (fieldName === "timeZone") {
+    return !isProfileSetupFieldComplete(profile, "time zone");
+  }
+
+  return REQUIRED_BASIC_FIELDS.has(fieldName) ? !isProfileSetupFieldComplete(profile, fieldName) : false;
+}
+
+// Run required star render logic.
+function RequiredStar({ show }) {
+  if (!show) {
+    return null;
+  }
+
+  return <span className="profile-required-star" aria-hidden="true">*</span>;
+}
 
 // Build analytics payload.
 function buildAnalytics(swaps, currentUserId) {
@@ -107,16 +183,60 @@ function buildAnalytics(swaps, currentUserId) {
 }
 
 // Run section header logic.
-function SectionHeader({ eyebrow, title, copy }) {
+function SectionHeader({ eyebrow, title, copy, required = false }) {
   return (
     <div className="profile-section__header">
       <div>
         <p className="profile-section__eyebrow">{eyebrow}</p>
-        <h2 className="profile-section__title">{title}</h2>
+        <h2 className="profile-section__title">
+          {title}
+          <RequiredStar show={required} />
+        </h2>
       </div>
       <p className="profile-section__copy">{copy}</p>
     </div>
   );
+}
+
+// Run profile setup field completeness logic.
+function isProfileSetupFieldComplete(profile, fieldName) {
+  if (fieldName === "name" || fieldName === "email" || fieldName === "time zone") {
+    const key = fieldName === "time zone" ? "timeZone" : fieldName;
+    return typeof profile[key] === "string" && profile[key].trim().length > 0;
+  }
+
+  if (fieldName === "location") {
+    return typeof profile.city === "string" && profile.city.trim().length > 0;
+  }
+
+  if (fieldName === "state") {
+    return typeof profile.state === "string" && profile.state.trim().length > 0;
+  }
+
+  if (fieldName === "availability") {
+    return Array.isArray(profile.availability) && profile.availability.length > 0;
+  }
+
+  if (fieldName === "skills") {
+    return Array.isArray(profile.skills) && profile.skills.length > 0;
+  }
+
+  if (fieldName === "skills wanted") {
+    return Array.isArray(profile.skillsWanted) && profile.skillsWanted.length > 0;
+  }
+
+  return false;
+}
+
+// Run profile setup progress logic.
+function getProfileSetupProgress(profile) {
+  const requiredFields = ["name", "email", "location", "state", "time zone", "availability", "skills", "skills wanted"];
+  const completedCount = requiredFields.filter((field) => isProfileSetupFieldComplete(profile, field)).length;
+  return {
+    completedCount,
+    totalCount: requiredFields.length,
+    percent: Math.round((completedCount / requiredFields.length) * 100),
+  };
 }
 
 // Run profile logic.
@@ -141,6 +261,67 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
   });
   const [newSkill, setNewSkill] = useState({ skillName: "", category: "", level: "Novice" });
   const [newSkillWanted, setNewSkillWanted] = useState({ skillName: "", category: "", level: "Novice" });
+  const [activeSetupStep, setActiveSetupStep] = useState(0);
+  const [saveErrorFields, setSaveErrorFields] = useState([]);
+  const basicsRef = React.useRef(null);
+  const scheduleRef = React.useRef(null);
+  const teachRef = React.useRef(null);
+  const learnRef = React.useRef(null);
+  const reviewRef = React.useRef(null);
+
+  const setupProgress = useMemo(() => getProfileSetupProgress(profile), [profile]);
+  const setupMissingFields = useMemo(() => getProfileSetupStatus(profile).missingFields, [profile]);
+  const setupIsComplete = setupMissingFields.length === 0;
+  const setupStepIndex = useMemo(() => {
+    if (!setupRequired) {
+      return 0;
+    }
+
+    if (!isProfileSetupFieldComplete(profile, "name") || !isProfileSetupFieldComplete(profile, "email") || !isProfileSetupFieldComplete(profile, "location") || !isProfileSetupFieldComplete(profile, "state") || !isProfileSetupFieldComplete(profile, "time zone")) {
+      return 0;
+    }
+
+    if (!isProfileSetupFieldComplete(profile, "availability")) {
+      return 1;
+    }
+
+    if (!isProfileSetupFieldComplete(profile, "skills")) {
+      return 2;
+    }
+
+    if (!isProfileSetupFieldComplete(profile, "skills wanted")) {
+      return 3;
+    }
+
+    return 4;
+  }, [profile, setupRequired]);
+
+  useEffect(() => {
+    if (setupRequired) {
+      setActiveSetupStep(setupStepIndex);
+    }
+  }, [setupRequired, setupStepIndex]);
+
+  const sectionRefs = useMemo(() => ({
+    basics: basicsRef,
+    schedule: scheduleRef,
+    teach: teachRef,
+    learn: learnRef,
+    review: reviewRef,
+  }), []);
+
+  // Run section focus logic.
+  function focusSetupSection(stepId) {
+    const step = PROFILE_SETUP_STEPS.find((entry) => entry.id === stepId);
+    if (!step) return;
+    setActiveSetupStep(PROFILE_SETUP_STEPS.findIndex((entry) => entry.id === stepId));
+    sectionRefs[stepId]?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // Run missing fields summary logic.
+  function getMissingFieldSummary(fields) {
+    return fields.map((field) => PROFILE_SETUP_FIELD_LABELS[field] || field).join(", ");
+  }
 
   const analytics = useMemo(() => buildAnalytics(swaps, currentUserId), [swaps, currentUserId]);
 
@@ -374,8 +555,12 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
   async function handleSave(event) {
     event.preventDefault();
     setMessage("");
+    setSaveErrorFields([]);
     if (!profile.name || !profile.email || !profile.city || !profile.state || !profile.timeZone) {
-      setMessage("Name, email, city, state, and time zone are required");
+      const required = ["name", "email", "location", "state", "time zone"];
+      const missing = required.filter((field) => !isProfileSetupFieldComplete(profile, field));
+      setSaveErrorFields(missing);
+      setMessage("Complete the required basics before saving.");
       return;
     }
     setSaving(true);
@@ -395,6 +580,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
       };
       const setupStatus = getProfileSetupStatus(payload);
       if (setupRequired && !setupStatus.isComplete) {
+        setSaveErrorFields(setupStatus.missingFields);
         setMessage("Finish the required setup details before leaving this page.");
         setSaving(false);
         return;
@@ -450,8 +636,120 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
           <p className="profile-setup-banner__eyebrow">Finish setup</p>
           <h2 className="profile-setup-banner__title">Finish your profile to unlock swapping.</h2>
           <p className="profile-setup-banner__description">
-            Add the basics below before you use swaps, chat, or your calendar.
+            Complete the required fields below to unlock swaps, chat, and your calendar.
           </p>
+        </section>
+      )}
+
+      {message && (
+        <div
+          className={`profile-alert ${message.includes("success") ? "profile-alert--success" : "profile-alert--error"}`}
+          aria-live="polite"
+        >
+          {message}
+        </div>
+      )}
+
+      {setupRequired && (
+        <section className="profile-setup-guide" aria-label="Profile setup guide">
+          <div className="profile-setup-guide__header">
+            <div>
+              <p className="profile-setup-guide__eyebrow">Setup guide</p>
+              <h2 className="profile-setup-guide__title">Required profile items</h2>
+            </div>
+            <p className="profile-setup-guide__copy">
+              Check off every item to unlock the rest of the site.
+            </p>
+          </div>
+
+          <div className="profile-setup-progress" aria-label="Profile setup progress">
+            <div className="profile-setup-progress__meta">
+              <span>{setupProgress.completedCount}/{setupProgress.totalCount} required complete</span>
+              <strong>{setupProgress.percent}%</strong>
+            </div>
+            <div className="profile-setup-progress__bar" aria-hidden="true">
+              <span style={{ width: `${setupProgress.percent}%` }} />
+            </div>
+          </div>
+
+          <div className="profile-setup-wizard">
+            <div className="profile-setup-wizard__steps" role="tablist" aria-label="Profile setup steps">
+              {PROFILE_SETUP_STEPS.map((step, index) => (
+                <button
+                  key={step.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={index === activeSetupStep}
+                  className={`profile-setup-wizard__step ${index === activeSetupStep ? "profile-setup-wizard__step--active" : ""}`}
+                  onClick={() => focusSetupSection(step.id)}
+                >
+                  <span className="profile-setup-wizard__step-index">{index + 1}</span>
+                  <span>{step.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="profile-setup-wizard__panel">
+              <h3>{PROFILE_SETUP_STEPS[activeSetupStep]?.title}</h3>
+              <p>{PROFILE_SETUP_STEPS[activeSetupStep]?.copy}</p>
+              <button
+                type="button"
+                className="profile-inline-button"
+                onClick={() => focusSetupSection(PROFILE_SETUP_STEPS[activeSetupStep]?.id || "basics")}
+              >
+                Go to this section
+              </button>
+            </div>
+          </div>
+
+          <div className="profile-setup-checklist" aria-label="Required profile checklist">
+            {[
+              ["name", "Add your name"],
+              ["email", "Add your email"],
+              ["location", "Add your city"],
+              ["state", "Add your state/province"],
+              ["time zone", "Choose a time zone"],
+              ["availability", "Add at least one availability slot"],
+              ["skills", "List at least one skill you can teach"],
+              ["skills wanted", "List at least one skill you want"],
+            ].map(([fieldName, label]) => {
+              const complete = isProfileSetupFieldComplete(profile, fieldName);
+              return (
+                <button
+                  key={fieldName}
+                  type="button"
+                  className={`profile-setup-checklist__item ${complete ? "profile-setup-checklist__item--complete" : ""}`}
+                  onClick={() => focusSetupSection(fieldName === "availability" ? "schedule" : fieldName === "skills" ? "teach" : fieldName === "skills wanted" ? "learn" : "basics")}
+                >
+                  <span className="profile-setup-checklist__status" aria-hidden="true">
+                    {complete ? "✓" : "•"}
+                  </span>
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {saveErrorFields.length > 0 && (
+        <section className="profile-error-summary" aria-label="Missing profile requirements">
+          <h2 className="profile-error-summary__title">You still need to add:</h2>
+          <p className="profile-error-summary__copy">{getMissingFieldSummary(saveErrorFields)}</p>
+          <div className="profile-error-summary__actions">
+            {saveErrorFields.includes("location") || saveErrorFields.includes("state") || saveErrorFields.includes("name") || saveErrorFields.includes("email") || saveErrorFields.includes("time zone") ? (
+              <button type="button" className="profile-inline-button" onClick={() => focusSetupSection("basics")}>Go to basics</button>
+            ) : null}
+            {saveErrorFields.includes("availability") ? (
+              <button type="button" className="profile-inline-button profile-inline-button--subtle" onClick={() => focusSetupSection("schedule")}>Go to availability</button>
+            ) : null}
+            {saveErrorFields.includes("skills") ? (
+              <button type="button" className="profile-inline-button profile-inline-button--subtle" onClick={() => focusSetupSection("teach")}>Go to skills you offer</button>
+            ) : null}
+            {saveErrorFields.includes("skills wanted") ? (
+              <button type="button" className="profile-inline-button profile-inline-button--subtle" onClick={() => focusSetupSection("learn")}>Go to skills you want</button>
+            ) : null}
+          </div>
         </section>
       )}
 
@@ -493,27 +791,36 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
       </section>
 
       <form onSubmit={handleSave} className="profile-form">
-        <section className="profile-section">
+        <section className="profile-section" id="profile-basics" ref={basicsRef}>
           <SectionHeader
             eyebrow="Basics"
             title="Account details"
-            copy="These details help people find you and line up sessions correctly."
+            copy="Add your name, email, city, state, and time zone."
+            required={setupRequired}
           />
           <div className="profile-field-grid">
             <label className="profile-field">
-              <span className="profile-field__label">Name</span>
+              <span className="profile-field__label">
+                Name <RequiredStar show={shouldShowRequiredStar(profile, setupRequired, "name")} />
+              </span>
               <input name="name" placeholder="Your name" value={profile.name} onChange={handleChange} required />
             </label>
             <label className="profile-field">
-              <span className="profile-field__label">Email</span>
+              <span className="profile-field__label">
+                Email <RequiredStar show={shouldShowRequiredStar(profile, setupRequired, "email")} />
+              </span>
               <input name="email" type="email" placeholder="you@example.com" value={profile.email} onChange={handleChange} required />
             </label>
             <label className="profile-field">
-              <span className="profile-field__label">City</span>
+              <span className="profile-field__label">
+                City <RequiredStar show={shouldShowRequiredStar(profile, setupRequired, "city")} />
+              </span>
               <input name="city" placeholder="City" value={profile.city} onChange={handleChange} required />
             </label>
             <label className="profile-field">
-              <span className="profile-field__label">State</span>
+              <span className="profile-field__label">
+                State <RequiredStar show={shouldShowRequiredStar(profile, setupRequired, "state")} />
+              </span>
               <select name="state" value={profile.state} onChange={handleChange} required>
                 <option value="">Select state/province</option>
                 {STATE_PROVINCE_OPTIONS.map((stateCode) => (
@@ -526,7 +833,9 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
               <input name="phoneNumber" placeholder="Optional" value={profile.phoneNumber} onChange={handleChange} />
             </label>
             <label className="profile-field">
-              <span className="profile-field__label">Time zone</span>
+              <span className="profile-field__label">
+                Time zone <RequiredStar show={shouldShowRequiredStar(profile, setupRequired, "timeZone")} />
+              </span>
               <select name="timeZone" value={profile.timeZone} onChange={handleChange} required>
                 <option value="">Select time zone</option>
                 {TIMEZONES.map((tz) => (
@@ -545,11 +854,12 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
           </div>
         </section>
 
-        <section className="profile-section">
+        <section className="profile-section" id="profile-schedule" ref={scheduleRef}>
           <SectionHeader
             eyebrow="Schedule"
             title="Availability"
-            copy="Add the time windows you can realistically commit to each week."
+            copy="Add at least one weekly time window."
+            required={setupRequired || !isProfileSetupFieldComplete(profile, "availability")}
           />
           {profile.availability.length > 0 && (
             <div className="availability-list">
@@ -571,7 +881,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
                             className="profile-inline-button profile-inline-button--subtle"
                             onClick={() => removeAvailability(actualIndex)}
                           >
-                            Remove {index + 1}
+                            Remove
                           </button>
                         );
                       })}
@@ -645,11 +955,12 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
           <div className="profile-alert profile-alert--error">Warning: {availabilityError}</div>
         )}
 
-        <section className="profile-section">
+        <section className="profile-section" id="profile-teach" ref={teachRef}>
           <SectionHeader
             eyebrow="Teach"
             title="Skills you offer"
-            copy="Show what you can confidently help other people learn."
+            copy="Add at least one skill you can teach."
+            required={setupRequired || !isProfileSetupFieldComplete(profile, "skills")}
           />
           {profile.skills.length > 0 && (
             <div className="skills-list">
@@ -672,7 +983,10 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
 
           <div className="skill-input">
             <div className="profile-input-group">
-              <input name="skillName" placeholder="Skill name" value={newSkill.skillName} onChange={handleSkillChange} />
+              <label className="profile-field">
+                <span className="profile-field__label">Skill name</span>
+                <input name="skillName" placeholder="Skill name" value={newSkill.skillName} onChange={handleSkillChange} />
+              </label>
             </div>
             <div className="profile-field-grid">
               <label className="profile-field">
@@ -699,11 +1013,12 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
           </div>
         </section>
 
-        <section className="profile-section">
+        <section className="profile-section" id="profile-learn" ref={learnRef}>
           <SectionHeader
             eyebrow="Learn"
             title="Skills you want"
-            copy="Tell SkillSwap what you want help with so matching has something to work from."
+            copy="Add at least one skill you want help with."
+            required={setupRequired || !isProfileSetupFieldComplete(profile, "skills wanted")}
           />
           {profile.skillsWanted.length > 0 && (
             <div className="skills-list">
@@ -726,12 +1041,15 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
 
           <div className="skill-input">
             <div className="profile-input-group">
-              <input
-                name="skillName"
-                placeholder="Skill name"
-                value={newSkillWanted.skillName}
-                onChange={handleSkillWantedChange}
-              />
+              <label className="profile-field">
+                <span className="profile-field__label">Skill name</span>
+                <input
+                  name="skillName"
+                  placeholder="Skill name"
+                  value={newSkillWanted.skillName}
+                  onChange={handleSkillWantedChange}
+                />
+              </label>
             </div>
             <div className="profile-field-grid">
               <label className="profile-field">
@@ -761,21 +1079,17 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
         {skillError && (
           <div className="profile-alert profile-alert--error">Warning: {skillError}</div>
         )}
-        <div className="profile-form__footer">
+        <div className="profile-form__footer" id="profile-review" ref={reviewRef}>
           <p className="profile-form__footer-copy">
-            Keep this updated so people see the right availability and match info.
+            {setupRequired
+              ? "Review the checklist above. Save when everything is complete."
+              : "Keep this updated so people see the right availability and match info."}
           </p>
           <button type="submit" disabled={saving}>
             {saving ? "Saving..." : "Save Profile"}
           </button>
         </div>
       </form>
-
-      {message && (
-        <div className={`profile-alert ${message.includes("success") ? "profile-alert--success" : "profile-alert--error"}`}>
-          {message}
-        </div>
-      )}
 
       <ProfileSetupModal
         open={Boolean(pendingNavigationPath)}
