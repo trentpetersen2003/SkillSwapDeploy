@@ -10,6 +10,7 @@ const {
 } = require("../services/matching");
 
 const router = express.Router();
+const MAX_RECOMMENDED_USERS = 12;
 
 // Check whether matching telemetry enabled .
 function isMatchingTelemetryEnabled() {
@@ -72,9 +73,10 @@ router.get("/", auth, async (req, res) => {
     );
 
     const rankedUsers = rankCandidates(currentUser, users, reliabilityByUserId);
+    const recommendedUsers = rankedUsers.slice(0, MAX_RECOMMENDED_USERS);
 
     res.json(
-      rankedUsers.map((user) => {
+      recommendedUsers.map((user) => {
         const publicUser = sanitizePublicUser(user, { viewerAllowsLocations });
         return {
           ...publicUser,

@@ -179,6 +179,25 @@ The application is deployed as follows:
 
 **Backend:** Deployed on Render (https://skillswapdeploy-eqyo.onrender.com)
 
+### Render SPA routing note (important)
+
+If your frontend uses clean client-side URLs like `/browse`, refreshing that page can show a host-level `Not Found` unless your static hosting service rewrites unknown paths to `index.html`.
+
+Current app behavior:
+- Production defaults to hash routing (for example `/#/browse`) to prevent deep-link refresh failures on hosts without rewrite rules.
+- You can switch back to clean URLs after configuring rewrites by setting:
+
+```env
+REACT_APP_FORCE_BROWSER_ROUTER=true
+```
+
+For a Render Static Site, add this rewrite rule in the service settings:
+- Source: `/*`
+- Destination: `/index.html`
+- Action: `Rewrite`
+
+After adding the rewrite and redeploying, direct loads and reloads of routes like `/browse`, `/foryou`, and `/chat` will work correctly.
+
 Note: Passwords and secret keys will never be committed to Git or included in this README.
 
 ## Testing

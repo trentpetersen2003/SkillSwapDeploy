@@ -92,6 +92,11 @@ describe("ForYouPage", () => {
       expect(screen.getByRole("button", { name: "Request Swap" })).toBeInTheDocument();
     });
 
+    const userCard = screen.getByText("Taylor").closest(".user-card");
+    expect(userCard).not.toBeNull();
+    expect(userCard).toHaveTextContent(/Offers:\s+Guitar/i);
+    expect(userCard).toHaveTextContent(/Wants:\s+Spanish/i);
+
     expect(screen.getByText("Match 92%")).toBeInTheDocument();
     expect(screen.getByText("Teaches skills you want: Spanish")).toBeInTheDocument();
 

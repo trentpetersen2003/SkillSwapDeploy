@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  BrowserRouter as Router,
+  BrowserRouter,
+  HashRouter,
   Routes,
   Route,
   Navigate,
@@ -42,6 +43,12 @@ const completeSetupModalCopy = {
   primaryLabel: "Go to setup",
   secondaryLabel: "Maybe later",
 };
+
+const RouterComponent =
+  process.env.NODE_ENV === "production" &&
+  process.env.REACT_APP_FORCE_BROWSER_ROUTER !== "true"
+    ? HashRouter
+    : BrowserRouter;
 
 // Get default profile setup state data.
 function getDefaultProfileSetupState() {
@@ -960,7 +967,7 @@ function App() {
   }
 
   return (
-    <Router>
+    <RouterComponent>
       <Routes>
         <Route
           path="/"
@@ -1009,7 +1016,7 @@ function App() {
           }
         />
       </Routes>
-    </Router>
+    </RouterComponent>
   );
 }
 

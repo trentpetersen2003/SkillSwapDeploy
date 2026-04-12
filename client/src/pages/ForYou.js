@@ -657,6 +657,7 @@ function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap, onBlockUser
         {skillsOffered.length > 0 && (
           <div className="skill-preview">
             <span className="skill-label">Offers:</span>
+            {" "}
             <span className="skill-value">
               {skillsOffered.slice(0, 2).join(", ")}
               {skillsOffered.length > 2 && " ..."}
@@ -666,6 +667,7 @@ function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap, onBlockUser
         {skillsWanted.length > 0 && (
           <div className="skill-preview">
             <span className="skill-label">Wants:</span>
+            {" "}
             <span className="skill-value">
               {skillsWanted.slice(0, 2).join(", ")}
               {skillsWanted.length > 2 && " ..."}
