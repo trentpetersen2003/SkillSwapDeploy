@@ -1,0 +1,142 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@500;700&family=Sora:wght@600;700&display=swap");
+
+.guest-preview-page {
+  min-height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 80% 18%, rgba(16, 185, 129, 0.16), transparent 36%),
+    radial-gradient(circle at 20% 88%, rgba(14, 165, 233, 0.18), transparent 44%),
+    #f2f7fb;
+}
+
+.guest-preview-shell {
+  max-width: 1080px;
+  margin: 0 auto;
+  border-radius: 20px;
+  border: 1px solid #dbeafe;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.1);
+  padding: clamp(16px, 3vw, 30px);
+}
+
+.guest-preview-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.guest-preview-home {
+  border: none;
+  background: transparent;
+  text-decoration: none;
+  color: #0f172a;
+  font-family: "Sora", "Trebuchet MS", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.guest-preview-auth-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.guest-preview-link {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  text-decoration: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  color: #0f172a;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.guest-preview-link--primary {
+  background: #0284c7;
+  color: #f8fafc;
+  border-color: transparent;
+}
+
+.guest-preview-copy h1 {
+  margin: 0;
+  color: #0f172a;
+  font-family: "Sora", "Trebuchet MS", sans-serif;
+  font-size: clamp(1.6rem, 3.3vw, 2.3rem);
+}
+
+.guest-preview-copy p {
+  margin: 10px 0 0;
+  color: #334155;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  line-height: 1.6;
+}
+
+.guest-preview-status {
+  margin-top: 8px;
+  color: #0f766e;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.guest-preview-grid {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.guest-preview-card {
+  border-radius: 14px;
+  border: 1px solid #bfdbfe;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.guest-preview-card h2 {
+  margin: 0;
+  color: #0f172a;
+  font-family: "Sora", "Trebuchet MS", sans-serif;
+  font-size: 1.02rem;
+}
+
+.guest-preview-card p {
+  margin: 8px 0 0;
+  color: #334155;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  line-height: 1.45;
+  font-size: 0.94rem;
+}
+
+.guest-preview-card-cta {
+  margin-top: 12px;
+  display: inline-block;
+  border: none;
+  cursor: pointer;
+  border-radius: 999px;
+  background: #22c55e;
+  color: #032d11;
+  padding: 8px 12px;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-weight: 700;
+}
+
+.guest-preview-home:disabled,
+.guest-preview-link:disabled,
+.guest-preview-card-cta:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .guest-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .guest-preview-page {
+    padding: 14px;
+  }
+}

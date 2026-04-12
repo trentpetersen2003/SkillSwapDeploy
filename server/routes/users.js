@@ -9,6 +9,7 @@ const { rankCandidates } = require("../services/matching");
 
 const router = express.Router();
 const PASSWORD_MIN_LENGTH = 8;
+const PUBLIC_PREVIEW_LIMIT = 6;
 const DAYS_OF_WEEK = [
   "Monday",
   "Tuesday",
@@ -50,6 +51,59 @@ function parseMultiValueParam(value) {
 
   return [];
 }
+
+// Run public preview item builder logic.
+function buildPublicPreviewItem(user) {
+  const offers = Array.isArray(user.skills)
+    ? user.skills
+        .map((skill) => skill?.skillName)
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+
+  const wants = Array.isArray(user.skillsWanted)
+    ? user.skillsWanted
+        .map((skill) => skill?.skillName)
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+
+  return {
+    id: String(user._id),
+    name: user.name,
+    username: user.username,
+    city: user.locationVisibility === "hidden" ? "" : (user.city || ""),
+    state: user.locationVisibility === "hidden" ? "" : (user.state || ""),
+    locationVisibility: user.locationVisibility || "visible",
+    swapMode: user.swapMode || "either",
+    offers,
+    wants,
+  };
+}
+
+// GET /api/users/public-preview - list sample public users for anonymous browse preview
+router.get("/public-preview", async (_req, res) => {
+  try {
+    const candidates = await User.find({
+      $or: [
+        { skills: { $exists: true, $ne: [] } },
+        { skillsWanted: { $exists: true, $ne: [] } },
+      ],
+    })
+      .select("name username city state locationVisibility swapMode skills skillsWanted createdAt")
+      .sort({ createdAt: -1 })
+      .limit(PUBLIC_PREVIEW_LIMIT);
+
+    const previewUsers = candidates
+      .map((user) => buildPublicPreviewItem(user))
+      .filter((item) => item.offers.length > 0 || item.wants.length > 0);
+
+    res.json(previewUsers);
+  } catch (err) {
+    console.error("Error loading public preview users:", err);
+    res.status(500).json({ message: "Error loading public preview users" });
+  }
+});
 
 // GET /api/users - list all users with search/filter
 router.get("/", auth, async (req, res) => {

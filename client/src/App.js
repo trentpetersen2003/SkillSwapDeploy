@@ -16,6 +16,8 @@ import Calendar from "./pages/Calendar";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import SplashPage from "./pages/SplashPage";
+import GuestBrowsePreview from "./pages/GuestBrowsePreview";
 import API_URL from "./config";
 import fetchWithAuth from "./utils/api";
 import LoadingState, { InlineLoading } from "./components/LoadingState";
@@ -57,18 +59,24 @@ function isRestrictedRoute(pathname = "") {
 
 // Run login page logic.
 function LoginPage({ onLogin }) {
-  const [mode, setMode] = useState("login");
+  const location = useLocation();
+  const [mode, setMode] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("mode") === "register" ? "register" : "login";
+  });
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || "";
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    const requestedMode = params.get("mode") === "register" ? "register" : "login";
+    setMode(requestedMode);
+
     if (params.get("reset") === "success") {
       setMessage("Password reset successful. You can now log in.");
     }
@@ -466,7 +474,7 @@ function ForgotPasswordPage() {
         </form>
 
         <div className="switcher">
-          <button type="button" onClick={() => navigate("/")} disabled={submitting}>
+          <button type="button" onClick={() => navigate("/login")} disabled={submitting}>
             Back to login
           </button>
         </div>
@@ -532,7 +540,7 @@ function ResetPasswordPage() {
         return;
       }
 
-      navigate("/?reset=success", { replace: true });
+      navigate("/login?reset=success", { replace: true });
     } catch (err) {
       console.error(err);
       setMessage("Something went wrong. Try again.");
@@ -570,7 +578,7 @@ function ResetPasswordPage() {
         </form>
 
         <div className="switcher">
-          <button type="button" onClick={() => navigate("/")} disabled={submitting}>
+          <button type="button" onClick={() => navigate("/login")} disabled={submitting}>
             Back to login
           </button>
         </div>
@@ -939,8 +947,16 @@ function App() {
         <Route
           path="/"
           element={
-            user ? <Navigate to="/foryou" replace /> : <LoginPage onLogin={handleLogin} />
+            user ? <Navigate to="/foryou" replace /> : <SplashPage />
           }
+        />
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/foryou" replace /> : <LoginPage onLogin={handleLogin} />}
+        />
+        <Route
+          path="/browse-preview"
+          element={user ? <Navigate to="/browse" replace /> : <GuestBrowsePreview />}
         />
         <Route
           path="/forgot-password"

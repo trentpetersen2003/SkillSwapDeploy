@@ -14,11 +14,77 @@ function setAuth(win) {
 }
 
 describe("SkillSwap behavior tests", () => {
+  it("shows splash actions and guest preview cards", () => {
+    cy.intercept("GET", `${API_BASE}/api/users/public-preview`, {
+      body: [
+        {
+          id: "guest-1",
+          name: "Aisha R.",
+          username: "aisha",
+          city: "Denver",
+          state: "CO",
+          locationVisibility: "visible",
+          swapMode: "either",
+          offers: ["Python fundamentals", "SQL basics"],
+          wants: ["Public speaking"],
+        },
+        {
+          id: "guest-2",
+          name: "Hidden User",
+          username: "hidden-user",
+          city: "Seattle",
+          state: "WA",
+          locationVisibility: "hidden",
+          swapMode: "online",
+          offers: ["Figma"],
+          wants: ["Data visualization"],
+        },
+      ],
+    }).as("getPublicPreview");
+
+    cy.visit(`${BASE_URL}/`);
+    cy.contains("Trade skills. Build confidence. Grow together.").should("be.visible");
+    cy.contains("button", "Log in").should("be.visible");
+    cy.contains("button", "Sign up").should("be.visible");
+    cy.contains("button", "Browse as guest").click();
+
+    cy.url().should("include", "/browse-preview");
+    cy.wait("@getPublicPreview");
+    cy.contains("Guest preview").should("be.visible");
+    cy.contains("Aisha R.").should("be.visible");
+    cy.contains("Hidden User")
+      .closest(".guest-preview-card")
+      .within(() => {
+        cy.contains("Location:").should("not.exist");
+      });
+  });
+
+  it("redirects authenticated users away from splash to app", () => {
+    cy.intercept("GET", `${API_BASE}/api/messages/conversations`, { body: [] }).as("getConversations");
+    cy.intercept("GET", `${API_BASE}/api/users/profile`, {
+      body: {
+        _id: "u0",
+        name: "Test User",
+        email: "test@example.com",
+        timeZone: "UTC-05:00",
+        skills: [{ skillName: "Piano", category: "Creative & Arts" }],
+        skillsWanted: [{ skillName: "Guitar", category: "Creative & Arts" }],
+        availability: [{ day: "Monday", timeRange: "6:00 PM - 8:00 PM" }],
+      },
+    }).as("getProfile");
+    cy.intercept("GET", `${API_BASE}/api/for-you`, { body: [] }).as("getForYou");
+    cy.intercept("GET", `${API_BASE}/api/swaps`, { body: [] }).as("getSwaps");
+
+    cy.visit(`${BASE_URL}/`, { onBeforeLoad: setAuth });
+    cy.wait("@getProfile");
+    cy.url().should("include", "/foryou");
+  });
+
   it("shows login validation messages", () => {
     cy.visit(`${BASE_URL}/`);
-    cy.contains("SkillSwap").should("be.visible");
+    cy.contains("Trade skills. Build confidence. Grow together.").should("be.visible");
 
-    cy.contains("Log in").should("be.visible").click();
+    cy.contains("button", "Log in").should("be.visible").click();
     cy.contains("Email and password are required.").should("be.visible");
 
     cy.contains("Need an account? Sign up").click();
@@ -231,7 +297,7 @@ describe("SkillSwap behavior tests", () => {
       },
     }).as("resetPassword");
 
-    cy.visit(`${BASE_URL}/`);
+    cy.visit(`${BASE_URL}/login`);
     cy.contains("Forgot password?").should("be.visible").click();
 
     cy.get("input[name='email']").type("test@example.com");
