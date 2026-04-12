@@ -5,6 +5,7 @@ import ReactCalendar from "react-calendar";
 import API_URL from "../config";
 import fetchWithAuth from "../utils/api";
 import LoadingState from "../components/LoadingState";
+import ErrorModal from "../components/ErrorModal";
 import { withMinimumDelay } from "../utils/loading";
 import "react-calendar/dist/Calendar.css";
 import "../pages/Calendar.css";
@@ -26,6 +27,7 @@ function CalendarPage() {
   const [reviewDraftsBySwapId, setReviewDraftsBySwapId] = useState({});
   const [submittingReviewForSwapId, setSubmittingReviewForSwapId] = useState("");
   const [reviewPromptSwap, setReviewPromptSwap] = useState(null);
+  const [errorModal, setErrorModal] = useState(null);
 
   useEffect(() => {
     loadSwaps();
@@ -96,11 +98,17 @@ function CalendarPage() {
         loadSwaps();
       } else {
         const data = await res.json();
-        alert(data.message || "Failed to update swap");
+        setErrorModal({
+          title: "Unable to Update Swap",
+          message: data.message || "The swap could not be updated. Please try again."
+        });
       }
     } catch (err) {
       console.error("Error updating swap:", err);
-      alert("Something went wrong");
+      setErrorModal({
+        title: "Connection Error",
+        message: "Something went wrong while updating the swap. Please check your connection and try again."
+      });
     }
   }
 
@@ -123,11 +131,17 @@ function CalendarPage() {
         loadSwaps();
       } else {
         const data = await res.json();
-        alert(data.message || "Failed to delete swap");
+        setErrorModal({
+          title: "Unable to Delete Swap",
+          message: data.message || "The swap could not be deleted. Please try again."
+        });
       }
     } catch (err) {
       console.error("Error deleting swap:", err);
-      alert("Something went wrong");
+      setErrorModal({
+        title: "Connection Error",
+        message: "Something went wrong while deleting the swap. Please check your connection and try again."
+      });
     }
   }
 
@@ -148,11 +162,17 @@ function CalendarPage() {
         loadSwaps();
       } else {
         const data = await res.json();
-        alert(data.message || "Failed to confirm session");
+        setErrorModal({
+          title: "Unable to Confirm Session",
+          message: data.message || "Please ensure all session goals are completed before confirming the session. Return to the swap and mark all goals as complete."
+        });
       }
     } catch (err) {
       console.error("Error confirming session:", err);
-      alert("Something went wrong");
+      setErrorModal({
+        title: "Connection Error",
+        message: "Something went wrong while confirming the session. Please check your connection and try again."
+      });
     }
   }
 
@@ -226,11 +246,17 @@ function CalendarPage() {
         loadSwaps();
       } else {
         const data = await res.json();
-        alert(data.message || "Failed to submit review");
+        setErrorModal({
+          title: "Unable to Submit Review",
+          message: data.message || "Your review could not be submitted. Please try again."
+        });
       }
     } catch (err) {
       console.error("Error submitting review:", err);
-      alert("Something went wrong");
+      setErrorModal({
+        title: "Connection Error",
+        message: "Something went wrong while submitting your review. Please check your connection and try again."
+      });
     } finally {
       setSubmittingReviewForSwapId("");
     }
@@ -254,11 +280,17 @@ function CalendarPage() {
         loadSwaps();
       } else {
         const data = await res.json();
-        alert(data.message || "Failed to update milestone");
+        setErrorModal({
+          title: "Unable to Complete Goal",
+          message: data.message || "The goal could not be marked as complete. Please try again."
+        });
       }
     } catch (err) {
       console.error("Error updating milestone:", err);
-      alert("Something went wrong");
+      setErrorModal({
+        title: "Connection Error",
+        message: "Something went wrong while updating the goal. Please check your connection and try again."
+      });
     }
   }
 
@@ -413,6 +445,14 @@ function CalendarPage() {
       </div>
 
       {message && <p className="calendar-page__message">{message}</p>}
+
+      {errorModal && (
+        <ErrorModal
+          title={errorModal.title}
+          message={errorModal.message}
+          onClose={() => setErrorModal(null)}
+        />
+      )}
 
       {reviewPromptSwap && (
         <ReviewPromptModal

@@ -11,6 +11,14 @@ jest.mock("react-calendar", () => () => <div data-testid="react-calendar" />);
 
 jest.mock("../components/LoadingState", () => ({ message }) => <div>{message}</div>);
 
+jest.mock("../components/ErrorModal", () => ({ title, message, onClose }) => (
+  <div role="alert" data-testid="error-modal">
+    <h2>{title}</h2>
+    <p>{message}</p>
+    <button onClick={onClose}>Dismiss</button>
+  </div>
+));
+
 jest.mock("../utils/loading", () => ({
   withMinimumDelay: (taskOrPromise) =>
     typeof taskOrPromise === "function" ? taskOrPromise() : taskOrPromise,
