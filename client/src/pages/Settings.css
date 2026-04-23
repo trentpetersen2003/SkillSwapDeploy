@@ -137,6 +137,10 @@
   color: #555;
 }
 
+.settings-muted + .settings-row {
+  margin-top: 0.6rem;
+}
+
 .settings-checkbox-list {
   display: flex;
   flex-direction: column;

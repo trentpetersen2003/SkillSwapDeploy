@@ -1,9 +1,11 @@
-# SkillSwap
+# SkillSwap RC1
 
-SkillSwap is a community-driven web app where users can trade skills with each other  
+SkillSwap RC1 is the release candidate for a community-driven web app where users can trade skills with each other  
 (e.g., “I can teach guitar if you help me learn Spanish”).  
 
-Current implemented functionality includes:
+This README reflects the RC1 release scope and local development workflow.
+
+RC1 includes the following implemented functionality:
 
 - User registration and login (JWT auth)
 - Password reset flow (forgot password + reset token)
@@ -104,6 +106,61 @@ EMAIL_PROFILE_REMINDER_COOLDOWN_DAYS=7
 EMAIL_PROFILE_REMINDER_BATCH_SIZE=50
 ```
 
+Tip: You can start from the checked-in templates:
+
+- `server/.env.example`
+- `client/.env.example`
+
+Copy each to `.env` in the same folder, then fill in your values.
+
+### Google OAuth setup (Google Login)
+
+1. In Google Cloud Console, open your project.
+2. Go to `APIs & Services` -> `OAuth consent screen`.
+3. Click `Data Access` (or `Scopes`, depending on UI version).
+4. Click `Add or remove scopes`.
+5. Add these scopes:
+	- `openid`
+	- `.../auth/userinfo.email`
+	- `.../auth/userinfo.profile`
+6. Save changes.
+
+If you do not see userinfo scopes in the picker, enable:
+- `Google People API`
+
+Then refresh the OAuth consent screen and add scopes again.
+
+### Finding your Client Secret
+
+1. Go to `APIs & Services` -> `Credentials`.
+2. Under `OAuth 2.0 Client IDs`, click your web client name.
+3. The details page shows:
+	- `Client ID`
+	- `Client secret`
+4. If the secret is hidden, click `Show client secret`.
+5. If there is still no secret, create a new credential:
+	- `Create credentials` -> `OAuth client ID` -> `Web application`.
+
+### Google values to paste into env files
+
+`server/.env`:
+
+```env
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=http://localhost:3001/api/auth/google/callback
+```
+
+`client/.env`:
+
+```env
+REACT_APP_GOOGLE_CLIENT_ID=...
+```
+
+Important:
+- The frontend may include `REACT_APP_GOOGLE_CLIENT_ID` safely.
+- Never commit `GOOGLE_CLIENT_SECRET`.
+
 Password reset email behavior:
 - The server uses Nodemailer for password reset emails.
 - `EMAIL_DELIVERY_MODE=smtp` forces SMTP delivery.
@@ -121,6 +178,25 @@ The application is deployed as follows:
 **Frontend:** Deployment is handled outside this repository's Pages pipeline
 
 **Backend:** Deployed on Render (https://skillswapdeploy-eqyo.onrender.com)
+
+### Render SPA routing note (important)
+
+If your frontend uses clean client-side URLs like `/browse`, refreshing that page can show a host-level `Not Found` unless your static hosting service rewrites unknown paths to `index.html`.
+
+Current app behavior:
+- Production defaults to hash routing (for example `/#/browse`) to prevent deep-link refresh failures on hosts without rewrite rules.
+- You can switch back to clean URLs after configuring rewrites by setting:
+
+```env
+REACT_APP_FORCE_BROWSER_ROUTER=true
+```
+
+For a Render Static Site, add this rewrite rule in the service settings:
+- Source: `/*`
+- Destination: `/index.html`
+- Action: `Rewrite`
+
+After adding the rewrite and redeploying, direct loads and reloads of routes like `/browse`, `/foryou`, and `/chat` will work correctly.
 
 Note: Passwords and secret keys will never be committed to Git or included in this README.
 

@@ -14,6 +14,7 @@ export function InlineLoading({ message = "Loading..." }) {
   );
 }
 
+// Run loading state logic.
 function LoadingState({
   message = "Loading...",
   onRetry,

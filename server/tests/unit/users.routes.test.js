@@ -17,16 +17,29 @@ jest.mock("../../middleware/auth", () => (req, res, next) => {
   next();
 });
 
+// Run make select query logic.
 function makeSelectQuery(value) {
   return {
     select: jest.fn().mockResolvedValue(value),
   };
 }
 
+// Run make select sort query logic.
 function makeSelectSortQuery(value) {
   return {
     select: jest.fn().mockReturnValue({
       sort: jest.fn().mockResolvedValue(value),
+    }),
+  };
+}
+
+// Run make select sort limit query logic.
+function makeSelectSortLimitQuery(value) {
+  return {
+    select: jest.fn().mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        limit: jest.fn().mockResolvedValue(value),
+      }),
     }),
   };
 }
@@ -225,6 +238,80 @@ describe("Users Routes", () => {
 
       expect(response.status).toBe(400);
       expect(response.body.message).toBe("availabilityDay must be a valid weekday");
+    });
+  });
+
+  describe("GET /api/users/public-preview", () => {
+    test("returns sanitized public preview cards without auth", async () => {
+      User.find.mockReturnValue(
+        makeSelectSortLimitQuery([
+          {
+            _id: "u100",
+            name: "Aisha",
+            username: "aisha",
+            city: "Denver",
+            state: "CO",
+            locationVisibility: "visible",
+            swapMode: "either",
+            skills: [{ skillName: "Python" }, { skillName: "SQL" }],
+            skillsWanted: [{ skillName: "Public speaking" }],
+          },
+          {
+            _id: "u101",
+            name: "Hidden User",
+            username: "hidden",
+            city: "Seattle",
+            state: "WA",
+            locationVisibility: "hidden",
+            swapMode: "online",
+            skills: [{ skillName: "Figma" }],
+            skillsWanted: [],
+          },
+        ])
+      );
+
+      const response = await request(app).get("/api/users/public-preview");
+
+      expect(response.status).toBe(200);
+      expect(User.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          $or: [
+            { skills: { $exists: true, $ne: [] } },
+            { skillsWanted: { $exists: true, $ne: [] } },
+          ],
+        })
+      );
+      expect(response.body).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "u100",
+            name: "Aisha",
+            city: "Denver",
+            state: "CO",
+            offers: ["Python", "SQL"],
+            wants: ["Public speaking"],
+          }),
+          expect.objectContaining({
+            id: "u101",
+            locationVisibility: "hidden",
+            city: "",
+            state: "",
+          }),
+        ])
+      );
+      expect(getReliabilityByUserIds).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("DELETE /api/users/:id", () => {
+    test("deletes the account for the authenticated user", async () => {
+      User.findById.mockReturnValue(makeSelectQuery({ _id: AUTH_USER_ID }));
+      User.findByIdAndDelete.mockResolvedValue({ _id: AUTH_USER_ID });
+
+      const response = await request(app).delete(`/api/users/${AUTH_USER_ID}`);
+
+      expect(response.status).toBe(200);
+      expect(User.findByIdAndDelete).toHaveBeenCalledWith(AUTH_USER_ID);
     });
   });
 

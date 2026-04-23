@@ -5,10 +5,12 @@ import ReactCalendar from "react-calendar";
 import API_URL from "../config";
 import fetchWithAuth from "../utils/api";
 import LoadingState from "../components/LoadingState";
+import ErrorModal from "../components/ErrorModal";
 import { withMinimumDelay } from "../utils/loading";
 import "react-calendar/dist/Calendar.css";
 import "../pages/Calendar.css";
 
+// Run calendar page logic.
 function CalendarPage() {
   const location = useLocation();
   const focusSwapId = location.state?.focusSwapId || "";
@@ -25,6 +27,7 @@ function CalendarPage() {
   const [reviewDraftsBySwapId, setReviewDraftsBySwapId] = useState({});
   const [submittingReviewForSwapId, setSubmittingReviewForSwapId] = useState("");
   const [reviewPromptSwap, setReviewPromptSwap] = useState(null);
+  const [errorModal, setErrorModal] = useState(null);
 
   useEffect(() => {
     loadSwaps();
@@ -38,6 +41,7 @@ function CalendarPage() {
     setView(focusView);
   }, [focusSwapId, focusView]);
 
+  // Load swaps data.
   async function loadSwaps() {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -51,21 +55,21 @@ function CalendarPage() {
 
     try {
       const data = await withMinimumDelay(async () => {
-        const res = await fetchWithAuth(API_URL + "/api/swaps", {
+        const swapRes = await fetchWithAuth(API_URL + "/api/swaps", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        if (!res.ok) {
-          const payload = await res.json().catch(() => ({}));
+        if (!swapRes.ok) {
+          const payload = await swapRes.json().catch(() => ({}));
           throw new Error(payload.message || "Failed to load swaps");
         }
 
-        return res.json();
+        return swapRes.json();
       });
 
-      setSwaps(data);
+      setSwaps(Array.isArray(data) ? data : []);
       setMessage("");
     } catch (err) {
       console.error("Error loading swaps:", err);
@@ -75,6 +79,7 @@ function CalendarPage() {
     }
   }
 
+  // Handle status change action.
   async function handleStatusChange(swapId, newStatus) {
     const token = localStorage.getItem("token");
     try {
@@ -93,14 +98,21 @@ function CalendarPage() {
         loadSwaps();
       } else {
         const data = await res.json();
-        alert(data.message || "Failed to update swap");
+        setErrorModal({
+          title: "Unable to Update Swap",
+          message: data.message || "The swap could not be updated. Please try again."
+        });
       }
     } catch (err) {
       console.error("Error updating swap:", err);
-      alert("Something went wrong");
+      setErrorModal({
+        title: "Connection Error",
+        message: "Something went wrong while updating the swap. Please check your connection and try again."
+      });
     }
   }
 
+  // Handle delete swap action.
   async function handleDeleteSwap(swapId) {
     if (!window.confirm("Are you sure you want to delete this swap?")) {
       return;
@@ -119,14 +131,21 @@ function CalendarPage() {
         loadSwaps();
       } else {
         const data = await res.json();
-        alert(data.message || "Failed to delete swap");
+        setErrorModal({
+          title: "Unable to Delete Swap",
+          message: data.message || "The swap could not be deleted. Please try again."
+        });
       }
     } catch (err) {
       console.error("Error deleting swap:", err);
-      alert("Something went wrong");
+      setErrorModal({
+        title: "Connection Error",
+        message: "Something went wrong while deleting the swap. Please check your connection and try again."
+      });
     }
   }
 
+  // Handle confirm session action.
   async function handleConfirmSession(swapId) {
     const token = localStorage.getItem("token");
     try {
@@ -143,14 +162,21 @@ function CalendarPage() {
         loadSwaps();
       } else {
         const data = await res.json();
-        alert(data.message || "Failed to confirm session");
+        setErrorModal({
+          title: "Unable to Confirm Session",
+          message: data.message || "Please ensure all session goals are completed before confirming the session. Return to the swap and mark all goals as complete."
+        });
       }
     } catch (err) {
       console.error("Error confirming session:", err);
-      alert("Something went wrong");
+      setErrorModal({
+        title: "Connection Error",
+        message: "Something went wrong while confirming the session. Please check your connection and try again."
+      });
     }
   }
 
+  // Handle review change action.
   function handleReviewChange(swapId, field, value) {
     setReviewDraftsBySwapId((prev) => ({
       ...prev,
@@ -162,6 +188,7 @@ function CalendarPage() {
     }));
   }
 
+  // Run maybe prompt for review logic.
   function maybePromptForReview(updatedSwap) {
     if (!updatedSwap || !currentUserId) {
       return;
@@ -188,6 +215,7 @@ function CalendarPage() {
     setReviewPromptSwap(updatedSwap);
   }
 
+  // Handle submit review action.
   async function handleSubmitReview(swapId) {
     const token = localStorage.getItem("token");
     const draft = reviewDraftsBySwapId[swapId] || { rating: "5", comment: "" };
@@ -218,16 +246,23 @@ function CalendarPage() {
         loadSwaps();
       } else {
         const data = await res.json();
-        alert(data.message || "Failed to submit review");
+        setErrorModal({
+          title: "Unable to Submit Review",
+          message: data.message || "Your review could not be submitted. Please try again."
+        });
       }
     } catch (err) {
       console.error("Error submitting review:", err);
-      alert("Something went wrong");
+      setErrorModal({
+        title: "Connection Error",
+        message: "Something went wrong while submitting your review. Please check your connection and try again."
+      });
     } finally {
       setSubmittingReviewForSwapId("");
     }
   }
 
+  // Handle milestone complete action.
   async function handleMilestoneComplete(swapId, milestoneId) {
     const token = localStorage.getItem("token");
     try {
@@ -245,11 +280,17 @@ function CalendarPage() {
         loadSwaps();
       } else {
         const data = await res.json();
-        alert(data.message || "Failed to update milestone");
+        setErrorModal({
+          title: "Unable to Complete Goal",
+          message: data.message || "The goal could not be marked as complete. Please try again."
+        });
       }
     } catch (err) {
       console.error("Error updating milestone:", err);
-      alert("Something went wrong");
+      setErrorModal({
+        title: "Connection Error",
+        message: "Something went wrong while updating the goal. Please check your connection and try again."
+      });
     }
   }
 
@@ -308,6 +349,7 @@ function CalendarPage() {
   // Get swaps for selected date
   const selectedDateSwaps = getSwapsForDate(selectedDate);
 
+  // Run format date logic.
   function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -318,6 +360,7 @@ function CalendarPage() {
     });
   }
 
+  // Run format time logic.
   function formatTime(dateString) {
     const date = new Date(dateString);
     return date.toLocaleTimeString("en-US", {
@@ -327,6 +370,7 @@ function CalendarPage() {
     });
   }
 
+  // Get status color data.
   function getStatusColor(status) {
     switch (status) {
       case "confirmed":
@@ -402,6 +446,14 @@ function CalendarPage() {
 
       {message && <p className="calendar-page__message">{message}</p>}
 
+      {errorModal && (
+        <ErrorModal
+          title={errorModal.title}
+          message={errorModal.message}
+          onClose={() => setErrorModal(null)}
+        />
+      )}
+
       {reviewPromptSwap && (
         <ReviewPromptModal
           swap={reviewPromptSwap}
@@ -461,6 +513,7 @@ function CalendarPage() {
                 ))}
               </div>
             )}
+
           </div>
         </div>
       ) : (
@@ -571,6 +624,7 @@ function CalendarPage() {
   );
 }
 
+// Run swap card logic.
 function SwapCard({
   swap,
   currentUser,
@@ -590,6 +644,7 @@ function SwapCard({
   isHistory = false,
   isHighlighted = false,
 }) {
+  const [templateMessage, setTemplateMessage] = useState("");
   const currentUserId = currentUser.id || currentUser._id;
   const isRequester = swap.requester._id === currentUserId;
   const otherUser = isRequester ? swap.recipient : swap.requester;
@@ -602,6 +657,75 @@ function SwapCard({
   const hasReviewed = Boolean(
     isRequester ? swap.reviews?.requesterReview : swap.reviews?.recipientReview
   );
+
+  // Convert date values to a calendar URL token format.
+  function toCalendarDateToken(value) {
+    return new Date(value).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  }
+
+  // Build reusable metadata for calendar template actions.
+  function buildTemplateMetadata() {
+    const startDate = new Date(swap.scheduledDate);
+    const endDate = new Date(startDate.getTime() + Number(swap.duration || 60) * 60 * 1000);
+    const partnerLabel = otherUser?.username ? `@${otherUser.username}` : otherUser?.name || "Swap partner";
+    const summary = `SkillSwap: ${swap.skillOffered} ↔ ${swap.skillWanted}`;
+    const locationText = swap.meetingType === "virtual"
+      ? swap.meetingLink || swap.location || "Online"
+      : swap.meetingAddress || swap.location || "In person";
+    const details = [
+      `Swap with ${partnerLabel}`,
+      `You teach: ${swap.skillOffered}`,
+      `You learn: ${swap.skillWanted}`,
+      `Status: ${swap.status}`,
+      swap.notes ? `Notes: ${swap.notes}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    return {
+      startDate,
+      endDate,
+      partnerLabel,
+      summary,
+      locationText,
+      details,
+    };
+  }
+
+  // Open a prefilled calendar template in a new browser tab.
+  function handleOpenGoogleTemplate() {
+    const template = buildTemplateMetadata();
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: template.summary,
+      dates: `${toCalendarDateToken(template.startDate)}/${toCalendarDateToken(template.endDate)}`,
+      details: template.details,
+      location: template.locationText,
+    });
+
+    window.open(`https://calendar.google.com/calendar/render?${params.toString()}`, "_blank", "noopener,noreferrer");
+    setTemplateMessage("Opened a prefilled calendar template.");
+  }
+
+  // Copy a ready-to-use manual removal template to clipboard.
+  async function handleCopyRemoveTemplate() {
+    const template = buildTemplateMetadata();
+    const removalText = [
+      "Calendar removal template",
+      `Event title: ${template.summary}`,
+      `Date: ${formatDate ? formatDate(swap.scheduledDate) : new Date(swap.scheduledDate).toLocaleDateString("en-US")}`,
+      `Time: ${formatTime(swap.scheduledDate)}`,
+      `Partner: ${template.partnerLabel}`,
+      "Action: Delete this event manually from your calendar.",
+    ].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(removalText);
+      setTemplateMessage("Copied remove-from-calendar template.");
+    } catch (_error) {
+      setTemplateMessage("Unable to copy automatically. Please copy the event details manually.");
+    }
+  }
 
   return (
     <div
@@ -675,6 +799,25 @@ function SwapCard({
           <strong>Notes:</strong> {swap.notes}
         </div>
       )}
+
+      <div className="swap-card__calendar-tools">
+        <button
+          type="button"
+          className="action-btn template-btn"
+          onClick={handleOpenGoogleTemplate}
+        >
+            Add to Calendar (Template)
+        </button>
+        <button
+          type="button"
+          className="action-btn remove-template-btn"
+          onClick={handleCopyRemoveTemplate}
+        >
+          Copy Remove Template
+        </button>
+      </div>
+
+      {templateMessage && <div className="swap-card__template-message">{templateMessage}</div>}
 
       {milestones.length > 0 && (
         <div className="swap-card__milestones">
@@ -797,6 +940,7 @@ function SwapCard({
   );
 }
 
+// Run review prompt modal logic.
 function ReviewPromptModal({
   swap,
   currentUserId,

@@ -7,10 +7,13 @@ import LoadingState, { BlockingLoader, InlineLoading } from "../components/Loadi
 import { withMinimumDelay } from "../utils/loading";
 import "./Settings.css";
 
+// Run settings logic.
 function Settings({ onLogout, setupRequired = false }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || "";
   const blockedSectionRef = useRef(null);
+  const googleConnectButtonRef = useRef(null);
   const [username, setUsername] = useState("");
   const [locationVisibility, setLocationVisibility] = useState("visible");
   const [showOthersLocations, setShowOthersLocations] = useState(true);
@@ -34,13 +37,17 @@ function Settings({ onLogout, setupRequired = false }) {
     savingVisibility: false,
     savingNotifications: false,
     changingPassword: false,
+    connectingGoogleAccount: false,
+    linkingGoogleAccount: false,
     unblockingUserId: "",
     loggingOut: false,
     deletingAccount: false,
   });
   const [message, setMessage] = useState("");
+  const [showGoogleConnectButton, setShowGoogleConnectButton] = useState(false);
   const messageTimeoutRef = useRef(null);
 
+  // Show a temporary status banner message.
   const showMessage = useCallback((text) => {
     // Clear any existing timeout
     if (messageTimeoutRef.current) {
@@ -56,6 +63,7 @@ function Settings({ onLogout, setupRequired = false }) {
     }, 4000);
   }, []);
 
+  // Load account and privacy settings for the current user.
   const loadSettings = useCallback(async () => {
     setMessage("");
     setLoadError("");
@@ -119,6 +127,7 @@ function Settings({ onLogout, setupRequired = false }) {
     loadSettings();
   }, [loadSettings]);
 
+  // Scroll directly to blocked users when arriving with an anchor.
   useEffect(() => {
     if (location.hash !== "#blocked-users") {
       return;
@@ -127,6 +136,7 @@ function Settings({ onLogout, setupRequired = false }) {
     blockedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [location.hash, loadingSettings]);
 
+  // Save username updates and keep local session data in sync.
   async function handleSaveUsername(e) {
     e.preventDefault();
 
@@ -173,12 +183,13 @@ function Settings({ onLogout, setupRequired = false }) {
     }
   }
 
+  // End the current session and return to the login screen.
   async function handleLogoutClick() {
     setActions((prev) => ({ ...prev, loggingOut: true }));
 
     try {
       await withMinimumDelay(async () => {
-        onLogout();
+        await onLogout();
       });
 
       navigate("/");
@@ -187,6 +198,7 @@ function Settings({ onLogout, setupRequired = false }) {
     }
   }
 
+  // Save privacy visibility controls for location display.
   async function handleSaveLocationVisibility() {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -220,6 +232,7 @@ function Settings({ onLogout, setupRequired = false }) {
     }
   }
 
+  // Remove a blocked user relationship.
   async function handleUnblockUser(blockedUserId) {
 
     const token = localStorage.getItem("token");
@@ -257,6 +270,7 @@ function Settings({ onLogout, setupRequired = false }) {
     }
   }
 
+  // Persist notification preference changes.
   async function handleSaveNotificationPreferences() {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -291,6 +305,121 @@ function Settings({ onLogout, setupRequired = false }) {
     }
   }
 
+  // Load the Google Identity script if needed.
+  async function ensureGoogleIdentityScript() {
+    if (window.google?.accounts?.id) {
+      return;
+    }
+
+    await new Promise((resolve, reject) => {
+      const existingScript = document.getElementById("google-identity-services");
+      if (existingScript) {
+        // Run check ready logic.
+        const checkReady = () => {
+          if (window.google?.accounts?.id) {
+            resolve();
+            return;
+          }
+
+          window.setTimeout(checkReady, 100);
+        };
+
+        checkReady();
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.id = "google-identity-services";
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Unable to load Google sign-in script."));
+      document.body.appendChild(script);
+    });
+  }
+
+  // Connect the current SkillSwap account to Google using the existing OAuth endpoint.
+  async function handleConnectGoogleAccount() {
+    if (!googleClientId) {
+      showMessage("Google OAuth is not configured for this client.");
+      return;
+    }
+
+    setActions((prev) => ({ ...prev, connectingGoogleAccount: true }));
+    setShowGoogleConnectButton(true);
+
+    try {
+      await ensureGoogleIdentityScript();
+
+      if (!window.google?.accounts?.id) {
+        throw new Error("Google sign-in is not available right now.");
+      }
+
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async (response) => {
+          if (!response?.credential) {
+            return;
+          }
+
+          setActions((prev) => ({ ...prev, linkingGoogleAccount: true }));
+          try {
+            const apiResponse = await fetch(API_URL + "/api/auth/google", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken: response.credential }),
+            });
+            const payload = await apiResponse.json().catch(() => ({}));
+
+            if (!apiResponse.ok) {
+              throw new Error(payload.message || "Failed to connect Google account");
+            }
+
+            const existingUser = JSON.parse(localStorage.getItem("user") || "{}");
+            const existingUserId = existingUser.id || existingUser._id || "";
+            const linkedUserId = payload?.user?.id || payload?.user?._id || "";
+
+            if (existingUserId && linkedUserId && existingUserId !== linkedUserId) {
+              throw new Error("This Google account belongs to a different SkillSwap account.");
+            }
+
+            if (payload.token && payload.user) {
+              localStorage.setItem("token", payload.token);
+              localStorage.setItem("user", JSON.stringify(payload.user));
+              setUsername(payload.user.username || username);
+            }
+
+            showMessage("Google account connected.");
+          } catch (error) {
+            showMessage(error.message || "Unable to connect Google account.");
+          } finally {
+            setActions((prev) => ({ ...prev, linkingGoogleAccount: false }));
+          }
+        },
+      });
+
+      if (googleConnectButtonRef.current) {
+        googleConnectButtonRef.current.innerHTML = "";
+        window.google.accounts.id.renderButton(googleConnectButtonRef.current, {
+          type: "standard",
+          theme: "outline",
+          size: "large",
+          text: "continue_with",
+          shape: "pill",
+          width: 320,
+        });
+      }
+
+      showMessage("Use the Google button below to finish connecting your account.");
+    } catch (error) {
+      showMessage(error.message || "Unable to prepare Google account connection.");
+    } finally {
+      setActions((prev) => ({ ...prev, connectingGoogleAccount: false }));
+    }
+  }
+
+  // Update the account password after basic client-side validation.
   async function handleChangePassword() {
 
     const token = localStorage.getItem("token");
@@ -336,6 +465,7 @@ function Settings({ onLogout, setupRequired = false }) {
     }
   }
 
+  // Permanently delete the signed-in account after username confirmation.
   async function handleDeleteAccount() {
     const savedUser = localStorage.getItem("user");
     const parsedUser = savedUser ? JSON.parse(savedUser) : null;
@@ -367,7 +497,7 @@ function Settings({ onLogout, setupRequired = false }) {
         }
       });
 
-      onLogout();
+      await onLogout();
       navigate("/");
     } catch (e) {
       showMessage(e.message || "Error deleting account.");
@@ -380,6 +510,8 @@ function Settings({ onLogout, setupRequired = false }) {
     actions.savingUsername ||
     actions.savingVisibility ||
     actions.savingNotifications ||
+    actions.connectingGoogleAccount ||
+    actions.linkingGoogleAccount ||
     actions.changingPassword ||
     actions.loggingOut ||
     actions.deletingAccount ||
@@ -390,6 +522,10 @@ function Settings({ onLogout, setupRequired = false }) {
       ? "Logging out..."
       : actions.unblockingUserId
         ? "Updating blocked users..."
+        : actions.linkingGoogleAccount
+          ? "Connecting Google account..."
+          : actions.connectingGoogleAccount
+            ? "Preparing Google connection..."
         : actions.changingPassword
           ? "Updating password..."
       : "Saving settings...";
@@ -519,6 +655,22 @@ function Settings({ onLogout, setupRequired = false }) {
                 ))
               )}
             </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>Connected Accounts</h3>
+            <button
+              className="settings-btn-primary"
+              onClick={handleConnectGoogleAccount}
+              disabled={isAnyBlockingAction}
+            >
+              {actions.connectingGoogleAccount ? "Preparing..." : "Connect Google Account"}
+            </button>
+            {showGoogleConnectButton && (
+              <div className="settings-inline-loading">
+                <div ref={googleConnectButtonRef} />
+              </div>
+            )}
           </div>
 
           <div className="settings-section">

@@ -11,6 +11,7 @@ dotenv.config();
 
 const FORCE = process.argv.includes("--force");
 
+// Run connect to database logic.
 async function connectToDatabase() {
   if (!process.env.MONGO_URI) {
     throw new Error("MONGO_URI is missing in server/.env");
@@ -19,6 +20,7 @@ async function connectToDatabase() {
   await mongoose.connect(process.env.MONGO_URI);
 }
 
+// Run run logic.
 async function run() {
   try {
     if (!FORCE) {

@@ -19,6 +19,7 @@ jest.mock("../config", () => "http://localhost:3001");
 
 const otherUser = { _id: "u2", name: "Other", username: "other" };
 
+// Build conversation payload.
 function buildConversation(overrides = {}) {
   return {
     user: otherUser,
@@ -34,10 +35,12 @@ function buildConversation(overrides = {}) {
   };
 }
 
+// Check whether thread history url .
 function isThreadHistoryUrl(url) {
   return url.startsWith("http://localhost:3001/api/messages/u2/history");
 }
 
+// Check whether block status url .
 function isBlockStatusUrl(url) {
   return url.startsWith("http://localhost:3001/api/users/blocked/status");
 }

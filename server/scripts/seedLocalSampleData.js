@@ -490,10 +490,12 @@ const EDGE_USERS = [
   },
 ];
 
+// Get active users data.
 function getActiveUsers() {
   return EDGE_MODE ? [...SAMPLE_USERS, ...EDGE_USERS] : SAMPLE_USERS;
 }
 
+// Build user lookup payload.
 function buildUserLookup(users) {
   return users.reduce((acc, user) => {
     acc[user.key] = user;
@@ -501,6 +503,7 @@ function buildUserLookup(users) {
   }, {});
 }
 
+// Build notification preferences payload.
 function buildNotificationPreferences(notificationPreferences = {}) {
   return {
     ...DEFAULT_NOTIFICATION_PREFERENCES,
@@ -508,12 +511,14 @@ function buildNotificationPreferences(notificationPreferences = {}) {
   };
 }
 
+// Run days ago logic.
 function daysAgo(days) {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d;
 }
 
+// Run days from now logic.
 function daysFromNow(days, hours = 18) {
   const d = new Date();
   d.setDate(d.getDate() + days);
@@ -521,10 +526,12 @@ function daysFromNow(days, hours = 18) {
   return d;
 }
 
+// Run with offset logic.
 function withOffset(baseDate, minutesOffset) {
   return new Date(baseDate.getTime() + minutesOffset * 60 * 1000);
 }
 
+// Build swap seeds payload.
 function buildSwapSeeds(userIds) {
   return [
     {
@@ -846,6 +853,7 @@ function buildSwapSeeds(userIds) {
   ];
 }
 
+// Build stress swap seeds payload.
 function buildStressSwapSeeds(userIds, userLookup) {
   const keys = Object.keys(userIds);
   const statusCycle = ["pending", "confirmed", "completed", "cancelled"];
@@ -933,6 +941,7 @@ function buildStressSwapSeeds(userIds, userLookup) {
   return swaps;
 }
 
+// Build messages payload.
 function buildMessages(userIds) {
   const now = new Date();
   return [
@@ -1065,6 +1074,7 @@ function buildMessages(userIds) {
   ];
 }
 
+// Build stress messages payload.
 function buildStressMessages(userIds) {
   const keys = Object.keys(userIds);
   const now = new Date();
@@ -1093,6 +1103,7 @@ function buildStressMessages(userIds) {
   return messages;
 }
 
+// Build edge swap seeds payload.
 function buildEdgeSwapSeeds(userIds) {
   if (!userIds.ivy || !userIds.noah) {
     return [];
@@ -1142,6 +1153,7 @@ function buildEdgeSwapSeeds(userIds) {
   ];
 }
 
+// Build edge messages payload.
 function buildEdgeMessages(userIds) {
   if (!userIds.ivy || !userIds.noah) {
     return [];
@@ -1166,6 +1178,7 @@ function buildEdgeMessages(userIds) {
   ];
 }
 
+// Run connect to database logic.
 async function connectToDatabase() {
   if (!process.env.MONGO_URI) {
     throw new Error("MONGO_URI is missing in server/.env");
@@ -1174,6 +1187,7 @@ async function connectToDatabase() {
   await mongoose.connect(process.env.MONGO_URI);
 }
 
+// Run purge existing sample data logic.
 async function purgeExistingSampleData(activeUsers) {
   const sampleEmails = activeUsers.map((user) => user.email);
   const existingUsers = await User.find({ email: { $in: sampleEmails } }).select("_id");
@@ -1196,6 +1210,7 @@ async function purgeExistingSampleData(activeUsers) {
   await EmailDailyUsage.deleteMany({});
 }
 
+// Create users value.
 async function createUsers(activeUsers) {
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
   const createdUsers = [];
@@ -1227,6 +1242,7 @@ async function createUsers(activeUsers) {
   return createdUsers;
 }
 
+// Run update blocked relationships logic.
 async function updateBlockedRelationships(userIds) {
   // Emma blocks Diego; Ben blocks Grace.
   const updates = [
@@ -1243,6 +1259,7 @@ async function updateBlockedRelationships(userIds) {
   await Promise.all(updates);
 }
 
+// Create swaps value.
 async function createSwaps(userIds, userLookup) {
   let swaps = [...buildSwapSeeds(userIds)];
   if (STRESS_MODE) {
@@ -1254,6 +1271,7 @@ async function createSwaps(userIds, userLookup) {
   await Swap.insertMany(swaps);
 }
 
+// Create messages value.
 async function createMessages(userIds) {
   let messages = [...buildMessages(userIds)];
   if (STRESS_MODE) {
@@ -1265,6 +1283,7 @@ async function createMessages(userIds) {
   await Message.insertMany(messages);
 }
 
+// Run map user ids logic.
 function mapUserIds(createdUsers) {
   return createdUsers.reduce((acc, user) => {
     acc[user.key] = user._id;
@@ -1272,6 +1291,7 @@ function mapUserIds(createdUsers) {
   }, {});
 }
 
+// Run print credentials logic.
 function printCredentials(activeUsers) {
   const modeLabel = [
     STRESS_MODE ? "stress" : null,
@@ -1286,6 +1306,7 @@ function printCredentials(activeUsers) {
   });
 }
 
+// Run run logic.
 async function run() {
   try {
     const activeUsers = getActiveUsers();

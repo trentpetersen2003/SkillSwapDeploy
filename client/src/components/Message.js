@@ -1,5 +1,6 @@
 import React from "react";
 
+// Run message logic.
 function Message() {
   return (
     <div>

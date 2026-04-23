@@ -11,22 +11,26 @@ const MAX_THREAD_PAGE_LIMIT = 100;
 const PROFILE_SETUP_REQUIRED_MESSAGE =
   "Finish your profile setup before you use chat.";
 
+// Check whether valid object id .
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
 }
 
+// Get other user id data.
 function getOtherUserId(message, currentUserId) {
   return String(message.sender?._id || message.sender) === currentUserId
     ? String(message.recipient?._id || message.recipient)
     : String(message.sender?._id || message.sender);
 }
 
+// Get other user data.
 function getOtherUser(message, currentUserId) {
   return String(message.sender?._id || message.sender) === currentUserId
     ? message.recipient
     : message.sender;
 }
 
+// Check whether blocked relationship .
 async function hasBlockedRelationship(currentUserId, otherUserId) {
   const [currentUser, otherUser] = await Promise.all([
     User.findById(currentUserId).select("blockedUsers"),
@@ -50,6 +54,7 @@ async function hasBlockedRelationship(currentUserId, otherUserId) {
   );
 }
 
+// Run normalize thread page limit logic.
 function normalizeThreadPageLimit(value) {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed) || parsed <= 0) {
@@ -58,6 +63,7 @@ function normalizeThreadPageLimit(value) {
   return Math.min(parsed, MAX_THREAD_PAGE_LIMIT);
 }
 
+// Run enforce profile setup complete logic.
 async function enforceProfileSetupComplete(userId, res) {
   const currentUser = await User.findById(userId).select(
     "name email city state timeZone availability skills skillsWanted"

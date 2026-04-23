@@ -74,4 +74,17 @@ describe("Browse onboarding gate", () => {
     ).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalledWith("/chat?userId=user-1");
   });
+
+  test("shows a setup-specific empty state when profile is incomplete", async () => {
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ([]),
+    });
+
+    render(<Browse isProfileComplete={false} onOpenSetup={onOpenSetup} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Complete your profile to browse other users.")).toBeInTheDocument();
+    });
+  });
 });

@@ -14,12 +14,14 @@ jest.mock("../../middleware/auth", () => (req, res, next) => {
   next();
 });
 
+// Run make select query logic.
 function makeSelectQuery(value) {
   return {
     select: jest.fn().mockResolvedValue(value),
   };
 }
 
+// Run make message find query logic.
 function makeMessageFindQuery(value) {
   return {
     populate: jest.fn().mockReturnValue({
@@ -30,6 +32,7 @@ function makeMessageFindQuery(value) {
   };
 }
 
+// Run make setup ready user logic.
 function makeSetupReadyUser(overrides = {}) {
   return {
     _id: AUTH_USER_ID,

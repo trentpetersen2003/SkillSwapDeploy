@@ -26,6 +26,7 @@ jest.mock("../../middleware/auth", () => (req, res, next) => {
 
 const forYouRoutes = require("../../routes/forYou");
 
+// Run make select query logic.
 function makeSelectQuery(value) {
   return {
     select: jest.fn().mockResolvedValue(value),
@@ -86,6 +87,62 @@ describe("For You Routes", () => {
         reliability: { score: 90, tier: "Reliable" },
       })
     );
+  });
+
+  test("returns at least 3 users when 3+ schedule-compatible matches exist", async () => {
+    User.findById.mockReturnValue(
+      makeSelectQuery({ blockedUsers: [], showOthersLocations: true })
+    );
+    User.find.mockReturnValue(
+      makeSelectQuery([
+        { _id: "u1", name: "Taylor", username: "taylor", city: "Denver", locationVisibility: "visible" },
+        { _id: "u2", name: "Morgan", username: "morgan", city: "Austin", locationVisibility: "visible" },
+        { _id: "u3", name: "Avery", username: "avery", city: "Seattle", locationVisibility: "visible" },
+      ])
+    );
+    getReliabilityByUserIds.mockResolvedValue({
+      u1: { score: 90, tier: "Reliable" },
+      u2: { score: 75, tier: "Building" },
+      u3: { score: 65, tier: "Building" },
+    });
+    rankCandidates.mockReturnValue([
+      {
+        _id: "u1",
+        name: "Taylor",
+        username: "taylor",
+        city: "Denver",
+        locationVisibility: "visible",
+        reliability: { score: 90, tier: "Reliable" },
+        matchScore: 87,
+        matchReasons: ["Strong skill-family compatibility in your learning goals"],
+      },
+      {
+        _id: "u2",
+        name: "Morgan",
+        username: "morgan",
+        city: "Austin",
+        locationVisibility: "visible",
+        reliability: { score: 75, tier: "Building" },
+        matchScore: 0,
+        matchReasons: [],
+      },
+      {
+        _id: "u3",
+        name: "Avery",
+        username: "avery",
+        city: "Seattle",
+        locationVisibility: "visible",
+        reliability: { score: 65, tier: "Building" },
+        matchScore: 0,
+        matchReasons: ["Availability overlap on 1 day"],
+      },
+    ]);
+
+    const response = await request(app).get("/api/for-you");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(3);
+    expect(response.body.map((user) => user._id)).toEqual(["u1", "u2", "u3"]);
   });
 
   test("hides matching telemetry unless explicitly enabled", async () => {

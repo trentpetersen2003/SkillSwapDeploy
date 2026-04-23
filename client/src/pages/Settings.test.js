@@ -32,6 +32,7 @@ const defaultProfile = {
   },
 };
 
+// Set up fetch state.
 function setupFetch({ profile = defaultProfile, blockedUsers = [] } = {}) {
   global.fetch = jest.fn(async (url, options = {}) => {
     if (url.endsWith("/api/users/profile") && (!options.method || options.method === "GET")) {
@@ -127,6 +128,7 @@ describe("Settings Page", () => {
     expect(screen.getByText("Notifications")).toBeInTheDocument();
     expect(screen.getByText("Security")).toBeInTheDocument();
     expect(screen.getByText("Danger Zone")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect Google Account" })).toBeInTheDocument();
 
     const deleteButton = screen.getByRole("button", { name: "Delete account" });
     expect(deleteButton).toBeDisabled();

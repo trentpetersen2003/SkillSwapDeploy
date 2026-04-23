@@ -71,6 +71,21 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
+    googleAuth: {
+      providerId: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      linkedAt: {
+        type: Date,
+        default: null,
+      },
+    },
     city: {
       type: String,
       trim: true,

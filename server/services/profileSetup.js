@@ -1,11 +1,14 @@
+// Check whether text .
 function hasText(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+// Check whether items .
 function hasItems(value) {
   return Array.isArray(value) && value.length > 0;
 }
 
+// Get incomplete profile fields data.
 function getIncompleteProfileFields(user = {}) {
   const missing = [];
 
@@ -21,6 +24,7 @@ function getIncompleteProfileFields(user = {}) {
   return missing;
 }
 
+// Check whether profile setup complete .
 function isProfileSetupComplete(user = {}) {
   return getIncompleteProfileFields(user).length === 0;
 }

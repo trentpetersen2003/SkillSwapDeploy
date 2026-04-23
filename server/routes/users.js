@@ -9,6 +9,7 @@ const { rankCandidates } = require("../services/matching");
 
 const router = express.Router();
 const PASSWORD_MIN_LENGTH = 8;
+const PUBLIC_PREVIEW_LIMIT = 6;
 const DAYS_OF_WEEK = [
   "Monday",
   "Tuesday",
@@ -19,6 +20,7 @@ const DAYS_OF_WEEK = [
   "Sunday",
 ];
 
+// Run sanitize public user logic.
 function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
   const user = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
 
@@ -31,6 +33,7 @@ function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
   return user;
 }
 
+// Parse multi value param input.
 function parseMultiValueParam(value) {
   if (Array.isArray(value)) {
     return value
@@ -48,6 +51,59 @@ function parseMultiValueParam(value) {
 
   return [];
 }
+
+// Run public preview item builder logic.
+function buildPublicPreviewItem(user) {
+  const offers = Array.isArray(user.skills)
+    ? user.skills
+        .map((skill) => skill?.skillName)
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+
+  const wants = Array.isArray(user.skillsWanted)
+    ? user.skillsWanted
+        .map((skill) => skill?.skillName)
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+
+  return {
+    id: String(user._id),
+    name: user.name,
+    username: user.username,
+    city: user.locationVisibility === "hidden" ? "" : (user.city || ""),
+    state: user.locationVisibility === "hidden" ? "" : (user.state || ""),
+    locationVisibility: user.locationVisibility || "visible",
+    swapMode: user.swapMode || "either",
+    offers,
+    wants,
+  };
+}
+
+// GET /api/users/public-preview - list sample public users for anonymous browse preview
+router.get("/public-preview", async (_req, res) => {
+  try {
+    const candidates = await User.find({
+      $or: [
+        { skills: { $exists: true, $ne: [] } },
+        { skillsWanted: { $exists: true, $ne: [] } },
+      ],
+    })
+      .select("name username city state locationVisibility swapMode skills skillsWanted createdAt")
+      .sort({ createdAt: -1 })
+      .limit(PUBLIC_PREVIEW_LIMIT);
+
+    const previewUsers = candidates
+      .map((user) => buildPublicPreviewItem(user))
+      .filter((item) => item.offers.length > 0 || item.wants.length > 0);
+
+    res.json(previewUsers);
+  } catch (err) {
+    console.error("Error loading public preview users:", err);
+    res.status(500).json({ message: "Error loading public preview users" });
+  }
+});
 
 // GET /api/users - list all users with search/filter
 router.get("/", auth, async (req, res) => {
@@ -179,7 +235,9 @@ router.get("/", auth, async (req, res) => {
     }
 
     const users = await User.find(query)
-      .select("-passwordHash -blockedUsers")
+      .select(
+        "name username email city state locationVisibility showOthersLocations phoneNumber timeZone bio swapMode availability skills skillsWanted notificationPreferences lastProfileReminderAt createdAt updatedAt"
+      )
       .sort({ createdAt: 1 });
 
     const reliabilityByUserId = await getReliabilityByUserIds(
@@ -252,14 +310,24 @@ router.post("/", async (req, res) => {
 });
 
 // DELETE /api/users/:id - remove a user by id
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", auth, async (req, res) => {
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: "Invalid user id" });
   }
 
+  if (String(id) !== String(req.userId)) {
+    return res.status(403).json({ message: "Unauthorized" });
+  }
+
   try {
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
     const deleted = await User.findByIdAndDelete(id);
     if (!deleted) {
       return res.status(404).json({ message: "User not found" });
@@ -274,7 +342,7 @@ router.delete("/:id", async (req, res) => {
 // GET /api/users/profile - get current user profile
 router.get("/profile", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select("-passwordHash");
+    const user = await User.findById(req.userId).select("-passwordHash -tokenVersion");
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Migrate old firstName/lastName to name if needed

@@ -3,7 +3,9 @@ const mongoose = require("mongoose");
 
 const COMPLETED_STATUS = "completed";
 const CANCELLED_STATUS = "cancelled";
+const FINALIZED_STATUSES = [COMPLETED_STATUS, CANCELLED_STATUS];
 
+// Run safe rate logic.
 function safeRate(numerator, denominator) {
   if (!denominator) {
     return 0;
@@ -11,6 +13,7 @@ function safeRate(numerator, denominator) {
   return numerator / denominator;
 }
 
+// Run determine tier logic.
 function determineTier(score) {
   if (score >= 85) return "Highly Reliable";
   if (score >= 70) return "Reliable";
@@ -18,6 +21,7 @@ function determineTier(score) {
   return "Needs Follow-through";
 }
 
+// Build summary from stats payload.
 function buildSummaryFromStats(stats) {
   const totalSwaps = Number(stats.totalSwaps || 0);
   const completedSwaps = Number(stats.completedSwaps || 0);
@@ -32,7 +36,7 @@ function buildSummaryFromStats(stats) {
     ? safeRate(completedMilestones, totalMilestones)
     : swapCompletionRate;
 
-  if (totalSwaps === 0) {
+  if (totalSwaps === 0 || completedSwaps === 0) {
     return {
       score: null,
       tier: "New",
@@ -63,6 +67,7 @@ function buildSummaryFromStats(stats) {
   };
 }
 
+// Get reliability by user ids data.
 async function getReliabilityByUserIds(userIds = []) {
   const normalizedUserIds = (userIds || []).map((id) => String(id)).filter(Boolean);
   if (normalizedUserIds.length === 0) {
@@ -117,7 +122,11 @@ async function getReliabilityByUserIds(userIds = []) {
     {
       $group: {
         _id: "$participants",
-        totalSwaps: { $sum: 1 },
+        totalSwaps: {
+          $sum: {
+            $cond: [{ $in: ["$status", FINALIZED_STATUSES] }, 1, 0],
+          },
+        },
         completedSwaps: {
           $sum: {
             $cond: [{ $eq: ["$status", COMPLETED_STATUS] }, 1, 0],

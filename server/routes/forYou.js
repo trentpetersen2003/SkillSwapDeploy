@@ -10,7 +10,9 @@ const {
 } = require("../services/matching");
 
 const router = express.Router();
+const MAX_RECOMMENDED_USERS = 12;
 
+// Check whether matching telemetry enabled .
 function isMatchingTelemetryEnabled() {
   return (
     process.env.NODE_ENV !== "production" &&
@@ -18,6 +20,7 @@ function isMatchingTelemetryEnabled() {
   );
 }
 
+// Check whether access matching telemetry .
 function canAccessMatchingTelemetry(req) {
   if (!isMatchingTelemetryEnabled()) {
     return false;
@@ -31,6 +34,7 @@ function canAccessMatchingTelemetry(req) {
   return req.get("x-matching-telemetry-token") === requiredToken;
 }
 
+// Run sanitize public user logic.
 function sanitizePublicUser(userDoc, { viewerAllowsLocations = true } = {}) {
   const user = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
 
@@ -69,9 +73,10 @@ router.get("/", auth, async (req, res) => {
     );
 
     const rankedUsers = rankCandidates(currentUser, users, reliabilityByUserId);
+    const recommendedUsers = rankedUsers.slice(0, MAX_RECOMMENDED_USERS);
 
     res.json(
-      rankedUsers.map((user) => {
+      recommendedUsers.map((user) => {
         const publicUser = sanitizePublicUser(user, { viewerAllowsLocations });
         return {
           ...publicUser,

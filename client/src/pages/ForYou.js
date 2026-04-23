@@ -9,6 +9,7 @@ import { withMinimumDelay } from "../utils/loading";
 import "./Foryou.css";
 import "../SwapRequestModal.css";
 
+// Get stored dismissed notifications data.
 function getStoredDismissedNotifications(userId) {
   if (!userId) {
     return [];
@@ -24,6 +25,7 @@ function getStoredDismissedNotifications(userId) {
   }
 }
 
+// Build notifications payload.
 function buildNotifications(swaps, currentUserId) {
   if (!currentUserId) {
     return [];
@@ -97,6 +99,7 @@ function buildNotifications(swaps, currentUserId) {
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 }
 
+// Get reliability tone class data.
 function getReliabilityToneClass(score) {
   if (score === null || score === undefined) {
     return "reliability-pill--new";
@@ -107,6 +110,7 @@ function getReliabilityToneClass(score) {
   return "reliability-pill--low";
 }
 
+// Get match tone class data.
 function getMatchToneClass(score) {
   if (score === null || score === undefined) {
     return "match-pill--unknown";
@@ -117,6 +121,7 @@ function getMatchToneClass(score) {
   return "match-pill--weak";
 }
 
+// Run format user location logic.
 function formatUserLocation(user) {
   if (user.locationVisibility === "hidden") {
     return "Location hidden";
@@ -126,6 +131,7 @@ function formatUserLocation(user) {
   return locationParts.length > 0 ? locationParts.join(", ") : "Location not set";
 }
 
+// Run for you page logic.
 function ForYouPage() {
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = currentUser.id || currentUser._id || "";
@@ -224,53 +230,64 @@ function ForYouPage() {
     (notification) => !dismissedNotifications.includes(notification.id)
   );
 
+  // Run toggle expand logic.
   function toggleExpand(userId) {
     setExpandedUser(expandedUser === userId ? null : userId);
   }
 
+  // Handle swap request action.
   function handleSwapRequest(user) {
     setSelectedUserForSwap(user);
   }
 
+  // Handle close modal action.
   function handleCloseModal() {
     setSelectedUserForSwap(null);
   }
 
+  // Handle swap success action.
   function handleSwapSuccess() {
     setMessageAction(null);
     setSelectedUserForSwap(null);
     setShowSwapSuccessPopup(true);
   }
 
+  // Handle close swap success popup action.
   function handleCloseSwapSuccessPopup() {
     setShowSwapSuccessPopup(false);
   }
 
+  // Handle go to calendar action.
   function handleGoToCalendar() {
     setShowSwapSuccessPopup(false);
     navigate("/calendar");
   }
 
+  // Handle manage blocked users action.
   function handleManageBlockedUsers() {
     navigate("/settings#blocked-users");
   }
 
+  // Handle toggle notifications action.
   function handleToggleNotifications() {
     setShowNotifications((prev) => !prev);
   }
 
+  // Handle dismiss notification action.
   function handleDismissNotification(notificationId) {
     setDismissedNotifications((prev) =>
       prev.includes(notificationId) ? prev : [...prev, notificationId]
     );
   }
 
+  // Handle clear all notifications action.
   function handleClearAllNotifications() {
     setDismissedNotifications((prev) => [
       ...new Set([...prev, ...notifications.map((notification) => notification.id)]),
     ]);
   }
 
+  // Handle notification click action.
   function handleNotificationClick(notification) {
     if (!notification.actionable || !notification.swapId) {
       return;
@@ -285,6 +302,7 @@ function ForYouPage() {
     });
   }
 
+  // Handle block user action.
   async function handleBlockUser(user) {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -337,6 +355,7 @@ function ForYouPage() {
     }
   }
 
+  // Handle undo block action.
   async function handleUndoBlock() {
     const token = localStorage.getItem("token");
     if (!token || !messageAction?.userId) {
@@ -581,6 +600,7 @@ function ForYouPage() {
   );
 }
 
+// Run user card logic.
 function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap, onBlockUser, isBlocking, disableActions }) {
   const skillsOffered =
     user.skills && user.skills.length > 0
@@ -637,6 +657,7 @@ function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap, onBlockUser
         {skillsOffered.length > 0 && (
           <div className="skill-preview">
             <span className="skill-label">Offers:</span>
+            {" "}
             <span className="skill-value">
               {skillsOffered.slice(0, 2).join(", ")}
               {skillsOffered.length > 2 && " ..."}
@@ -646,6 +667,7 @@ function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap, onBlockUser
         {skillsWanted.length > 0 && (
           <div className="skill-preview">
             <span className="skill-label">Wants:</span>
+            {" "}
             <span className="skill-value">
               {skillsWanted.slice(0, 2).join(", ")}
               {skillsWanted.length > 2 && " ..."}

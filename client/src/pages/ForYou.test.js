@@ -32,6 +32,7 @@ jest.mock("../components/SwapRequestModal", () => (props) => {
 global.fetch = jest.fn();
 
 describe("ForYouPage", () => {
+  // Run mock fetch data logic.
   function mockFetchData({
     users = [
       {
@@ -90,6 +91,11 @@ describe("ForYouPage", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Request Swap" })).toBeInTheDocument();
     });
+
+    const userCard = screen.getByText("Taylor").closest(".user-card");
+    expect(userCard).not.toBeNull();
+    expect(userCard).toHaveTextContent(/Offers:\s+Guitar/i);
+    expect(userCard).toHaveTextContent(/Wants:\s+Spanish/i);
 
     expect(screen.getByText("Match 92%")).toBeInTheDocument();
     expect(screen.getByText("Teaches skills you want: Spanish")).toBeInTheDocument();

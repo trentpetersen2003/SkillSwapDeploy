@@ -55,6 +55,7 @@ const RELAX_FILTER_PRIORITY = [
   "search",
 ];
 
+// Get reliability tone class data.
 function getReliabilityToneClass(score) {
   if (score === null || score === undefined) {
     return "browse-reliability--new";
@@ -65,6 +66,7 @@ function getReliabilityToneClass(score) {
   return "browse-reliability--low";
 }
 
+// Get browse match tone class data.
 function getBrowseMatchToneClass(score) {
   if (score === null || score === undefined) {
     return "browse-match--unknown";
@@ -75,12 +77,14 @@ function getBrowseMatchToneClass(score) {
   return "browse-match--weak";
 }
 
+// Get swap mode label data.
 function getSwapModeLabel(value) {
   if (value === "online") return "Online";
   if (value === "in-person") return "In Person";
   return "Open to Either";
 }
 
+// Run format user location logic.
 function formatUserLocation(user) {
   if (user.locationVisibility === "hidden") {
     return "Location hidden";
@@ -90,6 +94,7 @@ function formatUserLocation(user) {
   return locationParts.length > 0 ? locationParts.join(", ") : "Location not set";
 }
 
+// Get filter relax label data.
 function getFilterRelaxLabel(key, filters) {
   if (key === "minRating") return `Lower minimum rating (${filters.minRating}+)`;
   if (key === "availabilityDays") return "Remove selected days";
@@ -100,6 +105,7 @@ function getFilterRelaxLabel(key, filters) {
   return "Relax filter";
 }
 
+// Run normalize swap mode logic.
 function normalizeSwapMode(value) {
   if (value === "online" || value === "in-person" || value === "either") {
     return value;
@@ -107,6 +113,7 @@ function normalizeSwapMode(value) {
   return "either";
 }
 
+// Check whether swap mode compatible .
 function isSwapModeCompatible(selectedSwapMode, candidateSwapMode) {
   const normalizedCandidate = normalizeSwapMode(candidateSwapMode);
   if (!Array.isArray(selectedSwapMode) || selectedSwapMode.length === 0) return true;
@@ -118,6 +125,7 @@ function isSwapModeCompatible(selectedSwapMode, candidateSwapMode) {
   });
 }
 
+// Check whether active filters .
 function hasActiveFilters(filters) {
   return Boolean(
     filters.search ||
@@ -129,6 +137,7 @@ function hasActiveFilters(filters) {
   );
 }
 
+// Run score closest match logic.
 function scoreClosestMatch(candidate, filters) {
   let score = 0;
   const reasons = [];
@@ -207,6 +216,7 @@ function scoreClosestMatch(candidate, filters) {
   };
 }
 
+// Build filter counts payload.
 function buildFilterCounts(candidates) {
   const categoryCounts = {};
   const availabilityCounts = {};
@@ -271,6 +281,7 @@ function buildFilterCounts(candidates) {
   };
 }
 
+// Get nearest rating tick data.
 function getNearestRatingTick(value) {
   const numericValue = Number(value || 0);
   const ticks = [0, 1, 2, 3, 4, 5];
@@ -282,6 +293,7 @@ function getNearestRatingTick(value) {
   }, 0);
 }
 
+// Run normalize filter draft logic.
 function normalizeFilterDraft(filters) {
   return {
     ...filters,
@@ -290,6 +302,7 @@ function normalizeFilterDraft(filters) {
   };
 }
 
+// Check whether filter value .
 function hasFilterValue(value) {
   if (Array.isArray(value)) {
     return value.length > 0;
@@ -297,6 +310,7 @@ function hasFilterValue(value) {
   return Boolean(value);
 }
 
+// Get comparable filters data.
 function getComparableFilters(filters) {
   return {
     ...filters,
@@ -306,6 +320,7 @@ function getComparableFilters(filters) {
   };
 }
 
+// Run browse logic.
 function Browse({ isProfileComplete = true, onOpenSetup }) {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
@@ -465,22 +480,26 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
     fetchUsers(INITIAL_FILTERS);
   }, [fetchUsers]);
 
+  // Handle search action.
   function handleSearch(e) {
     e.preventDefault();
     applyDraftFilters(filters);
   }
 
+  // Handle filter change action.
   function handleFilterChange(e) {
     const { name, value } = e.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
   }
 
+  // Handle rating slider change action.
   function handleRatingSliderChange(e) {
     const sliderValue = e.target.value;
     const nextMinRating = sliderValue === "0" ? "" : sliderValue;
     setFilters((prev) => ({ ...prev, minRating: nextMinRating }));
   }
 
+  // Handle checklist toggle action.
   function handleChecklistToggle(filterKey, value) {
     setFilters((prev) => {
       const currentValues = Array.isArray(prev[filterKey]) ? prev[filterKey] : [];
@@ -495,11 +514,13 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
     });
   }
 
+  // Handle open filter panel action.
   function handleOpenFilterPanel() {
     setFilters(appliedFilters);
     setIsFilterPanelOpen(true);
   }
 
+  // Handle toggle filter panel action.
   function handleToggleFilterPanel() {
     if (isFilterPanelOpen) {
       // Treat toggle-close the same as cancel to avoid hidden unsaved draft state.
@@ -509,19 +530,23 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
     handleOpenFilterPanel();
   }
 
+  // Handle cancel filter changes action.
   function handleCancelFilterChanges() {
     setFilters(appliedFilters);
     setIsFilterPanelOpen(false);
   }
 
+  // Handle apply filter changes action.
   function handleApplyFilterChanges() {
     applyDraftFilters(filters, { closePanel: true });
   }
 
+  // Handle reset filter draft action.
   function handleResetFilterDraft() {
     setFilters(INITIAL_FILTERS);
   }
 
+  // Run remove single filter logic.
   function removeSingleFilter(key, value = null) {
     const nextFilters = { ...filters };
     if (Array.isArray(nextFilters[key])) {
@@ -540,14 +565,17 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
     applyDraftFilters(nextApplied);
   }
 
+  // Run clear filters logic.
   function clearFilters() {
     applyDraftFilters(INITIAL_FILTERS);
   }
 
+  // Handle manage blocked users action.
   function handleManageBlockedUsers() {
     navigate("/settings#blocked-users");
   }
 
+  // Handle swap request action.
   function handleSwapRequest(user) {
     if (!isProfileComplete) {
       setSetupBlockCopy({
@@ -560,6 +588,7 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
     setSelectedUserForSwap(user);
   }
 
+  // Handle open chat action.
   function handleOpenChat(userId) {
     if (!isProfileComplete) {
       setSetupBlockCopy({
@@ -572,16 +601,19 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
     navigate(`/chat?userId=${userId}`);
   }
 
+  // Handle close modal action.
   function handleCloseModal() {
     setSelectedUserForSwap(null);
   }
 
+  // Handle swap success action.
   function handleSwapSuccess() {
     const name = selectedUserForSwap?.name || "that user";
     setMessage(`Swap request sent to ${name}!`);
     setSelectedUserForSwap(null);
   }
 
+  // Handle block user action.
   async function handleBlockUser(user) {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -632,6 +664,7 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
     }
   }
 
+  // Handle undo block action.
   async function handleUndoBlock() {
     const token = localStorage.getItem("token");
     if (!token || !messageAction?.userId) {
@@ -904,7 +937,13 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
 
       {users.length === 0 ? (
         <div className="browse-empty">
-          <p className="browse-empty-title">No users found for these filters.</p>
+          <p className="browse-empty-title">
+            {!isProfileComplete && activeFilterChips.length === 0
+              ? "Complete your profile to browse other users."
+              : activeFilterChips.length > 0
+              ? "No users found for these filters."
+              : "There are no other users yet."}
+          </p>
           {activeFilterChips.length > 0 ? (
             <div className="browse-empty-actions">
               {suggestedRelaxFilters.map((key) => (

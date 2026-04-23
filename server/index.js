@@ -38,6 +38,7 @@ const allowedOrigins = [
   ...envAllowedOrigins,
 ].filter(Boolean);
 
+// Run normalize origin logic.
 function normalizeOrigin(origin) {
   return (origin || "").trim().replace(/\/+$/, "");
 }

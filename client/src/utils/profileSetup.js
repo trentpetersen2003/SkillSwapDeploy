@@ -11,10 +11,12 @@ const REQUIRED_SETUP_FIELDS = [
 
 export const PROFILE_SETUP_REQUIRED_PATH = "/profile";
 
+// Check whether non empty string .
 function hasNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+// Check whether filled items .
 function hasFilledItems(value) {
   return Array.isArray(value) && value.length > 0;
 }

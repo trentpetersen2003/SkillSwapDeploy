@@ -2,11 +2,13 @@ const User = require("../models/User");
 const { isProfileSetupComplete, getIncompleteProfileFields } = require("./profileSetup");
 const { sendProfileCompletionReminderEmail } = require("./email");
 
+// Get cooldown days data.
 function getCooldownDays() {
   const parsed = Number(process.env.EMAIL_PROFILE_REMINDER_COOLDOWN_DAYS || 7);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 7;
 }
 
+// Check whether past cooldown .
 function isPastCooldown(lastSentAt, cooldownDays) {
   if (!lastSentAt) {
     return true;
@@ -17,6 +19,7 @@ function isPastCooldown(lastSentAt, cooldownDays) {
   return elapsedMs >= cooldownMs;
 }
 
+// Run send profile completion reminders logic.
 async function sendProfileCompletionReminders({ limit } = {}) {
   const cooldownDays = getCooldownDays();
   const batchLimit = Number(limit || process.env.EMAIL_PROFILE_REMINDER_BATCH_SIZE || 50);

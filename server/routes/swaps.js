@@ -14,22 +14,27 @@ const {
 const PROFILE_SETUP_REQUIRED_MESSAGE =
   "Finish your profile setup before you use swaps.";
 
+// Check whether participant .
 function isParticipant(swap, userId) {
   return swap.requester.toString() === userId || swap.recipient.toString() === userId;
 }
 
+// Check whether requester .
 function isRequester(swap, userId) {
   return swap.requester.toString() === userId;
 }
 
+// Check whether both confirmations .
 function hasBothConfirmations(swap) {
   return Boolean(swap.requesterConfirmedAt && swap.recipientConfirmedAt);
 }
 
+// Run email pref enabled logic.
 function emailPrefEnabled(user, key) {
   return user?.notificationPreferences?.[key] !== false;
 }
 
+// Run normalize milestones logic.
 function normalizeMilestones(rawMilestones = [], totalSessions = 1) {
   const sessionCount = Number(totalSessions);
   if (!Number.isInteger(sessionCount) || sessionCount < 1 || sessionCount > 20) {
@@ -96,6 +101,7 @@ const DAYS = [
   "Saturday",
 ];
 
+// Parse utc offset to minutes input.
 function parseUtcOffsetToMinutes(timeZone) {
   if (typeof timeZone !== "string") return null;
 
@@ -109,6 +115,7 @@ function parseUtcOffsetToMinutes(timeZone) {
   return sign * (hours * 60 + minutes);
 }
 
+// Run to24 hour minutes logic.
 function to24HourMinutes(hourStr, minuteStr, period) {
   let hour = Number(hourStr);
   const minute = Number(minuteStr);
@@ -123,6 +130,7 @@ function to24HourMinutes(hourStr, minuteStr, period) {
   return hour * 60 + minute;
 }
 
+// Parse time range input.
 function parseTimeRange(timeRange) {
   if (typeof timeRange !== "string") return null;
 
@@ -140,6 +148,7 @@ function parseTimeRange(timeRange) {
   return { start, end };
 }
 
+// Get local day and minutes data.
 function getLocalDayAndMinutes(date, offsetMinutes) {
   const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
 
@@ -148,6 +157,7 @@ function getLocalDayAndMinutes(date, offsetMinutes) {
     minutes: shifted.getUTCHours() * 60 + shifted.getUTCMinutes(),
   };
 }
+// Run format minutes logic.
 function formatMinutes(minutes) {
   const normalized = ((minutes % (24 * 60)) + (24 * 60)) % (24 * 60);
   const hour24 = Math.floor(normalized / 60);
@@ -158,6 +168,7 @@ function formatMinutes(minutes) {
 
   return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
 }
+// Run describe local session logic.
 function describeLocalSession(date, timeZone, durationMinutes) {
   const offsetMinutes = parseUtcOffsetToMinutes(timeZone);
   if (offsetMinutes === null) {
@@ -170,17 +181,20 @@ function describeLocalSession(date, timeZone, durationMinutes) {
   return `${localStart.day} ${formatMinutes(localStart.minutes)} - ${formatMinutes(localEnd)} (${timeZone})`;
 }
 
+// Run round up to interval logic.
 function roundUpToInterval(date, intervalMinutes) {
   const intervalMs = intervalMinutes * 60 * 1000;
   return new Date(Math.ceil(date.getTime() / intervalMs) * intervalMs);
 }
 
+// Get date range end data.
 function getDateRangeEnd(daysAhead) {
   const end = new Date();
   end.setDate(end.getDate() + daysAhead);
   return end;
 }
 
+// Check whether swap conflict .
 function isSwapConflict(existingSwap, startDate, durationMinutes) {
   const existingStart = new Date(existingSwap.scheduledDate);
   const existingDuration = Number(existingSwap.duration || 60);
@@ -190,27 +204,33 @@ function isSwapConflict(existingSwap, startDate, durationMinutes) {
   return startDate < existingEnd && candidateEnd > existingStart;
 }
 
+// Check whether conflict .
 function hasConflict(existingSwaps, startDate, durationMinutes) {
   return existingSwaps.some((swap) => isSwapConflict(swap, startDate, durationMinutes));
 }
 
+// Parse positive int input.
 function parsePositiveInt(value, fallback) {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+// Check whether weekend day .
 function isWeekendDay(day) {
   return day === "Saturday" || day === "Sunday";
 }
 
+// Check whether evening minutes .
 function isEveningMinutes(minutes) {
   return minutes >= 17 * 60 && minutes < 22 * 60;
 }
 
+// Check whether work hours minutes .
 function isWorkHoursMinutes(minutes) {
   return minutes >= 9 * 60 && minutes < 17 * 60;
 }
 
+// Run score suggested slot logic.
 function scoreSuggestedSlot({
   date,
   requesterTimeZone,
@@ -253,6 +273,7 @@ function scoreSuggestedSlot({
   return score;
 }
 
+// Get suggested slot reason data.
 function getSuggestedSlotReason({ date, requesterTimeZone, recipientTimeZone }) {
   const requesterOffset = parseUtcOffsetToMinutes(requesterTimeZone);
   const recipientOffset = parseUtcOffsetToMinutes(recipientTimeZone);
@@ -287,6 +308,7 @@ function getSuggestedSlotReason({ date, requesterTimeZone, recipientTimeZone }) 
 
   return "Earliest mutual slot";
 }
+// Run format availability for day logic.
 function formatAvailabilityForDay(availability = [], day, timeZone = "") {
   const daySlots = (availability || []).filter((slot) => slot.day === day);
 
@@ -306,6 +328,7 @@ const RECOGNIZED_VIRTUAL_MEETING_HOSTS = [
   "teams.microsoft.us",
 ];
 
+// Run normalize meeting link logic.
 function normalizeMeetingLink(rawLink = "") {
   const trimmed = typeof rawLink === "string" ? rawLink.trim() : "";
   if (!trimmed) {
@@ -377,6 +400,7 @@ function normalizeMeetingDetails(meetingType, meetingLink, meetingAddress) {
     location: cleanAddress,
   };
 }
+// Run validate user availability logic.
 function validateUserAvailability(user, scheduledDate, durationMinutes) {
   if (!user?.timeZone) {
     return { ok: false, reason: "missing time zone" };
@@ -420,6 +444,7 @@ function validateUserAvailability(user, scheduledDate, durationMinutes) {
   return { ok: true };
 }
 
+// Run enforce profile setup complete logic.
 async function enforceProfileSetupComplete(userId, res) {
   const currentUser = await User.findById(userId).select(
     "name email city state timeZone availability skills skillsWanted"
@@ -582,7 +607,6 @@ router.get("/suggestions", auth, async (req, res) => {
       if (requesterAvailable && recipientAvailable) {
         const requesterBusy = hasConflict(requesterSwaps, cursor, durationMinutes);
         const recipientBusy = hasConflict(recipientSwaps, cursor, durationMinutes);
-
         if (!requesterBusy && !recipientBusy) {
           candidateSlots.push({
             date: new Date(cursor),
@@ -690,8 +714,12 @@ router.post("/", auth, async (req, res) => {
     }
 
     const [requester, recipient] = await Promise.all([
-      User.findById(req.userId).select("blockedUsers availability timeZone name email notificationPreferences"),
-      User.findById(recipientId).select("blockedUsers availability timeZone name email notificationPreferences"),
+      User.findById(req.userId).select(
+        "blockedUsers availability timeZone name email notificationPreferences"
+      ),
+      User.findById(recipientId).select(
+        "blockedUsers availability timeZone name email notificationPreferences"
+      ),
     ]);
 
     if (!requester || !recipient) {

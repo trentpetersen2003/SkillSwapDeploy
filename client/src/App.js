@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  BrowserRouter as Router,
+  BrowserRouter,
+  HashRouter,
   Routes,
   Route,
   Navigate,
@@ -16,6 +17,8 @@ import Calendar from "./pages/Calendar";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import SplashPage from "./pages/SplashPage";
+import GuestBrowsePreview from "./pages/GuestBrowsePreview";
 import API_URL from "./config";
 import fetchWithAuth from "./utils/api";
 import LoadingState, { InlineLoading } from "./components/LoadingState";
@@ -41,6 +44,13 @@ const completeSetupModalCopy = {
   secondaryLabel: "Maybe later",
 };
 
+const RouterComponent =
+  process.env.NODE_ENV === "production" &&
+  process.env.REACT_APP_FORCE_BROWSER_ROUTER !== "true"
+    ? HashRouter
+    : BrowserRouter;
+
+// Get default profile setup state data.
 function getDefaultProfileSetupState() {
   return {
     loading: false,
@@ -49,30 +59,187 @@ function getDefaultProfileSetupState() {
   };
 }
 
+// Check whether restricted route .
 function isRestrictedRoute(pathname = "") {
   return Object.prototype.hasOwnProperty.call(restrictedRouteConfig, pathname);
 }
 
+// Run login page logic.
 function LoginPage({ onLogin }) {
-  const [mode, setMode] = useState("login");
+  const location = useLocation();
+  const [mode, setMode] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("mode") === "register" ? "register" : "login";
+  });
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
+  const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || "";
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    const requestedMode = params.get("mode") === "register" ? "register" : "login";
+    setMode(requestedMode);
+
     if (params.get("reset") === "success") {
       setMessage("Password reset successful. You can now log in.");
     }
   }, [location.search]);
 
+  useEffect(() => {
+    if (!googleClientId || mode !== "login") {
+      setGoogleReady(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    // Run wait for google identity logic.
+    function waitForGoogleIdentity(maxAttempts = 50, delayMs = 100) {
+      return new Promise((resolve, reject) => {
+        let attempts = 0;
+
+        // Run check ready logic.
+        function checkReady() {
+          if (cancelled) {
+            reject(new Error("Google Sign-In initialization cancelled"));
+            return;
+          }
+
+          if (window.google?.accounts?.id) {
+            resolve();
+            return;
+          }
+
+          attempts += 1;
+          if (attempts >= maxAttempts) {
+            reject(new Error("Google Sign-In library did not become ready in time"));
+            return;
+          }
+
+          window.setTimeout(checkReady, delayMs);
+        }
+
+        checkReady();
+      });
+    }
+
+    // Run initialize google button logic.
+    function initializeGoogleButton() {
+      if (cancelled || !window.google?.accounts?.id) {
+        return;
+      }
+
+      try {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (response) => {
+            if (cancelled || !response?.credential) {
+              return;
+            }
+
+            setGoogleSubmitting(true);
+            setMessage("");
+            try {
+              const apiResponse = await fetch(`${API_URL}/api/auth/google`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ idToken: response.credential }),
+              });
+              const payload = await apiResponse.json().catch(() => ({}));
+
+              if (!apiResponse.ok) {
+                setMessage(payload.message || "Google login failed");
+                return;
+              }
+
+              const nextPath = await onLogin(payload.user, payload.token);
+              navigate(nextPath || "/foryou");
+            } catch (err) {
+              console.error("Google login failed:", err);
+              setMessage("Google login failed. Please try again.");
+            } finally {
+              setGoogleSubmitting(false);
+            }
+          },
+        });
+
+        const target = document.getElementById("google-signin-button");
+        if (target) {
+          target.innerHTML = "";
+          window.google.accounts.id.renderButton(target, {
+            type: "standard",
+            theme: "outline",
+            size: "large",
+            text: "continue_with",
+            shape: "pill",
+            width: 320,
+          });
+          setGoogleReady(true);
+        }
+      } catch (err) {
+        console.error("Google Sign-In initialization failed:", err);
+        setMessage("Unable to initialize Google Sign-In. Check Google OAuth origins and try again.");
+      }
+    }
+
+    const existingScript = document.getElementById("google-identity-services");
+    if (existingScript) {
+      waitForGoogleIdentity()
+        .then(() => {
+          if (!cancelled) {
+            initializeGoogleButton();
+          }
+        })
+        .catch((err) => {
+          console.error("Google Sign-In library readiness failed:", err);
+          if (!cancelled) {
+            setMessage("Unable to load Google Sign-In. Please refresh and try again.");
+          }
+        });
+    } else {
+      const script = document.createElement("script");
+      script.id = "google-identity-services";
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        waitForGoogleIdentity()
+          .then(() => {
+            if (!cancelled) {
+              initializeGoogleButton();
+            }
+          })
+          .catch((err) => {
+            console.error("Google Sign-In library readiness failed:", err);
+            if (!cancelled) {
+              setMessage("Unable to load Google Sign-In. Please refresh and try again.");
+            }
+          });
+      };
+      script.onerror = () => {
+        if (!cancelled) {
+          setMessage("Unable to load Google Sign-In. Please refresh and try again.");
+        }
+      };
+      document.body.appendChild(script);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleClientId, mode, navigate, onLogin]);
+
+  // Handle change action.
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
+  // Handle submit action.
   async function handleSubmit(e) {
     e.preventDefault();
     if (submitting) {
@@ -198,6 +365,20 @@ function LoginPage({ onLogin }) {
           </button>
         </form>
 
+        {googleClientId && mode === "login" && (
+          <div className="google-login-section" aria-live="polite">
+            <div className="google-login-divider">or</div>
+            <div id="google-signin-button" className="google-signin-button" />
+            <div className="google-login-hint">
+              If the same Google email already belongs to a SkillSwap account, Google sign-in will use that account.
+            </div>
+            {googleSubmitting && <div className="message">Signing in with Google...</div>}
+            {!googleReady && !googleSubmitting && (
+              <div className="google-login-hint">Loading Google Sign-In...</div>
+            )}
+          </div>
+        )}
+
         <div className="switcher">
           {mode === "login" ? (
             <>
@@ -233,12 +414,14 @@ function LoginPage({ onLogin }) {
   );
 }
 
+// Run forgot password page logic.
 function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
+  // Handle submit action.
   async function handleSubmit(e) {
     e.preventDefault();
     if (submitting) {
@@ -299,7 +482,7 @@ function ForgotPasswordPage() {
         </form>
 
         <div className="switcher">
-          <button type="button" onClick={() => navigate("/")} disabled={submitting}>
+          <button type="button" onClick={() => navigate("/login")} disabled={submitting}>
             Back to login
           </button>
         </div>
@@ -310,6 +493,7 @@ function ForgotPasswordPage() {
   );
 }
 
+// Run reset password page logic.
 function ResetPasswordPage() {
   const { token } = useParams();
   const [password, setPassword] = useState("");
@@ -318,6 +502,7 @@ function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
+  // Handle submit action.
   async function handleSubmit(e) {
     e.preventDefault();
     if (submitting) {
@@ -363,7 +548,7 @@ function ResetPasswordPage() {
         return;
       }
 
-      navigate("/?reset=success", { replace: true });
+      navigate("/login?reset=success", { replace: true });
     } catch (err) {
       console.error(err);
       setMessage("Something went wrong. Try again.");
@@ -401,7 +586,7 @@ function ResetPasswordPage() {
         </form>
 
         <div className="switcher">
-          <button type="button" onClick={() => navigate("/")} disabled={submitting}>
+          <button type="button" onClick={() => navigate("/login")} disabled={submitting}>
             Back to login
           </button>
         </div>
@@ -412,6 +597,7 @@ function ResetPasswordPage() {
   );
 }
 
+// Run app shell logic.
 function AppShell({
   user,
   profileSetup,
@@ -527,7 +713,7 @@ function AppShell({
       </Routes>
 
       <ProfileSetupModal
-        open={showSetupPrompt}
+        open={showSetupPrompt && !blockedAction}
         title="Set up your profile"
         description="Finish your profile before you start swapping."
         hint="Add your time zone, availability, and skills when you're ready."
@@ -551,9 +737,11 @@ function AppShell({
   );
 }
 
+// Run app logic.
 function App() {
   const [user, setUser] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [profileSetup, setProfileSetup] = useState(() => ({
     ...getDefaultProfileSetupState(),
     loading: true,
@@ -622,6 +810,7 @@ function App() {
   useEffect(() => {
     let isMounted = true;
 
+    // Run restore session logic.
     async function restoreSession() {
       const savedToken = localStorage.getItem("token");
       const savedUser = localStorage.getItem("user");
@@ -685,13 +874,35 @@ function App() {
     return nextStatus.isComplete ? "/foryou" : "/browse";
   }, [refreshProfileSetup, updateStoredUser]);
 
-  const handleLogout = useCallback(() => {
-    setUser(null);
-    setProfileSetup(getDefaultProfileSetupState());
-    setShowSetupPrompt(false);
-    setBlockedAction(null);
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  const handleLogout = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    setLoggingOut(true);
+
+    try {
+      await withMinimumDelay(async () => {
+        if (token) {
+          try {
+            await fetchWithAuth(`${API_URL}/api/auth/logout`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+          } catch (_error) {
+            // Local logout should still complete if server-side logout fails.
+          }
+        }
+      }, 450);
+
+      setUser(null);
+      setProfileSetup(getDefaultProfileSetupState());
+      setShowSetupPrompt(false);
+      setBlockedAction(null);
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+    } finally {
+      setLoggingOut(false);
+    }
   }, []);
 
   const handleDismissSetupPrompt = useCallback(() => {
@@ -700,6 +911,7 @@ function App() {
       localStorage.setItem(getProfileSetupPromptStorageKey(userId), "true");
     }
     setShowSetupPrompt(false);
+    setBlockedAction(null);
   }, [user]);
 
   const handleOpenSetup = useCallback(() => {
@@ -712,13 +924,17 @@ function App() {
   }, [user]);
 
   const handleRequireProfileSetup = useCallback((actionLabel = "do that") => {
+    if (showSetupPrompt) {
+      return;
+    }
+
     setBlockedAction({
       title: "Finish your profile first",
       description: `You can't ${actionLabel} yet. Finish your profile setup first.`,
       primaryLabel: "Go to setup",
       secondaryLabel: "Maybe later",
     });
-  }, []);
+  }, [showSetupPrompt]);
 
   const handleProfileSaved = useCallback((savedProfile) => {
     const nextStatus = {
@@ -746,14 +962,26 @@ function App() {
     return <LoadingState message="Checking session..." />;
   }
 
+  if (loggingOut) {
+    return <LoadingState message="Logging out..." />;
+  }
+
   return (
-    <Router>
+    <RouterComponent>
       <Routes>
         <Route
           path="/"
           element={
-            user ? <Navigate to="/foryou" replace /> : <LoginPage onLogin={handleLogin} />
+            user ? <Navigate to="/foryou" replace /> : <SplashPage />
           }
+        />
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/foryou" replace /> : <LoginPage onLogin={handleLogin} />}
+        />
+        <Route
+          path="/browse-preview"
+          element={user ? <Navigate to="/browse" replace /> : <GuestBrowsePreview />}
         />
         <Route
           path="/forgot-password"
@@ -774,7 +1002,10 @@ function App() {
                 blockedAction={blockedAction}
                 onDismissSetupPrompt={handleDismissSetupPrompt}
                 onOpenSetup={handleOpenSetup}
-                onCloseBlockedAction={() => setBlockedAction(null)}
+                onCloseBlockedAction={() => {
+                  setBlockedAction(null);
+                  setShowSetupPrompt(false);
+                }}
                 onProfileSaved={handleProfileSaved}
                 onLogout={handleLogout}
                 onRequireProfileSetup={handleRequireProfileSetup}
@@ -785,7 +1016,7 @@ function App() {
           }
         />
       </Routes>
-    </Router>
+    </RouterComponent>
   );
 }
 
