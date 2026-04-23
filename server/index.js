@@ -21,8 +21,7 @@ app.set("trust proxy", 1);
 
 const productionEmailConfig = validateProductionEmailConfig();
 if (!productionEmailConfig.valid) {
-  console.error(productionEmailConfig.message);
-  process.exit(1);
+  console.warn(productionEmailConfig.message);
 }
 
 const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || "")
