@@ -887,7 +887,24 @@ router.patch("/:id/status", auth, async (req, res) => {
     if (["cancelled", "completed"].includes(status) && !isParticipant(swap, req.userId)) {
       return res.status(403).json({ message: "Unauthorized" });
     }
+    // Only allow valid status transitions
+    if (status === "confirmed" && swap.status !== "pending") {
+      return res.status(409).json({
+        message: "This swap is no longer pending.",
+      });
+    }
 
+    if (status === "cancelled" && !["pending", "confirmed"].includes(swap.status)) {
+      return res.status(409).json({
+        message: "This swap can no longer be cancelled.",
+      });
+    }
+
+    if (status === "completed" && swap.status !== "confirmed") {
+      return res.status(409).json({
+        message: "Only confirmed swaps can be completed.",
+      });
+    }
     if (status === "completed") {
       const hasIncompleteMilestones = (swap.milestones || []).some(
         (milestone) => !milestone.completed
@@ -1157,24 +1174,34 @@ router.delete("/:id", auth, async (req, res) => {
     }
 
     const { id } = req.params;
-
     const swap = await Swap.findById(id);
 
     if (!swap) {
       return res.status(404).json({ message: "Swap not found" });
     }
 
-    // Only the requester can delete
     if (swap.requester.toString() !== req.userId) {
       return res.status(403).json({ message: "Only the requester can delete this swap" });
     }
 
+    if (swap.status !== "pending") {
+      if (swap.status === "confirmed") {
+        return res.status(409).json({
+          message: "This swap has already been accepted.",
+        });
+      }
+
+      return res.status(400).json({
+        message: "Only pending swap requests can be deleted.",
+      });
+    }
+
     await Swap.findByIdAndDelete(id);
 
-    res.json({ message: "Swap deleted successfully" });
+    return res.json({ message: "Swap deleted successfully" });
   } catch (error) {
     console.error("Error deleting swap:", error);
-    res.status(500).json({ message: "Error deleting swap" });
+    return res.status(500).json({ message: "Error deleting swap" });
   }
 });
 
