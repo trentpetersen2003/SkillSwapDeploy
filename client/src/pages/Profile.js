@@ -45,18 +45,18 @@ const TIMEZONES = [
 ];
 
 const STATE_PROVINCE_OPTIONS = [
-  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA",
-  "ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK",
-  "OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
-  "AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT",
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA",
+  "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK",
+  "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC",
+  "AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT",
 ];
 
-const DAYS_OF_WEEK = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-const HOURS = ["1","2","3","4","5","6","7","8","9","10","11","12"];
-const MINUTES = ["00","15","30","45"];
+const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const HOURS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const MINUTES = ["00", "15", "30", "45"];
 const SKILL_CATEGORIES = [
-  "Academic & Tutoring","Tech & Programming","Languages","Creative & Arts",
-  "Career & Professional","Life Skills","Fitness & Wellness","Hobbies & Misc",
+  "Academic & Tutoring", "Tech & Programming", "Languages", "Creative & Arts",
+  "Career & Professional", "Life Skills", "Fitness & Wellness", "Hobbies & Misc",
 ];
 const SKILL_LEVELS = ["Novice", "Proficient", "Expert"];
 const PROFILE_SETUP_STEPS = [
@@ -253,7 +253,8 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [availabilityError, setAvailabilityError] = useState("");
-  const [skillError, setSkillError] = useState("");
+  const [teachSkillError, setTeachSkillError] = useState("");
+  const [learnSkillError, setLearnSkillError] = useState("");
   const [pendingNavigationPath, setPendingNavigationPath] = useState("");
   const [newAvailability, setNewAvailability] = useState({
     selectedDays: [], startHour: "9", startMinute: "00", startPeriod: "AM",
@@ -450,12 +451,14 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
   // Handle skill change action.
   function handleSkillChange(event) {
     const { name, value } = event.target;
+    setTeachSkillError("");
     setNewSkill((prev) => ({ ...prev, [name]: value }));
   }
 
   // Handle skill wanted change action.
   function handleSkillWantedChange(event) {
     const { name, value } = event.target;
+    setLearnSkillError("");
     setNewSkillWanted((prev) => ({ ...prev, [name]: value }));
   }
 
@@ -515,12 +518,28 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
 
   // Run add skill logic.
   function addSkill() {
-    setSkillError("");
-    if (!newSkill.skillName.trim() || !newSkill.category) {
-      setSkillError("Please enter a skill name and category");
+    setTeachSkillError("");
+
+    if (!newSkill.skillName.trim() && !newSkill.category) {
+      setTeachSkillError("Please enter a skill name and select a category.");
       return;
     }
-    setProfile((prev) => ({ ...prev, skills: [...prev.skills, { ...newSkill }] }));
+
+    if (!newSkill.skillName.trim()) {
+      setTeachSkillError("Please enter a skill name.");
+      return;
+    }
+
+    if (!newSkill.category) {
+      setTeachSkillError("Please select a category.");
+      return;
+    }
+
+    setProfile((prev) => ({
+      ...prev,
+      skills: [...prev.skills, { ...newSkill }],
+    }));
+
     setNewSkill({ skillName: "", category: "", level: "Novice" });
   }
 
@@ -534,12 +553,28 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
 
   // Run add skill wanted logic.
   function addSkillWanted() {
-    setSkillError("");
-    if (!newSkillWanted.skillName.trim() || !newSkillWanted.category) {
-      setSkillError("Please enter a skill name and category");
+    setLearnSkillError("");
+
+    if (!newSkillWanted.skillName.trim() && !newSkillWanted.category) {
+      setLearnSkillError("Please enter a skill name and select a category.");
       return;
     }
-    setProfile((prev) => ({ ...prev, skillsWanted: [...prev.skillsWanted, { ...newSkillWanted }] }));
+
+    if (!newSkillWanted.skillName.trim()) {
+      setLearnSkillError("Please enter a skill name.");
+      return;
+    }
+
+    if (!newSkillWanted.category) {
+      setLearnSkillError("Please select a category.");
+      return;
+    }
+
+    setProfile((prev) => ({
+      ...prev,
+      skillsWanted: [...prev.skillsWanted, { ...newSkillWanted }],
+    }));
+
     setNewSkillWanted({ skillName: "", category: "", level: "Novice" });
   }
 
@@ -944,16 +979,14 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
                 </div>
               </div>
             </div>
-
+            {availabilityError && (
+              <div className="profile-alert profile-alert--error">Warning: {availabilityError}</div>
+            )}
             <button type="button" className="profile-inline-button" onClick={addAvailability}>
               Add Availability
             </button>
           </div>
         </section>
-
-        {availabilityError && (
-          <div className="profile-alert profile-alert--error">Warning: {availabilityError}</div>
-        )}
 
         <section className="profile-section" id="profile-teach" ref={teachRef}>
           <SectionHeader
@@ -1007,6 +1040,9 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
                 </select>
               </label>
             </div>
+            {teachSkillError && (
+              <div className="profile-alert profile-alert--error">Warning: {teachSkillError}</div>
+            )}
             <button type="button" className="profile-inline-button" onClick={addSkill}>
               Add Skill
             </button>
@@ -1070,15 +1106,14 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
                 </select>
               </label>
             </div>
+            {learnSkillError && (
+              <div className="profile-alert profile-alert--error">Warning: {learnSkillError}</div>
+            )}
             <button type="button" className="profile-inline-button" onClick={addSkillWanted}>
               Add Skill Wanted
             </button>
           </div>
         </section>
-
-        {skillError && (
-          <div className="profile-alert profile-alert--error">Warning: {skillError}</div>
-        )}
         <div className="profile-form__footer" id="profile-review" ref={reviewRef}>
           <p className="profile-form__footer-copy">
             {setupRequired
