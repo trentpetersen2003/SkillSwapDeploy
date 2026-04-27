@@ -348,8 +348,10 @@ describe('SwapRequestModal Component', () => {
     });
     expect(screen.getByText('Why: Both users evening-friendly')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Thursday 10:30 AM - 11:30 AM/i }));
+    const slotButton = screen.getByRole('button', { name: /Thursday 10:30 AM - 11:30 AM/i });
+    fireEvent.click(slotButton);
 
+    expect(slotButton).toHaveClass('suggested-slot-btn--selected');
     expect(container.querySelector('#scheduledDate')).toHaveValue('2030-01-10');
     expect(container.querySelector('#scheduledTime')).toHaveValue('10:30');
   });

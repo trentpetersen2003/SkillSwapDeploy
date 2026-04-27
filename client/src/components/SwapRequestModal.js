@@ -30,6 +30,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState("");
   const [suggestedSlots, setSuggestedSlots] = useState([]);
+  const [selectedSlot, setSelectedSlot] = useState("");
   const [currentUserAvailability, setCurrentUserAvailability] = useState([]);
   const [availabilityWarning, setAvailabilityWarning] = useState("");
   const [showAvailabilityConfirm, setShowAvailabilityConfirm] = useState(false);
@@ -78,6 +79,10 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
   // Handle change action.
   function handleChange(e) {
     const { name, value } = e.target;
+
+    if (name === "scheduledDate" || name === "scheduledTime") {
+      setSelectedSlot("");
+    }
 
     if (name === "totalSessions") {
       const parsed = parseInt(value, 10);
@@ -351,6 +356,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
         scheduledDate: next.date,
         scheduledTime: next.time,
       }));
+      setSelectedSlot(isoDate);
       setSuggestionsError("");
     } catch (err) {
       setSuggestionsError(err.message || "Unable to use suggested slot");
@@ -720,7 +726,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
                         <button
                           key={slot.scheduledDate}
                           type="button"
-                          className="suggested-slot-btn"
+                          className={`suggested-slot-btn ${selectedSlot === slot.scheduledDate ? "suggested-slot-btn--selected" : ""}`}
                           onClick={() => applySuggestedSlot(slot.scheduledDate)}
                           disabled={loading}
                         >

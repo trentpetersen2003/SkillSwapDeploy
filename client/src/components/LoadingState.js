@@ -19,6 +19,8 @@ function LoadingState({
   message = "Loading...",
   onRetry,
   retryLabel = "Retry",
+  onSecondary,
+  secondaryLabel = "Back",
   className = "",
   compact = false,
 }) {
@@ -26,10 +28,19 @@ function LoadingState({
     <div className={`vf-loading-state ${compact ? "vf-loading-state--compact" : ""} ${className}`} role="status" aria-live="polite">
       <Spinner />
       <p className="vf-loading-message">{message}</p>
-      {onRetry && (
-        <button type="button" className="vf-loading-retry" onClick={onRetry}>
-          {retryLabel}
-        </button>
+      {(onRetry || onSecondary) && (
+        <div className="vf-loading-actions">
+          {onRetry && (
+            <button type="button" className="vf-loading-retry" onClick={onRetry}>
+              {retryLabel}
+            </button>
+          )}
+          {onSecondary && (
+            <button type="button" className="vf-loading-secondary" onClick={onSecondary}>
+              {secondaryLabel}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

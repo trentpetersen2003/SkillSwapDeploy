@@ -45,6 +45,23 @@
   cursor: pointer;
 }
 
+.vf-loading-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.vf-loading-secondary {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font-weight: 600;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
 .vf-inline-loading {
   display: inline-flex;
   align-items: center;

@@ -154,6 +154,11 @@
   background: #eff6ff;
 }
 
+.suggested-slot-btn--selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
 .suggested-slot-btn small {
   color: #64748b;
 }

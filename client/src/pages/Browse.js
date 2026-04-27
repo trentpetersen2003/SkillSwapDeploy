@@ -756,6 +756,8 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
       <LoadingState
         message={loadError}
         onRetry={() => fetchUsers(appliedFilters)}
+        onSecondary={clearFilters}
+        secondaryLabel="Clear Filters"
       />
     );
   }
@@ -868,7 +870,7 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
                     type="range"
                     min="0"
                     max="5"
-                    step="0.5"
+                    step="1"
                     value={filters.minRating || "0"}
                     onChange={handleRatingSliderChange}
                   />

@@ -15,6 +15,17 @@ describe("LoadingState components", () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
+  test("shows secondary button and triggers callback", () => {
+    const onSecondary = jest.fn();
+    render(<LoadingState message="Failed to load" onSecondary={onSecondary} secondaryLabel="Clear Filters" />);
+
+    expect(screen.getByText("Failed to load")).toBeInTheDocument();
+    const secondaryButton = screen.getByRole("button", { name: "Clear Filters" });
+    fireEvent.click(secondaryButton);
+
+    expect(onSecondary).toHaveBeenCalledTimes(1);
+  });
+
   test("renders inline loading message", () => {
     render(<InlineLoading message="Saving settings..." />);
     expect(screen.getByText("Saving settings...")).toBeInTheDocument();
