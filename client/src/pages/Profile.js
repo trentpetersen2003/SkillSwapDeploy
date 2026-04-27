@@ -245,7 +245,7 @@ function isProfileSetupFieldComplete(profile, fieldName) {
 
 // Run profile setup progress logic.
 function getProfileSetupProgress(profile) {
-  const requiredFields = ["name", "email", "location", "state", "time zone", "availability", "skills", "skills wanted"];
+  const requiredFields = ["name", "email", "location", "state", "time zone", "availability", "skills"];
   const completedCount = requiredFields.filter((field) => isProfileSetupFieldComplete(profile, field)).length;
   return {
     completedCount,
@@ -279,6 +279,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
   const [newSkillWanted, setNewSkillWanted] = useState({ skillName: "", category: "", level: "Novice" });
   const [activeSetupStep, setActiveSetupStep] = useState(0);
   const [saveErrorFields, setSaveErrorFields] = useState([]);
+  const [swapWarning, setSwapWarning] = useState("");
   const offeredSkillsRef = React.useRef([]);
   const wantedSkillsRef = React.useRef([]);
   const basicsRef = React.useRef(null);
@@ -313,10 +314,6 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
 
     if (!isProfileSetupFieldComplete(profile, "skills")) {
       return 2;
-    }
-
-    if (!isProfileSetupFieldComplete(profile, "skills wanted")) {
-      return 3;
     }
 
     return 4;
@@ -646,6 +643,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     event.preventDefault();
     setMessage("");
     setSaveErrorFields([]);
+    setSwapWarning("");
     if (!profile.name || !profile.email || !profile.city || !profile.state || !profile.timeZone) {
       const required = ["name", "email", "location", "state", "time zone"];
       const missing = required.filter((field) => !isProfileSetupFieldComplete(profile, field));
@@ -701,6 +699,13 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
       }));
       onProfileSaved?.(data);
       setMessage("Profile updated successfully!");
+      const hasSkills = Array.isArray(data.skills) && data.skills.length > 0;
+      const hasSkillsWanted = Array.isArray(data.skillsWanted) && data.skillsWanted.length > 0;
+      if (!hasSkills || !hasSkillsWanted) {
+        setSwapWarning("You will not be able to request swaps until you add at least one skill offered and one skill wanted.");
+      } else {
+        setSwapWarning("");
+      }
     } catch (err) {
       console.error(err);
       setMessage(err.message || "Error updating profile");
@@ -737,6 +742,12 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
           aria-live="polite"
         >
           {message}
+        </div>
+      )}
+
+      {swapWarning && (
+        <div className="profile-alert profile-alert--warning" aria-live="polite">
+          {swapWarning}
         </div>
       )}
 
@@ -801,7 +812,6 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
               ["time zone", "Choose a time zone"],
               ["availability", "Add at least one availability slot"],
               ["skills", "List at least one skill you can teach"],
-              ["skills wanted", "List at least one skill you want"],
             ].map(([fieldName, label]) => {
               const complete = isProfileSetupFieldComplete(profile, fieldName);
               return (
@@ -809,7 +819,7 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
                   key={fieldName}
                   type="button"
                   className={`profile-setup-checklist__item ${complete ? "profile-setup-checklist__item--complete" : ""}`}
-                  onClick={() => focusSetupSection(fieldName === "availability" ? "schedule" : fieldName === "skills" ? "teach" : fieldName === "skills wanted" ? "learn" : "basics")}
+                  onClick={() => focusSetupSection(fieldName === "availability" ? "schedule" : fieldName === "skills" ? "teach" : "basics")}
                 >
                   <span className="profile-setup-checklist__status" aria-hidden="true">
                     {complete ? "✓" : "•"}
@@ -1108,8 +1118,8 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
           <SectionHeader
             eyebrow="Learn"
             title="Skills you want"
-            copy="Add at least one skill you want help with."
-            required={setupRequired || !isProfileSetupFieldComplete(profile, "skills wanted")}
+            copy="Optionally add skills you want help with."
+            required={false}
           />
           {profile.skillsWanted.length > 0 && (
             <div className="skills-list">

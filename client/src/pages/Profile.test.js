@@ -284,4 +284,59 @@ describe("Profile Page", () => {
     expect(screen.getByText("Warning: That skill is already in your wanted list.")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Remove" })).toHaveLength(1);
   });
+
+  test("allows saving setup without any wanted skills", async () => {
+    fetchWithAuth.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        _id: "u1",
+        name: "Test User",
+        email: "test@example.com",
+        city: "Toronto",
+        state: "ON",
+        phoneNumber: "",
+        timeZone: "UTC-05:00",
+        swapMode: "either",
+        availability: [{ day: "Monday", timeRange: "6:00 PM - 8:00 PM" }],
+        skills: [{ skillName: "Guitar", category: "Creative & Arts", level: "Novice" }],
+        skillsWanted: [],
+      }),
+    });
+
+    fetchWithAuth.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        _id: "u1",
+        name: "Test User",
+        email: "test@example.com",
+        city: "Toronto",
+        state: "ON",
+        phoneNumber: "",
+        timeZone: "UTC-05:00",
+        swapMode: "either",
+        availability: [{ day: "Monday", timeRange: "6:00 PM - 8:00 PM" }],
+        skills: [{ skillName: "Guitar", category: "Creative & Arts", level: "Novice" }],
+        skillsWanted: [],
+      }),
+    });
+
+    render(<Profile setupRequired={true} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Save Profile" })).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Profile" }));
+
+    await waitFor(() => {
+      expect(fetchWithAuth).toHaveBeenCalledWith(
+        "http://localhost:3001/api/users/profile",
+        expect.objectContaining({
+          method: "PUT",
+        })
+      );
+    });
+
+    expect(screen.queryByText("Finish the required setup details before leaving this page.")).not.toBeInTheDocument();
+  });
 });

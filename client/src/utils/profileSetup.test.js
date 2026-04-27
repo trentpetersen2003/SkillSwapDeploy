@@ -20,8 +20,23 @@ describe("profile setup utilities", () => {
       "time zone",
       "availability",
       "skills",
-      "skills wanted",
     ]);
+  });
+
+  test("treats an empty wanted-skills list as complete", () => {
+    const status = getProfileSetupStatus({
+      name: "Taylor",
+      email: "taylor@example.com",
+      city: "Boston",
+      state: "MA",
+      timeZone: "UTC-04:00",
+      availability: [{ day: "Monday", timeRange: "6:00 PM - 8:00 PM" }],
+      skills: [{ skillName: "Guitar" }],
+      skillsWanted: [],
+    });
+
+    expect(status.isComplete).toBe(true);
+    expect(status.missingFields).toEqual([]);
   });
 
   test("marks fully populated profiles as complete", () => {

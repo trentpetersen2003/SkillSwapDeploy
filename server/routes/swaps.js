@@ -4,7 +4,7 @@ const router = express.Router();
 const Swap = require("../models/Swap");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
-const { isProfileSetupComplete } = require("../services/profileSetup");
+const { isProfileSetupComplete, hasSwapRequirements } = require("../services/profileSetup");
 const {
   sendSwapRequestEmail,
   sendSwapAcceptedEmail,
@@ -13,6 +13,8 @@ const {
 
 const PROFILE_SETUP_REQUIRED_MESSAGE =
   "Finish your profile setup before you use swaps.";
+const SWAP_REQUIREMENTS_MESSAGE =
+  "Add at least one skill you offer and one skill you want before you can use swaps.";
 
 // Check whether participant .
 function isParticipant(swap, userId) {
@@ -481,6 +483,11 @@ async function enforceProfileSetupComplete(userId, res) {
 
   if (!isProfileSetupComplete(currentUser)) {
     res.status(403).json({ message: PROFILE_SETUP_REQUIRED_MESSAGE });
+    return null;
+  }
+
+  if (!hasSwapRequirements(currentUser)) {
+    res.status(403).json({ message: SWAP_REQUIREMENTS_MESSAGE });
     return null;
   }
 

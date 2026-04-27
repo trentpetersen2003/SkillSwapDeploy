@@ -19,7 +19,6 @@ function getIncompleteProfileFields(user = {}) {
   if (!hasText(user.timeZone)) missing.push("time zone");
   if (!hasItems(user.availability)) missing.push("availability");
   if (!hasItems(user.skills)) missing.push("skills offered");
-  if (!hasItems(user.skillsWanted)) missing.push("skills wanted");
 
   return missing;
 }
@@ -29,7 +28,13 @@ function isProfileSetupComplete(user = {}) {
   return getIncompleteProfileFields(user).length === 0;
 }
 
+// Check whether user has the specific skills required to request swaps.
+function hasSwapRequirements(user = {}) {
+  return hasItems(user.skills) && hasItems(user.skillsWanted);
+}
+
 module.exports = {
   isProfileSetupComplete,
   getIncompleteProfileFields,
+  hasSwapRequirements,
 };

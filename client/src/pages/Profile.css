@@ -605,6 +605,12 @@
   color: #b91c1c;
 }
 
+.profile-alert--warning {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
 .profile-form__footer {
   display: flex;
   justify-content: space-between;

@@ -6,7 +6,6 @@ const REQUIRED_SETUP_FIELDS = [
   "timeZone",
   "availability",
   "skills",
-  "skillsWanted",
 ];
 
 export const PROFILE_SETUP_REQUIRED_PATH = "/profile";
@@ -50,10 +49,6 @@ export function getIncompleteProfileSetupFields(profile = {}) {
 
   if (!hasFilledItems(profile.skills)) {
     missingFields.push("skills");
-  }
-
-  if (!hasFilledItems(profile.skillsWanted)) {
-    missingFields.push("skills wanted");
   }
 
   return missingFields;
