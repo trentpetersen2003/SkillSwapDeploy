@@ -101,16 +101,40 @@ const DAYS = [
   "Saturday",
 ];
 
+const TIME_ZONE_ABBREVIATION_OFFSETS = {
+  UTC: 0,
+  GMT: 0,
+  EST: -5 * 60,
+  EDT: -4 * 60,
+  CST: -6 * 60,
+  CDT: -5 * 60,
+  MST: -7 * 60,
+  MDT: -6 * 60,
+  PST: -8 * 60,
+  PDT: -7 * 60,
+  AKST: -9 * 60,
+  AKDT: -8 * 60,
+  HST: -10 * 60,
+};
+
 // Parse utc offset to minutes input.
 function parseUtcOffsetToMinutes(timeZone) {
   if (typeof timeZone !== "string") return null;
 
-  const match = timeZone.match(/^UTC([+-])(\d{2}):(\d{2})$/i);
+  const normalized = timeZone.trim().toUpperCase();
+
+  if (Object.prototype.hasOwnProperty.call(TIME_ZONE_ABBREVIATION_OFFSETS, normalized)) {
+    return TIME_ZONE_ABBREVIATION_OFFSETS[normalized];
+  }
+
+  const match = normalized.match(/^UTC([+-])(\d{1,2})(?::?(\d{2}))?$/i);
   if (!match) return null;
 
   const sign = match[1] === "-" ? -1 : 1;
   const hours = Number(match[2]);
-  const minutes = Number(match[3]);
+  const minutes = Number(match[3] || "0");
+
+  if (hours > 14 || minutes > 59) return null;
 
   return sign * (hours * 60 + minutes);
 }

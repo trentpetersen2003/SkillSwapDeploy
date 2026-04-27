@@ -36,6 +36,7 @@ describe("CalendarPage review prompt", () => {
     id: "current-user",
     name: "Current User",
     username: "currentuser",
+    timeZone: "EST",
   };
 
   const pendingSwap = {
@@ -242,6 +243,16 @@ describe("CalendarPage review prompt", () => {
 
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: /rate your swap with taylor/i })).not.toBeInTheDocument();
+    });
+  });
+
+  test("renders swap times in the current user's selected timezone", async () => {
+    mockResponses();
+
+    render(<CalendarPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("1:00 PM")).toBeInTheDocument();
     });
   });
 });

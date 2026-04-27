@@ -4,6 +4,7 @@ import API_URL from "../config";
 import fetchWithAuth from "../utils/api";
 import LoadingState from "./LoadingState";
 import { withMinimumDelay } from "../utils/loading";
+import { formatTimeZoneLabel } from "../utils/timeZone";
 
 // Run swap request modal logic.
 function SwapRequestModal({ user, onClose, onSuccess }) {
@@ -113,16 +114,41 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
       };
     });
   }
+
+  const TIME_ZONE_ABBREVIATION_OFFSETS = {
+    UTC: 0,
+    GMT: 0,
+    EST: -5 * 60,
+    EDT: -4 * 60,
+    CST: -6 * 60,
+    CDT: -5 * 60,
+    MST: -7 * 60,
+    MDT: -6 * 60,
+    PST: -8 * 60,
+    PDT: -7 * 60,
+    AKST: -9 * 60,
+    AKDT: -8 * 60,
+    HST: -10 * 60,
+  };
+
   // Parse utc offset to minutes input.
   function parseUtcOffsetToMinutes(timeZone) {
     if (typeof timeZone !== "string") return null;
 
-    const match = timeZone.match(/^UTC([+-])(\d{2}):(\d{2})$/i);
+    const normalized = timeZone.trim().toUpperCase();
+
+    if (Object.prototype.hasOwnProperty.call(TIME_ZONE_ABBREVIATION_OFFSETS, normalized)) {
+      return TIME_ZONE_ABBREVIATION_OFFSETS[normalized];
+    }
+
+    const match = normalized.match(/^UTC([+-])(\d{1,2})(?::?(\d{2}))?$/i);
     if (!match) return null;
 
     const sign = match[1] === "-" ? -1 : 1;
     const hours = Number(match[2]);
-    const minutes = Number(match[3]);
+    const minutes = Number(match[3] || "0");
+
+    if (hours > 14 || minutes > 59) return null;
 
     return sign * (hours * 60 + minutes);
   }
@@ -189,6 +215,33 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
       day: DAYS[shifted.getUTCDay()],
       minutes: shifted.getUTCHours() * 60 + shifted.getUTCMinutes(),
     };
+  }
+
+  function formatMinutes(minutes) {
+    const normalized = ((minutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+    const hour24 = Math.floor(normalized / 60);
+    const minute = normalized % 60;
+
+    const period = hour24 >= 12 ? "PM" : "AM";
+    const hour12 = hour24 % 12 || 12;
+
+    return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
+  }
+
+  function formatLocalSession(isoDate, timeZone, durationMinutes) {
+    const offsetMinutes = parseUtcOffsetToMinutes(timeZone);
+    const date = new Date(isoDate);
+
+    if (offsetMinutes === null || Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    const localStart = getLocalDayAndMinutes(date, offsetMinutes);
+    const localEnd = localStart.minutes + durationMinutes;
+
+    const zoneLabel = formatTimeZoneLabel(timeZone) || timeZone;
+
+    return `${localStart.day} ${formatMinutes(localStart.minutes)} - ${formatMinutes(localEnd)} (${zoneLabel})`;
   }
 
   function validateUserAvailability(userAvailability, timeZone, scheduledDate, durationMinutes) {
@@ -652,21 +705,33 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
 
                 {suggestedSlots.length > 0 && (
                   <div className="suggested-slots">
-                    {suggestedSlots.map((slot) => (
-                      <button
-                        key={slot.scheduledDate}
-                        type="button"
-                        className="suggested-slot-btn"
-                        onClick={() => applySuggestedSlot(slot.scheduledDate)}
-                        disabled={loading}
-                      >
-                        <span>{slot.requesterLocal}</span>
-                        <small>{user.name}: {slot.recipientLocal}</small>
-                        {slot.reason && (
-                          <small className="suggested-slot-reason">Why: {slot.reason}</small>
-                        )}
-                      </button>
-                    ))}
+                    {suggestedSlots.map((slot) => {
+                      const durationMinutes = parseInt(formData.duration, 10) || 60;
+                      const requesterLocalLabel =
+                        formatLocalSession(slot.scheduledDate, currentUserTimeZone, durationMinutes) ||
+                        slot.requesterLocal ||
+                        slot.scheduledDate;
+                      const recipientLocalLabel =
+                        formatLocalSession(slot.scheduledDate, user.timeZone || "", durationMinutes) ||
+                        slot.recipientLocal ||
+                        slot.scheduledDate;
+
+                      return (
+                        <button
+                          key={slot.scheduledDate}
+                          type="button"
+                          className="suggested-slot-btn"
+                          onClick={() => applySuggestedSlot(slot.scheduledDate)}
+                          disabled={loading}
+                        >
+                          <span>{requesterLocalLabel}</span>
+                          <small>{user.name}: {recipientLocalLabel}</small>
+                          {slot.reason && (
+                            <small className="suggested-slot-reason">Why: {slot.reason}</small>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
                 {suggestedSlots.length === 0 && !suggestionsLoading && !suggestionsError && (

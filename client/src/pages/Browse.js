@@ -7,6 +7,7 @@ import LoadingState from "../components/LoadingState";
 import API_URL from "../config";
 import fetchWithAuth from "../utils/api";
 import { withMinimumDelay } from "../utils/loading";
+import { formatTimeZoneLabel } from "../utils/timeZone";
 import "./Browse.css";
 import "../SwapRequestModal.css";
 
@@ -1124,7 +1125,7 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
                       {user.timeZone && (
                         <div className="browse-detail-section">
                           <h4 className="browse-detail-title">Time Zone</h4>
-                          <p className="browse-detail-text">{user.timeZone}</p>
+                          <p className="browse-detail-text">{formatTimeZoneLabel(user.timeZone)}</p>
                         </div>
                       )}
                     </div>

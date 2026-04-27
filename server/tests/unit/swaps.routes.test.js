@@ -175,6 +175,43 @@ describe("Swaps Routes", () => {
     );
   });
 
+  test("formats suggestion times when requester timezone is EST", async () => {
+    User.findById.mockImplementation((id) => {
+      if (id === AUTH_USER_ID) {
+        return makeSelectQuery(
+          makeSetupReadyUser(AUTH_USER_ID, {
+            blockedUsers: [],
+            timeZone: "EST",
+            availability: allDayAvailability,
+          })
+        );
+      }
+
+      if (id === RECIPIENT_ID) {
+        return makeSelectQuery(
+          makeSetupReadyUser(RECIPIENT_ID, {
+            blockedUsers: [],
+            timeZone: "UTC-08:00",
+            availability: allDayAvailability,
+          })
+        );
+      }
+
+      return makeSelectQuery(null);
+    });
+
+    Swap.find.mockReturnValue(makeSelectQuery([]));
+
+    const response = await request(app).get(
+      `/api/swaps/suggestions?recipientId=${RECIPIENT_ID}&duration=60&limit=1`
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.suggestions.length).toBeGreaterThan(0);
+    expect(response.body.suggestions[0].requesterLocal).toContain("(EST)");
+    expect(response.body.suggestions[0].requesterLocal).not.toBe("invalid local time");
+  });
+
   test("returns 400 when recipient has no availability for suggestions", async () => {
     User.findById.mockImplementation((id) => {
       if (id === AUTH_USER_ID) {

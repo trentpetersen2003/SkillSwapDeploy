@@ -28,9 +28,20 @@ jest.mock('../config', () => 'http://localhost:3001');
 describe('SwapRequestModal Component', () => {
   const mockOnClose = jest.fn();
   const mockOnSuccess = jest.fn();
+  const allDayAvailability = [
+    { day: 'Sunday', timeRange: '12:00 AM - 11:59 PM' },
+    { day: 'Monday', timeRange: '12:00 AM - 11:59 PM' },
+    { day: 'Tuesday', timeRange: '12:00 AM - 11:59 PM' },
+    { day: 'Wednesday', timeRange: '12:00 AM - 11:59 PM' },
+    { day: 'Thursday', timeRange: '12:00 AM - 11:59 PM' },
+    { day: 'Friday', timeRange: '12:00 AM - 11:59 PM' },
+    { day: 'Saturday', timeRange: '12:00 AM - 11:59 PM' },
+  ];
   const mockUser = {
     _id: 'user-123',
     name: 'John Doe',
+    timeZone: 'UTC-08:00',
+    availability: allDayAvailability,
     skills: [
       { skillName: 'Guitar', category: 'Music', level: 'Expert' },
       { skillName: 'Spanish', category: 'Language', level: 'Proficient' },
@@ -167,7 +178,11 @@ describe('SwapRequestModal Component', () => {
     fetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ skills: [{ skillName: 'Piano' }], timeZone: 'UTC-05:00' }),
+        json: async () => ({
+          skills: [{ skillName: 'Piano' }],
+          timeZone: 'UTC-05:00',
+          availability: allDayAvailability,
+        }),
       })
       .mockImplementationOnce(() => new Promise(() => {}));
 
@@ -213,7 +228,11 @@ describe('SwapRequestModal Component', () => {
     fetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ skills: [{ skillName: 'Piano' }], timeZone: 'UTC-05:00' }),
+        json: async () => ({
+          skills: [{ skillName: 'Piano' }],
+          timeZone: 'UTC-05:00',
+          availability: allDayAvailability,
+        }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -294,10 +313,7 @@ describe('SwapRequestModal Component', () => {
     fetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
-          skills: [{ skillName: 'Piano' }],
-          timeZone: 'UTC-05:00',
-        }),
+        json: async () => ({ skills: [{ skillName: 'Piano' }], timeZone: 'UTC-05:00', availability: allDayAvailability }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -328,13 +344,52 @@ describe('SwapRequestModal Component', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Suggest Times' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Friday 10:30 AM - 11:30 AM (UTC-05:00)')).toBeInTheDocument();
+      expect(screen.getByText('Thursday 10:30 AM - 11:30 AM (Central Time)')).toBeInTheDocument();
     });
     expect(screen.getByText('Why: Both users evening-friendly')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Friday 10:30 AM - 11:30 AM/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Thursday 10:30 AM - 11:30 AM/i }));
 
     expect(container.querySelector('#scheduledDate')).toHaveValue('2030-01-10');
     expect(container.querySelector('#scheduledTime')).toHaveValue('10:30');
+  });
+
+  test('renders suggested slots in selected timezone when profile timezone is EST', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ skills: [{ skillName: 'Piano' }], timeZone: 'EST', availability: allDayAvailability }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          suggestions: [
+            {
+              scheduledDate: '2030-01-10T15:30:00.000Z',
+              requesterLocal: 'Thursday 3:30 PM - 4:30 PM (UTC)',
+              recipientLocal: 'Thursday 3:30 PM - 4:30 PM (UTC)',
+            },
+          ],
+        }),
+      });
+
+    render(
+      <SwapRequestModal
+        user={{ ...mockUser, timeZone: 'UTC-08:00' }}
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Suggest Times' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest Times' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Thursday 10:30 AM - 11:30 AM (Eastern Time)')).toBeInTheDocument();
+    });
+    expect(screen.getByText('John Doe: Thursday 7:30 AM - 8:30 AM (Alaska)')).toBeInTheDocument();
   });
 });

@@ -2,10 +2,79 @@ import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import API_URL from "../config";
 import fetchWithAuth from "../utils/api";
+import { formatTimeZoneLabel } from "../utils/timeZone";
 import "./NavBar.css";
 
 const UNREAD_POLLING_INTERVAL_MS = 10000;
 const MUTED_CONVERSATIONS_STORAGE_KEY = "chat-muted-conversations";
+
+const TIME_ZONE_ABBREVIATION_OFFSETS = {
+  UTC: 0,
+  GMT: 0,
+  EST: -5 * 60,
+  EDT: -4 * 60,
+  CST: -6 * 60,
+  CDT: -5 * 60,
+  MST: -7 * 60,
+  MDT: -6 * 60,
+  PST: -8 * 60,
+  PDT: -7 * 60,
+  AKST: -9 * 60,
+  AKDT: -8 * 60,
+  HST: -10 * 60,
+};
+
+// Parse timezone text into offset minutes.
+function parseUtcOffsetToMinutes(timeZone) {
+  if (typeof timeZone !== "string") return null;
+
+  const normalized = timeZone.trim().toUpperCase();
+
+  if (Object.prototype.hasOwnProperty.call(TIME_ZONE_ABBREVIATION_OFFSETS, normalized)) {
+    return TIME_ZONE_ABBREVIATION_OFFSETS[normalized];
+  }
+
+  const match = normalized.match(/^UTC([+-])(\d{1,2})(?::?(\d{2}))?$/i);
+  if (!match) return null;
+
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2]);
+  const minutes = Number(match[3] || "0");
+
+  if (hours > 14 || minutes > 59) return null;
+
+  return sign * (hours * 60 + minutes);
+}
+
+// Format a notification timestamp using the chosen timezone.
+function formatNotificationTimestamp(dateValue, timeZone) {
+  const offsetMinutes = parseUtcOffsetToMinutes(timeZone);
+  const date = new Date(dateValue);
+
+  if (offsetMinutes === null || Number.isNaN(date.getTime())) {
+    return Number.isNaN(date.getTime())
+      ? "an upcoming session"
+      : date.toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+  }
+
+  const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+  const label = formatTimeZoneLabel(timeZone);
+
+  return `${shifted.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC",
+  })}${label ? ` (${label})` : ""}`;
+}
 
 // Get stored dismissed notifications data.
 function getStoredDismissedNotifications(userId) {
@@ -24,7 +93,7 @@ function getStoredDismissedNotifications(userId) {
 }
 
 // Build notifications payload.
-function buildNotifications(swaps, currentUserId) {
+function buildNotifications(swaps, currentUserId, timeZone = "") {
   if (!currentUserId) {
     return [];
   }
@@ -40,16 +109,7 @@ function buildNotifications(swaps, currentUserId) {
         return [];
       }
 
-      const scheduledDate = new Date(swap.scheduledDate);
-      const formattedDate = Number.isNaN(scheduledDate.getTime())
-        ? "an upcoming session"
-        : scheduledDate.toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          });
+      const formattedDate = formatNotificationTimestamp(swap.scheduledDate, timeZone);
 
       if (isRecipient && swap.status === "pending") {
         return [{
@@ -218,7 +278,7 @@ function NavBar({
     };
   }, [isProfileComplete, token]);
 
-  const notifications = buildNotifications(swaps, currentUserId).filter(
+  const notifications = buildNotifications(swaps, currentUserId, currentUser.timeZone || "").filter(
     (notification) => !dismissedNotifications.includes(notification.id)
   );
 

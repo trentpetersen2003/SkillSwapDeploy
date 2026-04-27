@@ -10,6 +10,56 @@ import { withMinimumDelay } from "../utils/loading";
 import "react-calendar/dist/Calendar.css";
 import "../pages/Calendar.css";
 
+const TIME_ZONE_ABBREVIATION_OFFSETS = {
+  UTC: 0,
+  GMT: 0,
+  EST: -5 * 60,
+  EDT: -4 * 60,
+  CST: -6 * 60,
+  CDT: -5 * 60,
+  MST: -7 * 60,
+  MDT: -6 * 60,
+  PST: -8 * 60,
+  PDT: -7 * 60,
+  AKST: -9 * 60,
+  AKDT: -8 * 60,
+  HST: -10 * 60,
+};
+
+// Parse timezone text into offset minutes.
+function parseUtcOffsetToMinutes(timeZone) {
+  if (typeof timeZone !== "string") return null;
+
+  const normalized = timeZone.trim().toUpperCase();
+
+  if (Object.prototype.hasOwnProperty.call(TIME_ZONE_ABBREVIATION_OFFSETS, normalized)) {
+    return TIME_ZONE_ABBREVIATION_OFFSETS[normalized];
+  }
+
+  const match = normalized.match(/^UTC([+-])(\d{1,2})(?::?(\d{2}))?$/i);
+  if (!match) return null;
+
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2]);
+  const minutes = Number(match[3] || "0");
+
+  if (hours > 14 || minutes > 59) return null;
+
+  return sign * (hours * 60 + minutes);
+}
+
+// Shift a date into the requested timezone.
+function getTimezoneAdjustedDate(dateValue, timeZone) {
+  const offsetMinutes = parseUtcOffsetToMinutes(timeZone);
+  const date = new Date(dateValue);
+
+  if (offsetMinutes === null || Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return new Date(date.getTime() + offsetMinutes * 60 * 1000);
+}
+
 // Run calendar page logic.
 function CalendarPage() {
   const location = useLocation();
@@ -17,6 +67,7 @@ function CalendarPage() {
   const focusView = location.state?.focusView || "list";
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = currentUser.id || currentUser._id || "";
+  const currentUserTimeZone = currentUser.timeZone || "";
   const [swaps, setSwaps] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -373,22 +424,43 @@ function CalendarPage() {
 
   // Run format date logic.
   function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
+    const adjustedDate = getTimezoneAdjustedDate(dateString, currentUserTimeZone);
+
+    if (!adjustedDate) {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+
+    return adjustedDate.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "UTC",
     });
   }
 
   // Run format time logic.
   function formatTime(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("en-US", {
+    const adjustedDate = getTimezoneAdjustedDate(dateString, currentUserTimeZone);
+
+    if (!adjustedDate) {
+      return new Date(dateString).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+
+    return adjustedDate.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
+      timeZone: "UTC",
     });
   }
 
@@ -503,12 +575,7 @@ function CalendarPage() {
 
           <div className="calendar-view__details">
             <h3 className="details-title">
-              {selectedDate.toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
+              {formatDate(selectedDate.toISOString())}
             </h3>
 
             {selectedDateSwaps.length === 0 ? (

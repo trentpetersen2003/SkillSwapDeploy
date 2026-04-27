@@ -5,6 +5,7 @@ import LoadingState from "../components/LoadingState";
 import API_URL from "../config";
 import fetchWithAuth from "../utils/api";
 import { withMinimumDelay } from "../utils/loading";
+import { formatTimeZoneLabel } from "../utils/timeZone";
 import "./Foryou.css";
 import "../SwapRequestModal.css";
 
@@ -444,7 +445,7 @@ function UserCard({ user, isExpanded, onToggleExpand, onRequestSwap, onBlockUser
           {user.timeZone && (
             <div className="detail-section">
               <h4 className="detail-title">Time Zone</h4>
-              <p className="detail-text">{user.timeZone}</p>
+              <p className="detail-text">{formatTimeZoneLabel(user.timeZone)}</p>
             </div>
           )}
         </div>
