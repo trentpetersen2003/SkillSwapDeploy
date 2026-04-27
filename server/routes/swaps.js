@@ -760,24 +760,6 @@ router.post("/", auth, async (req, res) => {
       scheduledDateObj,
       durationMinutes
     );
-    if (!requesterAvailabilityCheck.ok) {
-      const requesterLocal = getLocalDayAndMinutes(
-        scheduledDateObj,
-        parseUtcOffsetToMinutes(requester.timeZone)
-      );
-
-      return res.status(400).json({
-        message: `That time is outside your availability. In your time, this request is ${describeLocalSession(
-          scheduledDateObj,
-          requester.timeZone,
-          durationMinutes
-        )}. You are only available ${formatAvailabilityForDay(
-          requester.availability,
-          requesterLocal.day,
-          requester.timeZone
-        )}.`,
-      });
-    }
 
     const recipientAvailabilityCheck = validateUserAvailability(
       recipient,
@@ -785,14 +767,35 @@ router.post("/", auth, async (req, res) => {
       durationMinutes
     );
 
+    const availabilityWarnings = [];
+
+    if (!requesterAvailabilityCheck.ok) {
+      const requesterLocal = getLocalDayAndMinutes(
+        scheduledDateObj,
+        parseUtcOffsetToMinutes(requester.timeZone)
+      );
+
+      availabilityWarnings.push(
+        `This time is outside your listed availability. In your time, this request is ${describeLocalSession(
+          scheduledDateObj,
+          requester.timeZone,
+          durationMinutes
+        )}. You are only available ${formatAvailabilityForDay(
+          requester.availability,
+          requesterLocal.day,
+          requester.timeZone
+        )}.`
+      );
+    }
+
     if (!recipientAvailabilityCheck.ok) {
       const recipientLocal = getLocalDayAndMinutes(
         scheduledDateObj,
         parseUtcOffsetToMinutes(recipient.timeZone)
       );
 
-      return res.status(400).json({
-        message: `That time is outside this user's availability. In their time, this request is ${describeLocalSession(
+      availabilityWarnings.push(
+        `This time is outside ${recipient.name}'s listed availability. In their time, this request is ${describeLocalSession(
           scheduledDateObj,
           recipient.timeZone,
           durationMinutes
@@ -800,9 +803,12 @@ router.post("/", auth, async (req, res) => {
           recipient.availability,
           recipientLocal.day,
           recipient.timeZone
-        )}.`,
-      });
+        )}.`
+      );
     }
+    const availabilityWarning = availabilityWarnings.join(" ");
+    const outsideAvailability = availabilityWarnings.length > 0;
+
     const newSwap = new Swap({
       requester: req.userId,
       recipient: recipientId,
@@ -814,6 +820,8 @@ router.post("/", auth, async (req, res) => {
       meetingType: normalizedMeeting.meetingType,
       meetingLink: normalizedMeeting.meetingLink,
       meetingAddress: normalizedMeeting.meetingAddress,
+      outsideAvailability,
+      availabilityWarning,
       notes,
       totalSessions: normalizedMilestones.totalSessions,
       milestones: normalizedMilestones.milestones,

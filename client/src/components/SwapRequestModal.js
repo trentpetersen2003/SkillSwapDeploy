@@ -29,6 +29,9 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState("");
   const [suggestedSlots, setSuggestedSlots] = useState([]);
+  const [currentUserAvailability, setCurrentUserAvailability] = useState([]);
+  const [availabilityWarning, setAvailabilityWarning] = useState("");
+  const [showAvailabilityConfirm, setShowAvailabilityConfirm] = useState(false);
 
   useEffect(() => {
     fetchCurrentUserProfile();
@@ -62,6 +65,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
 
       setCurrentUserSkills(data.skills || []);
       setCurrentUserTimeZone(data.timeZone || "");
+      setCurrentUserAvailability(data.availability || []);
     } catch (err) {
       console.error("Error fetching current user profile:", err);
       setDetailsError(err.message || "Failed to load swap details.");
@@ -136,6 +140,85 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     const utcMillis = Date.UTC(year, month - 1, day, hour, minute) - offsetMinutes * 60 * 1000;
 
     return new Date(utcMillis).toISOString();
+  }
+  const DAYS = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+
+  function to24HourMinutes(hourStr, minuteStr, period) {
+    let hour = Number(hourStr);
+    const minute = Number(minuteStr);
+
+    if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+
+    hour = hour % 12;
+    if (String(period).toUpperCase() === "PM") {
+      hour += 12;
+    }
+
+    return hour * 60 + minute;
+  }
+
+  function parseTimeRange(timeRange) {
+    if (typeof timeRange !== "string") return null;
+
+    const match = timeRange.match(
+      /(\d{1,2}):(\d{2})\s*(AM|PM)\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i
+    );
+
+    if (!match) return null;
+
+    const start = to24HourMinutes(match[1], match[2], match[3]);
+    const end = to24HourMinutes(match[4], match[5], match[6]);
+
+    if (start === null || end === null) return null;
+
+    return { start, end };
+  }
+
+  function getLocalDayAndMinutes(date, offsetMinutes) {
+    const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+
+    return {
+      day: DAYS[shifted.getUTCDay()],
+      minutes: shifted.getUTCHours() * 60 + shifted.getUTCMinutes(),
+    };
+  }
+
+  function validateUserAvailability(userAvailability, timeZone, scheduledDate, durationMinutes) {
+    if (!timeZone || !Array.isArray(userAvailability) || userAvailability.length === 0) {
+      return false;
+    }
+
+    const offsetMinutes = parseUtcOffsetToMinutes(timeZone);
+    if (offsetMinutes === null) {
+      return false;
+    }
+
+    const localStart = getLocalDayAndMinutes(scheduledDate, offsetMinutes);
+    const localEndMinutes = localStart.minutes + durationMinutes;
+
+    if (localEndMinutes > 24 * 60) {
+      return false;
+    }
+
+    return userAvailability.some((slot) => {
+      if (slot.day !== localStart.day) return false;
+
+      const parsedRange = parseTimeRange(slot.timeRange);
+      if (!parsedRange) return false;
+
+      return (
+        localStart.minutes >= parsedRange.start &&
+        localEndMinutes <= parsedRange.end
+      );
+    });
   }
 
   // Accepted virtual meeting providers
@@ -269,68 +352,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
       setSuggestionsLoading(false);
     }
   }
-  // Handle submit action.
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
-
-    if (
-      !formData.skillOffered ||
-      !formData.skillWanted ||
-      !formData.scheduledDate ||
-      !formData.scheduledTime
-    ) {
-      setError("Please fill in all required fields");
-      return;
-    }
-
-    const parsedTotalSessions = parseInt(formData.totalSessions, 10);
-    const normalizedMilestones = (formData.milestoneTitles || []).map((title) => title.trim());
-
-    if (
-      !Number.isInteger(parsedTotalSessions) ||
-      parsedTotalSessions < 1 ||
-      parsedTotalSessions > 20
-    ) {
-      setError("Total sessions must be between 1 and 20");
-      return;
-    }
-
-    if (
-      normalizedMilestones.length !== parsedTotalSessions ||
-      normalizedMilestones.some((title) => !title)
-    ) {
-      setError("Please add a goal for every session milestone");
-      return;
-    }
-
-    // Use the requester's saved timezone instead of the browser timezone
-    if (!currentUserTimeZone) {
-      setError("Please set your profile time zone before requesting a swap");
-      return;
-    }
-    // Validate meeting details before sending the request
-    let normalizedMeetingLink = "";
-    let normalizedMeetingAddress = "";
-
-    if (formData.meetingType === "virtual") {
-      const meetingLinkResult = normalizeMeetingLink(formData.meetingLink);
-      if (meetingLinkResult.error) {
-        setError(meetingLinkResult.error);
-        return;
-      }
-      normalizedMeetingLink = meetingLinkResult.value;
-    } else if (formData.meetingType === "inPerson") {
-      const cleanAddress = formData.meetingAddress.trim();
-      if (!cleanAddress) {
-        setError("Please enter an address for in-person swaps");
-        return;
-      }
-      normalizedMeetingAddress = cleanAddress;
-    } else {
-      setError("Please choose a meeting type");
-      return;
-    }
+  async function submitSwapRequest() {
     setLoading(true);
     const token = localStorage.getItem("token");
 
@@ -340,6 +362,34 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
         formData.scheduledTime,
         currentUserTimeZone
       );
+
+      const parsedTotalSessions = parseInt(formData.totalSessions, 10);
+      const normalizedMilestones = (formData.milestoneTitles || []).map((title) => title.trim());
+
+      let normalizedMeetingLink = "";
+      let normalizedMeetingAddress = "";
+
+      if (formData.meetingType === "virtual") {
+        const meetingLinkResult = normalizeMeetingLink(formData.meetingLink);
+        if (meetingLinkResult.error) {
+          setError(meetingLinkResult.error);
+          setLoading(false);
+          return;
+        }
+        normalizedMeetingLink = meetingLinkResult.value;
+      } else if (formData.meetingType === "inPerson") {
+        const cleanAddress = formData.meetingAddress.trim();
+        if (!cleanAddress) {
+          setError("Please enter an address for in-person swaps");
+          setLoading(false);
+          return;
+        }
+        normalizedMeetingAddress = cleanAddress;
+      } else {
+        setError("Please choose a meeting type");
+        setLoading(false);
+        return;
+      }
 
       const data = await withMinimumDelay(async () => {
         const res = await fetchWithAuth(API_URL + "/api/swaps", {
@@ -378,6 +428,94 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
     } finally {
       setLoading(false);
     }
+  }
+  // Handle submit action.
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setAvailabilityWarning("");
+
+    if (
+      !formData.skillOffered ||
+      !formData.skillWanted ||
+      !formData.scheduledDate ||
+      !formData.scheduledTime
+    ) {
+      setError("Please fill in all required fields");
+      return;
+    }
+
+    const parsedTotalSessions = parseInt(formData.totalSessions, 10);
+    const normalizedMilestones = (formData.milestoneTitles || []).map((title) => title.trim());
+
+    if (
+      !Number.isInteger(parsedTotalSessions) ||
+      parsedTotalSessions < 1 ||
+      parsedTotalSessions > 20
+    ) {
+      setError("Total sessions must be between 1 and 20");
+      return;
+    }
+
+    if (
+      normalizedMilestones.length !== parsedTotalSessions ||
+      normalizedMilestones.some((title) => !title)
+    ) {
+      setError("Please add a goal for every session milestone");
+      return;
+    }
+
+    if (!currentUserTimeZone) {
+      setError("Please set your profile time zone before requesting a swap");
+      return;
+    }
+
+    let scheduledDateObj;
+    try {
+      const scheduledDateTime = buildIsoFromProfileTimeZone(
+        formData.scheduledDate,
+        formData.scheduledTime,
+        currentUserTimeZone
+      );
+      scheduledDateObj = new Date(scheduledDateTime);
+    } catch (err) {
+      setError("Invalid scheduled date or time");
+      return;
+    }
+
+    const durationMinutes = parseInt(formData.duration, 10) || 60;
+    const requesterAvailable = validateUserAvailability(
+      currentUserAvailability,
+      currentUserTimeZone,
+      scheduledDateObj,
+      durationMinutes
+    );
+    const recipientAvailable = validateUserAvailability(
+      user.availability || [],
+      user.timeZone || "",
+      scheduledDateObj,
+      durationMinutes
+    );
+
+    if (!requesterAvailable || !recipientAvailable) {
+      const warningParts = [];
+
+      if (!requesterAvailable) {
+        warningParts.push("your listed availability");
+      }
+
+      if (!recipientAvailable) {
+        warningParts.push(`${user.name}'s listed availability`);
+      }
+
+      setAvailabilityWarning(
+        `This time falls outside ${warningParts.join(" and ")}. Do you still want to send the request?`
+      );
+      setShowAvailabilityConfirm(true);
+      return;
+    }
+
+    await submitSwapRequest();
   }
 
   // Get user's skills they want to learn
@@ -524,7 +662,9 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
                       >
                         <span>{slot.requesterLocal}</span>
                         <small>{user.name}: {slot.recipientLocal}</small>
-                        {slot.reason && <small className="suggested-slot-reason">Why: {slot.reason}</small>}
+                        {slot.reason && (
+                          <small className="suggested-slot-reason">Why: {slot.reason}</small>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -619,6 +759,7 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
                   />
                 </div>
               )}
+
               <div className="form-group">
                 <label htmlFor="notes">Notes (optional)</label>
                 <textarea
@@ -654,6 +795,54 @@ function SwapRequestModal({ user, onClose, onSuccess }) {
           </form>
         )}
       </div>
+
+      {showAvailabilityConfirm && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowAvailabilityConfirm(false)}
+        >
+          <div
+            className="modal-content modal-content--confirm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>Outside availability</h2>
+              <button
+                className="modal-close"
+                onClick={() => setShowAvailabilityConfirm(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="swap-confirm-body">
+              <p>{availabilityWarning}</p>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowAvailabilityConfirm(false)}
+                disabled={loading}
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={async () => {
+                  setShowAvailabilityConfirm(false);
+                  await submitSwapRequest();
+                }}
+                disabled={loading}
+              >
+                Continue Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

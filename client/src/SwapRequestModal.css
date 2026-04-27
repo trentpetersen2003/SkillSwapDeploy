@@ -220,11 +220,70 @@
   cursor: not-allowed;
 }
 
+.modal-content--confirm {
+  max-width: 560px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.modal-content--confirm .modal-header {
+  padding: 22px 24px 18px;
+}
+
+.modal-content--confirm .modal-header h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.swap-confirm-body {
+  padding: 20px 24px 8px;
+}
+
+.swap-confirm-body p {
+  margin: 0;
+  color: #475569;
+  font-size: 0.97rem;
+  line-height: 1.7;
+}
+
+.modal-content--confirm .modal-actions {
+  padding: 20px 24px 24px;
+  margin-top: 0;
+  border-top: none;
+  justify-content: flex-end;
+}
+
+.modal-content--confirm .btn-secondary,
+.modal-content--confirm .btn-primary {
+  min-width: 160px;
+  padding: 11px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.modal-content--confirm .btn-secondary {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.modal-content--confirm .btn-secondary:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.modal-content--confirm .btn-primary {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.modal-content--confirm .btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
 @media (max-width: 640px) {
   .form-row {
     grid-template-columns: 1fr;
   }
-  
+
   .modal-content {
     max-height: 100vh;
     border-radius: 0;

@@ -88,7 +88,7 @@ const swapSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-   // Distinguishes virtual vs in-person swaps
+    // Distinguishes virtual vs in-person swaps
     meetingType: {
       type: String,
       enum: ["virtual", "inPerson"],
@@ -144,6 +144,16 @@ const swapSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "confirmed", "completed", "cancelled"],
       default: "pending",
+    },
+    // Availability
+    outsideAvailability: {
+      type: Boolean,
+      default: false,
+    },
+    availabilityWarning: {
+      type: String,
+      trim: true,
+      default: "",
     },
     // Optional notes
     notes: {
