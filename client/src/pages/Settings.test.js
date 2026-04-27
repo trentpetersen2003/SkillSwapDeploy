@@ -131,7 +131,23 @@ describe("Settings Page", () => {
     expect(screen.getByRole("button", { name: "Connect Google Account" })).toBeInTheDocument();
 
     const deleteButton = screen.getByRole("button", { name: "Delete account" });
-    expect(deleteButton).toBeDisabled();
+    expect(deleteButton).toBeEnabled();
+
+    fireEvent.click(deleteButton);
+
+    expect(
+      await screen.findByText("Please type your username in the confirmation field to delete your account.")
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("testuser"), {
+      target: { value: "wronguser" },
+    });
+
+    fireEvent.click(deleteButton);
+
+    expect(
+      await screen.findByText("You typed your username incorrectly. Type it exactly to proceed with account deletion.")
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText("testuser"), {
       target: { value: "testuser" },

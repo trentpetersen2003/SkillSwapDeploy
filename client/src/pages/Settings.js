@@ -475,11 +475,6 @@ function Settings({ onLogout, setupRequired = false }) {
       showMessage("Unable to identify account to delete.");
       return;
     }
-
-    if (deleteConfirmation.trim() !== username.trim()) {
-      showMessage("Type your username exactly to confirm account deletion.");
-      return;
-    }
     setActions((prev) => ({ ...prev, deletingAccount: true }));
 
     try {
@@ -504,6 +499,18 @@ function Settings({ onLogout, setupRequired = false }) {
     } finally {
       setActions((prev) => ({ ...prev, deletingAccount: false }));
     }
+  }
+
+  function handleDeleteClick() {
+    if (deleteConfirmation.trim() !== username.trim()) {
+      if (deleteConfirmation.trim() === "") {
+        showMessage("Please type your username in the confirmation field to delete your account.");
+      } else {
+        showMessage("You typed your username incorrectly. Type it exactly to proceed with account deletion.");
+      }
+      return;
+    }
+    handleDeleteAccount();
   }
 
   const isAnyBlockingAction =
@@ -805,8 +812,8 @@ function Settings({ onLogout, setupRequired = false }) {
 
           <button
             className="settings-delete"
-            onClick={handleDeleteAccount}
-            disabled={isAnyBlockingAction || deleteConfirmation.trim() !== username.trim()}
+            onClick={handleDeleteClick}
+            disabled={isAnyBlockingAction}
           >
             {actions.deletingAccount ? "Deleting account..." : "Delete account"}
           </button>
