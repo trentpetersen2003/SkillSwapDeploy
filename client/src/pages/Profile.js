@@ -127,6 +127,21 @@ function shouldShowRequiredStar(profile, setupRequired, fieldName) {
   return REQUIRED_BASIC_FIELDS.has(fieldName) ? !isProfileSetupFieldComplete(profile, fieldName) : false;
 }
 
+// Normalize a skill for duplicate comparisons.
+function normalizeSkillEntry(skill) {
+  return {
+    skillName: String(skill?.skillName || "").trim().toLowerCase(),
+  };
+}
+
+// Check whether two skills are identical for the teach list.
+function isSameSkillEntry(left, right) {
+  const normalizedLeft = normalizeSkillEntry(left);
+  const normalizedRight = normalizeSkillEntry(right);
+
+  return normalizedLeft.skillName === normalizedRight.skillName;
+}
+
 // Run required star render logic.
 function RequiredStar({ show }) {
   if (!show) {
@@ -264,11 +279,21 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
   const [newSkillWanted, setNewSkillWanted] = useState({ skillName: "", category: "", level: "Novice" });
   const [activeSetupStep, setActiveSetupStep] = useState(0);
   const [saveErrorFields, setSaveErrorFields] = useState([]);
+  const offeredSkillsRef = React.useRef([]);
+  const wantedSkillsRef = React.useRef([]);
   const basicsRef = React.useRef(null);
   const scheduleRef = React.useRef(null);
   const teachRef = React.useRef(null);
   const learnRef = React.useRef(null);
   const reviewRef = React.useRef(null);
+
+  useEffect(() => {
+    offeredSkillsRef.current = Array.isArray(profile.skills) ? profile.skills : [];
+  }, [profile.skills]);
+
+  useEffect(() => {
+    wantedSkillsRef.current = Array.isArray(profile.skillsWanted) ? profile.skillsWanted : [];
+  }, [profile.skillsWanted]);
 
   const setupProgress = useMemo(() => getProfileSetupProgress(profile), [profile]);
   const setupMissingFields = useMemo(() => getProfileSetupStatus(profile).missingFields, [profile]);
@@ -316,7 +341,10 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
     const step = PROFILE_SETUP_STEPS.find((entry) => entry.id === stepId);
     if (!step) return;
     setActiveSetupStep(PROFILE_SETUP_STEPS.findIndex((entry) => entry.id === stepId));
-    sectionRefs[stepId]?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const sectionElement = sectionRefs[stepId]?.current;
+    if (sectionElement?.scrollIntoView) {
+      sectionElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }
 
   // Run missing fields summary logic.
@@ -535,9 +563,21 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
       return;
     }
 
+    const nextSkill = {
+      ...newSkill,
+      skillName: newSkill.skillName.trim(),
+    };
+
+    if (offeredSkillsRef.current.some((skill) => isSameSkillEntry(skill, nextSkill))) {
+      setTeachSkillError("That skill is already in your offer list.");
+      return;
+    }
+
+    const nextSkills = [...offeredSkillsRef.current, nextSkill];
+    offeredSkillsRef.current = nextSkills;
     setProfile((prev) => ({
       ...prev,
-      skills: [...prev.skills, { ...newSkill }],
+      skills: nextSkills,
     }));
 
     setNewSkill({ skillName: "", category: "", level: "Novice" });
@@ -545,9 +585,12 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
 
   // Run remove skill logic.
   function removeSkill(index) {
+    const targetSkill = profile.skills[index];
     setProfile((prev) => ({
       ...prev,
-      skills: prev.skills.filter((_, currentIndex) => currentIndex !== index),
+      skills: targetSkill
+        ? prev.skills.filter((skill) => !isSameSkillEntry(skill, targetSkill))
+        : prev.skills.filter((_, currentIndex) => currentIndex !== index),
     }));
   }
 
@@ -570,9 +613,21 @@ function Profile({ setupRequired = false, onProfileSaved, onRegisterLeaveGuard }
       return;
     }
 
+    const nextWantedSkill = {
+      ...newSkillWanted,
+      skillName: newSkillWanted.skillName.trim(),
+    };
+
+    if (wantedSkillsRef.current.some((skill) => isSameSkillEntry(skill, nextWantedSkill))) {
+      setLearnSkillError("That skill is already in your wanted list.");
+      return;
+    }
+
+    const nextSkillsWanted = [...wantedSkillsRef.current, nextWantedSkill];
+    wantedSkillsRef.current = nextSkillsWanted;
     setProfile((prev) => ({
       ...prev,
-      skillsWanted: [...prev.skillsWanted, { ...newSkillWanted }],
+      skillsWanted: nextSkillsWanted,
     }));
 
     setNewSkillWanted({ skillName: "", category: "", level: "Novice" });
