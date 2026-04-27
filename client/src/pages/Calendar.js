@@ -22,7 +22,7 @@ function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
-  const [view, setView] = useState("list"); 
+  const [view, setView] = useState("list");
   const [highlightedSwapId, setHighlightedSwapId] = useState("");
   const [reviewDraftsBySwapId, setReviewDraftsBySwapId] = useState({});
   const [submittingReviewForSwapId, setSubmittingReviewForSwapId] = useState("");
@@ -92,22 +92,33 @@ function CalendarPage() {
         body: JSON.stringify({ status: newStatus }),
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (res.ok) {
-        const updatedSwap = await res.json();
+        const updatedSwap = data;
         maybePromptForReview(updatedSwap);
         loadSwaps();
-      } else {
-        const data = await res.json();
-        setErrorModal({
-          title: "Unable to Update Swap",
-          message: data.message || "The swap could not be updated. Please try again."
-        });
+        return;
       }
+
+      if (res.status === 409) {
+        setErrorModal({
+          title: "Swap Updated",
+          message: data.message || "This swap changed before your action could be completed. Reloading your calendar.",
+        });
+        loadSwaps();
+        return;
+      }
+
+      setErrorModal({
+        title: "Unable to Update Swap",
+        message: data.message || "The swap could not be updated. Please try again.",
+      });
     } catch (err) {
       console.error("Error updating swap:", err);
       setErrorModal({
         title: "Connection Error",
-        message: "Something went wrong while updating the swap. Please check your connection and try again."
+        message: "Something went wrong while updating the swap. Please check your connection and try again.",
       });
     }
   }
@@ -127,20 +138,31 @@ function CalendarPage() {
         },
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (res.ok) {
         loadSwaps();
-      } else {
-        const data = await res.json();
-        setErrorModal({
-          title: "Unable to Delete Swap",
-          message: data.message || "The swap could not be deleted. Please try again."
-        });
+        return;
       }
+
+      if (res.status === 409) {
+        setErrorModal({
+          title: "Swap Already Accepted",
+          message: data.message || "This swap has already been accepted. Reloading your calendar.",
+        });
+        loadSwaps();
+        return;
+      }
+
+      setErrorModal({
+        title: "Unable to Delete Swap",
+        message: data.message || "The swap could not be deleted. Please try again.",
+      });
     } catch (err) {
       console.error("Error deleting swap:", err);
       setErrorModal({
         title: "Connection Error",
-        message: "Something went wrong while deleting the swap. Please check your connection and try again."
+        message: "Something went wrong while deleting the swap. Please check your connection and try again.",
       });
     }
   }
@@ -806,7 +828,7 @@ function SwapCard({
           className="action-btn template-btn"
           onClick={handleOpenGoogleTemplate}
         >
-            Add to Calendar (Template)
+          Add to Calendar (Template)
         </button>
         <button
           type="button"
