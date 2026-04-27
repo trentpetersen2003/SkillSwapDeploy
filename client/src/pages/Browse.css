@@ -575,6 +575,39 @@
   color: #111827;
 }
 
+.browse-card-details {
+  margin-top: 0.85rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.browse-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.browse-detail-title {
+  margin: 0;
+  color: #374151;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.browse-detail-text {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
 /* Request button */
 
 .browse-request-btn {
@@ -598,6 +631,10 @@
   gap: 0.5rem;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.browse-details-btn {
+  min-width: 110px;
 }
 /* Responsive */
 
@@ -627,6 +664,11 @@
 
   .browse-card-actions {
     width: 100%;
+  }
+
+  .browse-details-btn,
+  .browse-request-btn {
+    align-self: flex-start;
   }
 
   .browse-request-btn {

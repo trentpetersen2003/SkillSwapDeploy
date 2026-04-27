@@ -94,6 +94,40 @@ function formatUserLocation(user) {
   return locationParts.length > 0 ? locationParts.join(", ") : "Location not set";
 }
 
+// Run availability formatting logic.
+function formatAvailability(user) {
+  if (!user.availability) {
+    return "Availability not set";
+  }
+
+  if (Array.isArray(user.availability)) {
+    const formattedSlots = user.availability
+      .map((slot) => {
+        if (!slot) {
+          return null;
+        }
+
+        if (typeof slot === "string") {
+          return slot;
+        }
+
+        const day = slot.day || slot.weekDay || slot.label;
+        const timeRange = slot.timeRange || slot.time || slot.hours;
+
+        if (day && timeRange) {
+          return `${day}: ${timeRange}`;
+        }
+
+        return day || timeRange || null;
+      })
+      .filter(Boolean);
+
+    return formattedSlots.length > 0 ? formattedSlots.join(", ") : "Availability not set";
+  }
+
+  return String(user.availability);
+}
+
 // Get filter relax label data.
 function getFilterRelaxLabel(key, filters) {
   if (key === "minRating") return `Lower minimum rating (${filters.minRating}+)`;
@@ -334,6 +368,7 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
   const [blockingUserId, setBlockingUserId] = useState("");
   const [messageAction, setMessageAction] = useState(null);
   const [closestMatches, setClosestMatches] = useState([]);
+  const [expandedUsers, setExpandedUsers] = useState({});
   const [filterCounts, setFilterCounts] = useState({
     categories: {},
     availabilityDays: {},
@@ -604,6 +639,14 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
   // Handle close modal action.
   function handleCloseModal() {
     setSelectedUserForSwap(null);
+  }
+
+  // Handle toggle user details action.
+  function handleToggleUserDetails(userId) {
+    setExpandedUsers((prev) => ({
+      ...prev,
+      [userId]: !prev[userId],
+    }));
   }
 
   // Handle swap success action.
@@ -1070,9 +1113,33 @@ function Browse({ isProfileComplete = true, onOpenSetup }) {
                   <div className="browse-skills">
                     <strong>Looking for:</strong> {wantedSkills}
                   </div>
+
+                  {expandedUsers[user._id] && (
+                    <div className="browse-card-details">
+                      <div className="browse-detail-section">
+                        <h4 className="browse-detail-title">Availability</h4>
+                        <p className="browse-detail-text">{formatAvailability(user)}</p>
+                      </div>
+
+                      {user.timeZone && (
+                        <div className="browse-detail-section">
+                          <h4 className="browse-detail-title">Time Zone</h4>
+                          <p className="browse-detail-text">{user.timeZone}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="browse-card-actions">
+                  <button
+                    type="button"
+                    className="browse-btn-secondary browse-details-btn"
+                    onClick={() => handleToggleUserDetails(user._id)}
+                  >
+                    {expandedUsers[user._id] ? "Hide Details" : "View Details"}
+                  </button>
+
                   <button
                     type="button"
                     className="browse-request-btn"

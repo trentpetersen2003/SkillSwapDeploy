@@ -87,4 +87,43 @@ describe("Browse onboarding gate", () => {
       expect(screen.getByText("Complete your profile to browse other users.")).toBeInTheDocument();
     });
   });
+
+  test("shows availability details from the browse card", async () => {
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ([
+        {
+          _id: "user-1",
+          name: "Taylor",
+          username: "taylor",
+          skills: [{ skillName: "Guitar" }],
+          skillsWanted: [{ skillName: "Spanish" }],
+          reliability: { score: 88, tier: "Reliable" },
+          matchScore: 91,
+          matchReasons: ["Strong skill overlap"],
+          swapMode: "either",
+          city: "Boston",
+          locationVisibility: "visible",
+          availability: [
+            { day: "Monday", timeRange: "6pm - 8pm" },
+            { day: "Wednesday", timeRange: "7pm - 9pm" },
+          ],
+          timeZone: "America/New_York",
+        },
+      ]),
+    });
+
+    render(<Browse isProfileComplete onOpenSetup={onOpenSetup} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "View Details" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "View Details" }));
+
+    expect(screen.getByText("Availability")).toBeInTheDocument();
+    expect(screen.getByText("Monday: 6pm - 8pm, Wednesday: 7pm - 9pm")).toBeInTheDocument();
+    expect(screen.getByText("Time Zone")).toBeInTheDocument();
+    expect(screen.getByText("America/New_York")).toBeInTheDocument();
+  });
 });
