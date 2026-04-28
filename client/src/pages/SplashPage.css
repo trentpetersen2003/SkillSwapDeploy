@@ -205,8 +205,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 28px;
+  padding: 18px;
   overflow: hidden;
+}
+
+.splash-video__embed {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 8px;
+  display: block;
+  background: #000;
 }
 
 .splash-video__placeholder {

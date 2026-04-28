@@ -23,8 +23,8 @@
     "test:unit:watch": "react-scripts test",
     "test:unit:coverage": "react-scripts test --coverage --watchAll=false",
     "eject": "react-scripts eject",
-    "test:e2e": "cypress open",
-    "test:e2e:run": "cypress run"
+    "test:e2e": "start-server-and-test start http://localhost:3000 \"cypress open\"",
+    "test:e2e:run": "start-server-and-test start http://localhost:3000 \"cypress run\""
   },
   "eslintConfig": {
     "extends": [
@@ -45,6 +45,7 @@
     ]
   },
   "devDependencies": {
-    "cypress": "^15.9.0"
+    "cypress": "^15.9.0",
+    "start-server-and-test": "^2.0.12"
   }
 }

@@ -1,6 +1,18 @@
 const BASE_URL = "http://localhost:3000";
 const API_BASE = "http://localhost:3001";
 
+const completeProfileFixture = {
+  _id: "u0",
+  name: "Test User",
+  email: "test@example.com",
+  city: "Denver",
+  state: "CO",
+  timeZone: "UTC-05:00",
+  skills: [{ skillName: "Piano", category: "Creative & Arts" }],
+  skillsWanted: [{ skillName: "Guitar", category: "Creative & Arts" }],
+  availability: [{ day: "Monday", timeRange: "6:00 PM - 8:00 PM" }],
+};
+
 function setAuth(win) {
   win.localStorage.setItem("token", "test-token");
   win.localStorage.setItem(
@@ -43,10 +55,12 @@ describe("SkillSwap behavior tests", () => {
     }).as("getPublicPreview");
 
     cy.visit(`${BASE_URL}/`);
-    cy.contains("Trade skills. Build confidence. Grow together.").should("be.visible");
+    cy.contains("Trade practical skills with people who want to learn what you know.").should(
+      "be.visible"
+    );
     cy.contains("button", "Log in").should("be.visible");
     cy.contains("button", "Sign up").should("be.visible");
-    cy.contains("button", "Browse as guest").click();
+    cy.contains("button", "Browse preview").click();
 
     cy.url().should("include", "/browse-preview");
     cy.wait("@getPublicPreview");
@@ -66,6 +80,8 @@ describe("SkillSwap behavior tests", () => {
         _id: "u0",
         name: "Test User",
         email: "test@example.com",
+        city: "Denver",
+        state: "CO",
         timeZone: "UTC-05:00",
         skills: [{ skillName: "Piano", category: "Creative & Arts" }],
         skillsWanted: [{ skillName: "Guitar", category: "Creative & Arts" }],
@@ -81,9 +97,7 @@ describe("SkillSwap behavior tests", () => {
   });
 
   it("shows login validation messages", () => {
-    cy.visit(`${BASE_URL}/`);
-    cy.contains("Trade skills. Build confidence. Grow together.").should("be.visible");
-
+    cy.visit(`${BASE_URL}/login`);
     cy.contains("button", "Log in").should("be.visible").click();
     cy.contains("Email and password are required.").should("be.visible");
 
@@ -118,7 +132,7 @@ describe("SkillSwap behavior tests", () => {
     }).as("getForYou");
 
     cy.intercept("GET", `${API_BASE}/api/users/profile`, {
-      body: { skills: [{ skillName: "Piano" }], skillsWanted: [] },
+      body: completeProfileFixture,
     }).as("getProfile");
     cy.intercept("GET", `${API_BASE}/api/swaps`, { body: [] }).as("getSwaps");
 
@@ -231,35 +245,37 @@ describe("SkillSwap behavior tests", () => {
 
     cy.contains("Finish your profile to unlock swapping.").should("be.visible");
     cy.contains("Setup guide").should("be.visible");
-    cy.contains("0/8 required complete").should("be.visible");
+    cy.contains("0/7 required complete").should("be.visible");
     cy.contains("button", "Add your name").should("be.visible");
     cy.contains("button", "Add at least one availability slot").should("be.visible");
 
-    cy.contains("button", "Save Profile").click();
+    cy.get("input[name='name']").scrollIntoView().type("Test User", { force: true });
+    cy.get("input[name='email']").type("test@example.com", { force: true });
+    cy.get("input[name='city']").type("Denver", { force: true });
+    cy.get("select[name='state']").select("CO", { force: true });
+    cy.get("select[name='timeZone']").select("(GMT-05:00) Central Time (US & Canada)", { force: true });
 
-    cy.contains("Complete the required basics before saving.").should("be.visible");
+    cy.contains("button", "Save Profile").scrollIntoView().click({ force: true });
+
+    cy.contains("Finish the required setup details before leaving this page.").should("be.visible");
     cy.contains("You still need to add:").should("be.visible");
-    cy.contains("Name").should("be.visible");
-    cy.contains("Email").should("be.visible");
-    cy.contains("City").should("be.visible");
-    cy.contains("State").should("be.visible");
-    cy.contains("Time zone").should("be.visible");
     cy.contains("Availability").should("be.visible");
     cy.contains("Skills you offer").should("be.visible");
-    cy.contains("Skills you want").should("be.visible");
   });
 
   it("manages settings notifications, security, and safety controls", () => {
     cy.intercept("GET", `${API_BASE}/api/messages/conversations`, { body: [] }).as("getConversations");
     cy.intercept("GET", `${API_BASE}/api/users/profile`, {
       body: {
-        _id: "u0",
+        ...completeProfileFixture,
         username: "testuser",
         locationVisibility: "visible",
+        showOthersLocations: true,
         notificationPreferences: {
           swapRequestEmail: true,
           swapConfirmedEmail: true,
           swapCancelledEmail: true,
+          profileReminderEmail: true,
         },
       },
     }).as("getSettingsProfile");

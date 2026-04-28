@@ -4,6 +4,29 @@ import { BlockingLoader } from "../components/LoadingState";
 import { withMinimumDelay } from "../utils/loading";
 import "./SplashPage.css";
 
+const demoVideoUrl = "https://www.youtube.com/watch?v=6Gk4vqo1kPU";
+
+function getYouTubeEmbedUrl(url) {
+  if (!url) {
+    return "";
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    const videoIdFromPath = parsedUrl.pathname.match(/(?:embed\/|shorts\/|watch\/|v\/)?([\w-]{11})/);
+    const videoIdFromQuery = parsedUrl.searchParams.get("v");
+    const videoId = videoIdFromQuery || videoIdFromPath?.[1];
+
+    if (videoId) {
+      return `https://www.youtube-nocookie.com/embed/${videoId}?rel=0`;
+    }
+
+    return url;
+  } catch (error) {
+    return url;
+  }
+}
+
 const valueProps = [
   {
     title: "Match faster",
@@ -68,6 +91,7 @@ const teamMembers = [
 function SplashPage() {
   const navigate = useNavigate();
   const [loadingRoute, setLoadingRoute] = useState("");
+  const demoVideoEmbedUrl = getYouTubeEmbedUrl(demoVideoUrl);
 
   const handleNavigate = useCallback(async (path) => {
     if (loadingRoute) {
@@ -155,9 +179,19 @@ function SplashPage() {
             </div>
           </div>
 
-          <div className="splash-video" aria-label="Demo video placeholder">
+          <div className="splash-video" aria-label="Demo video">
             <div className="splash-video__frame">
-              <div className="splash-video__placeholder">Demo Video</div>
+              {demoVideoEmbedUrl ? (
+                <iframe
+                  className="splash-video__embed"
+                  src={demoVideoEmbedUrl}
+                  title="SkillSwap demo video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <div className="splash-video__placeholder">Add a YouTube link to embed the demo video</div>
+              )}
             </div>
           </div>
         </div>

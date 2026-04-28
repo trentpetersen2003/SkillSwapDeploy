@@ -202,33 +202,29 @@ Note: Passwords and secret keys will never be committed to Git or included in th
 
 ## Testing
 
-SkillSwap uses comprehensive automated testing with unit tests (backend and frontend) and behavior (end-to-end) tests.
+SkillSwap uses automated tests in three places:
+
+- Backend unit tests: `server/tests/unit/**/*.test.js`
+- Frontend unit tests: `client/src/**/*.test.js`
+- End-to-end tests: `client/cypress/e2e/**/*.cy.js`
 
 ### Backend Unit Tests
 
-Backend tests use **Jest** and are located in `server/tests/unit/`.
+Backend tests use Jest.
 
-**To run backend unit tests:**
+Run them from `server/`:
 ```bash
 cd server
 npm run test:unit
 ```
 
-**Backend test coverage:**
-- `auth.middleware.test.js` - Tests for JWT authentication middleware (token validation, error handling, user extraction)
-- `auth.routes.test.js` - Tests for authentication routes (register, login, validation, error cases)
-- `users.routes.test.js` - Tests settings/profile privacy endpoints (notifications, password, blocked users)
-- `messages.routes.test.js` - Tests message route blocking behavior and conversation filtering
-- `email.service.test.js` - Tests email delivery mode/config behavior
-- `User.model.test.js` - Tests User model schema (field validation, arrays, defaults, timestamps)
-
-**Run with watch mode (auto-rerun on changes):**
+Watch mode:
 ```bash
 cd server
 npm run test:unit:watch
 ```
 
-**Run with coverage report:**
+Coverage report:
 ```bash
 cd server
 npm run test:unit:coverage
@@ -236,81 +232,71 @@ npm run test:unit:coverage
 
 ### Frontend Unit Tests
 
-Frontend tests use **Jest** and **React Testing Library**. Tests are located in `client/src/` with `.test.js` extensions.
+Frontend tests use Jest and React Testing Library.
 
-**To run frontend unit tests:**
+Run them from `client/`:
 ```bash
 cd client
 npm run test:unit
 ```
 
-**Frontend test coverage:**
-- `App.test.js` - Tests for main App component structure and rendering
-- `components/NavBar.test.js` - Tests for navigation bar rendering and links
-- `components/SwapRequestModal.test.js` - Tests for swap request modal functionality
-- `components/Message.test.js` - Tests for message component display and handling
-- `components/LoadingState.test.js` - Tests loading and retry UI states
-- `pages/Settings.test.js` - Tests settings workflows and protected API calls
-- `pages/Chat.test.js` - Tests chat auth headers and blocked-chat behavior
-- `utils/loading.test.js` - Tests minimum-loading-delay helper behavior
-
-**Run tests in watch mode (recommended during development):**
+Watch mode:
 ```bash
 cd client
 npm run test:unit:watch
 ```
 
-**Run tests once and generate coverage:**
+Coverage report:
 ```bash
 cd client
 npm run test:unit:coverage
 ```
 
-### Behavior (E2E) Tests
+### End-to-End Tests
 
-Behavior tests use **Cypress** and are located in `client/cypress/e2e/`.
+End-to-end tests use Cypress and live in `client/cypress/e2e/**/*.cy.js`.
 
-**To run E2E tests interactively (recommended for development):**
-
-First, ensure the backend is running:
+Interactive mode:
 ```bash
 cd server
 npm start
 ```
 
-In another terminal, run the frontend:
+In a second terminal:
 ```bash
 cd client
 npm start
 ```
 
-In a third terminal, open Cypress:
+In a third terminal:
 ```bash
 cd client
 npm run test:e2e
 ```
 
-**To run E2E tests in headless mode (CI/CD):**
+Headless mode:
 ```bash
 cd client
 npm run test:e2e:run
 ```
 
-**E2E test coverage:**
-- `app_loads.cy.js` - Tests that the application loads successfully and main components are present
-- `behavior.cy.js` - Tests core app behavior flows
+### Run All Tests
 
-### Running All Tests
+There is no single root test command in this repo. Run the three suites separately:
 
-To run all tests (backend unit + frontend unit):
 ```bash
-# Backend
 cd server
 npm run test:unit
+```
 
-# Frontend
+```bash
 cd client
 npm run test:unit
+```
+
+```bash
+cd client
+npm run test:e2e:run
 ```
 
 ## Authors
