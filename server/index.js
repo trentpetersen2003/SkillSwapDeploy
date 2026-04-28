@@ -21,8 +21,7 @@ app.set("trust proxy", 1);
 
 const productionEmailConfig = validateProductionEmailConfig();
 if (!productionEmailConfig.valid) {
-  console.error(productionEmailConfig.message);
-  process.exit(1);
+  console.warn(productionEmailConfig.message);
 }
 
 const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || "")
@@ -34,17 +33,18 @@ const allowedOrigins = [
   "http://localhost:3000",
   "https://sccapstone.github.io",
   process.env.CLIENT_URL,
+  process.env.CORS_ORIGIN,
   ...envAllowedOrigins,
 ].filter(Boolean);
 
 // Run normalize origin logic.
 function normalizeOrigin(origin) {
-  return origin.trim().replace(/\/$/, "");
+  return (origin || "").trim().replace(/\/+$/, "");
 }
 
 const allowedOriginSet = new Set(allowedOrigins.map(normalizeOrigin));
 
-app.use(cors({ 
+const corsOptions = {
   origin: function(origin, callback) {
     if (!origin) {
       return callback(null, true);
@@ -58,7 +58,10 @@ app.use(cors({
     }
   },
   credentials: true 
-}));
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 // TEMP route to verify auth middleware is working
